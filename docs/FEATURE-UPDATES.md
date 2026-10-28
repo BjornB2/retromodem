@@ -38,8 +38,8 @@ This initial update covers RetroWEB pagination, chat connection/cache notices an
 adapter-aware diagnosis. Existing explicitly configured speeds remain unchanged.
 
 Under Settings → Built-in web proxy, choose a part budget:
-12, 18 (default), 25–200 kB in steps of 25 kB, 250–2,000 kB in steps of
-250 kB, or Entire page. This estimates page size including decoded images,
+12, 18, 25–200 kB in steps of 25 kB, 250–2,000 kB in steps of
+250 kB (provisional default: 250 kB), or Entire page. This estimates page size including decoded images,
 not data transfer or download size. Browser working memory is additional.
 The legacy PAGE_IMAGES configuration key is ignored; no fixed image count
 determines pagination.
@@ -111,7 +111,7 @@ switching manual/automatic mode reapplies firewall routing; existing settings
 are restored if that routing operation fails. The proxy handshake queue is 128.
 Installing changed runtime code still requires a one-time service restart.
 
-RetroWEB defaults to an approximately 18 kB weighted budget with previous/next navigation
+RetroWEB defaults to an approximately 250 kB weighted budget with previous/next navigation
 and a full-page link. These budgets still require physical browser acceptance.
 Extremely large indivisible markup can use a small placeholder/text fallback;
 the full-page link retains the original processed content.

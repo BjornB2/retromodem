@@ -295,7 +295,7 @@ def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     options = rendering_options()
     key = (url, values.get('RETROMODEM_PROXY_IMAGE_MODE', 'inline'),
            values.get('RETROMODEM_PROXY_IMAGE_WIDTH', ''), values.get('RETROMODEM_PROXY_IMAGE_HEIGHT', ''),
-           values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000'), values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5'),
+           values.get('RETROMODEM_PROXY_PAGE_SIZE', '250000'), values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5'),
            options['lang'], values.get('RETROMODEM_PROXY_HTTP_FALLBACK', '0'))
     with _cache_lock:
         cached = _cache.get(key)
@@ -329,10 +329,10 @@ def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
 
 def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     mode = values.get("RETROMODEM_PROXY_IMAGE_MODE", "inline")
-    page_size = values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000')
+    page_size = values.get('RETROMODEM_PROXY_PAGE_SIZE', '250000')
     page_images = values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5')
     if page_size not in {'0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000', '250000', '500000', '750000', '1000000', '1250000', '1500000', '1750000', '2000000'}:
-        page_size = '18000'
+        page_size = '250000'
     if page_images not in {str(n) for n in range(0, 11)}:
         page_images = '5'
     endpoint = "http://127.0.0.1:8090/proxy.php?" + urllib.parse.urlencode({

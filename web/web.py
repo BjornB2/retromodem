@@ -474,7 +474,7 @@ def library_upload_form(language: str) -> str:
     return f"""<details class="card library-upload"><summary>{tr(language,'Softwarebibliotheek beheren','Manage software library')}</summary><p>{tr(language,'Voeg software of documentatie toe aan de handleiding van een apparaat.','Add software or documentation to a device guide.')}</p><form method="post" action="/guides/upload" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{{{csrf}}}}"><label>{tr(language,'Bestand','File')}</label><input type="file" name="file" required><div class="grid"><div class="span-6"><label>{tr(language,'Titel','Title')}</label><input name="title" maxlength="80" required></div><div class="span-6"><label>{tr(language,'Hoort bij','Belongs to')}</label><select name="target"><option value="generic">{tr(language,'Algemeen','Generic')}</option><option value="psion">Psion 5mx</option><option value="palm-old">Palm OS 3.0/3.1</option><option value="palm-new">Palm OS 3.3–5.x</option><option value="hp200lx">HP 200LX</option><option value="win95">Windows 95</option><option value="win98">Windows 98</option><option value="winxp">Windows XP</option></select></div></div><label>{tr(language,'Korte uitleg','Short description')}</label><input name="description" maxlength="240" required><label>{tr(language,'Compatibiliteit of versie','Compatibility or version')}</label><input name="compatibility" maxlength="120" placeholder="Palm OS 4.1 · freeware"><label>{tr(language,'Actie naast downloaden','Action besides downloading')}</label><select name="protocol"><option value="download">{tr(language,'Alleen downloaden','Download only')}</option><option value="palm">Palm Beam (IrOBEX)</option><option value="epoc">Psion/EPOC EikonIr</option><option value="ymodem">YMODEM</option><option value="xmodem">XMODEM</option><option value="zmodem">ZMODEM</option></select><button class="primary" type="submit">{tr(language,'Toevoegen aan bibliotheek','Add to library')}</button></form></details>"""
 
 
-def proxy_pagination_settings(page_size: str = "18000", page_images: str = "5") -> dict[str, str]:
+def proxy_pagination_settings(page_size: str = "250000", page_images: str = "5") -> dict[str, str]:
     if page_size not in {"12000", "18000", "25000", "50000", "75000", "100000", "125000", "150000", "175000", "200000", "250000", "500000", "750000", "1000000", "1250000", "1500000", "1750000", "2000000", "0"}:
         raise ValueError("Invalid pagination settings")
     return {"RETROMODEM_PROXY_PAGE_SIZE": page_size}
@@ -495,16 +495,16 @@ def proxy_settings_card(language: str, config: dict[str, str]) -> str:
         image_height = max(16, min(4096, int(config.get("RETROMODEM_PROXY_IMAGE_HEIGHT", config.get("RETROMODEM_68KPROXY_IMAGE_HEIGHT", "150")))))
     except ValueError:
         image_width, image_height = 200, 150
-    page_size = config.get("RETROMODEM_PROXY_PAGE_SIZE", "18000")
+    page_size = config.get("RETROMODEM_PROXY_PAGE_SIZE", "250000")
     try:
         proxy_pagination_settings(page_size)
     except ValueError:
-        page_size = "18000"
+        page_size = "250000"
     page_options = ''.join(f'<option value="{value}" {"selected" if page_size == value else ""}>{label}</option>' for value, label in (
         ("12000", tr(language, "Klein — circa 12 kB", "Small — approximately 12 kB")),
-        ("18000", tr(language, "Normaal — circa 18 kB (standaard)", "Normal — approximately 18 kB (default)")),
+        ("18000", tr(language, "Normaal — circa 18 kB", "Normal — approximately 18 kB")),
         *((str(n * 1000), f"{n} kB") for n in range(25, 201, 25)),
-        *((str(n * 1000), f"{n} kB") for n in range(250, 2001, 250)),
+        *((str(n * 1000), f"{n} kB" + (tr(language, " (standaard)", " (default)") if n == 250 else "")) for n in range(250, 2001, 250)),
         ("0", tr(language, "Volledige pagina — kans op vol geheugen", "Entire page — may exhaust memory"))))
     pagination_controls = f'''<h3>{tr(language,'Pagina’s opdelen','Page splitting')}</h3><label>{tr(language,'Geschatte paginagrootte per deel','Estimated page size per part')}</label><select name="page_size">{page_options}</select><p class="helper">{tr(language,'Dit gaat niet over dataverkeer of de downloadgrootte, maar over de geschatte paginagrootte inclusief uitgepakte afbeeldingen. Bij Afbeeldingen laten zien tellen HTML en afbeeldingen samen mee: één byte per weergegeven pixel. Bij Als links telt alleen HTML. Een te grote losse afbeelding blijft als link beschikbaar. De browser gebruikt daarnaast werkgeheugen; dit is geen gegarandeerde geheugenlimiet. Open de oorspronkelijke website opnieuw na een wijziging.','This is not data transfer or download size: it estimates the page size including decoded images. With images shown, HTML and images count together: one byte per displayed pixel. In links view only HTML counts. A single oversized image remains available as a link. The browser also needs working memory; this is not a guaranteed memory limit. Reopen the original website after a change.')}</p>'''
     option = lambda value, label: f'<option value="{value}" {"selected" if mode == value else ""}>{label}</option>'
@@ -1525,7 +1525,7 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             self.redirect("/settings#chatgpt")
         elif path == "/settings/proxy":
             try:
-                pagination = proxy_pagination_settings(form.get("page_size", "18000"), form.get("page_images", "5"))
+                pagination = proxy_pagination_settings(form.get("page_size", "250000"), form.get("page_images", "5"))
             except ValueError:
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige pagina-indeling")
                 return

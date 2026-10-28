@@ -6,6 +6,10 @@ from web import web
 
 
 class SearchRelayTests(unittest.TestCase):
+    def test_provisional_page_default_preserves_explicit_choice(self):
+        self.assertEqual(web.proxy_pagination_settings()['RETROMODEM_PROXY_PAGE_SIZE'], '250000')
+        self.assertEqual(web.proxy_pagination_settings('18000')['RETROMODEM_PROXY_PAGE_SIZE'], '18000')
+
     def handler(self):
         handler = object.__new__(web.Handler)
         handler.path = '/__retroweb/page?document=' + 'a' * 64 + '&part=1&img=links'

@@ -15,7 +15,7 @@ class PaginationSettingsTests(unittest.TestCase):
         for language in ('nl', 'en'):
             page = web.proxy_settings_card(language, {})
             self.assertIn('name="page_size"', page)
-            self.assertIn('value="18000" selected', page)
+            self.assertIn('value="250000" selected', page)
             self.assertNotIn('name="page_images"', page)
             self.assertIn('name="image_start"', page)
             page = web.proxy_settings_card(language, {'RETROMODEM_PROXY_PAGE_SIZE': '0', 'RETROMODEM_PROXY_IMAGE_START': 'remember'})

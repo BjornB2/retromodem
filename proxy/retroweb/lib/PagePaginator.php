@@ -12,7 +12,7 @@ class RetroWebPagePaginator
     private bool $weightImages = false;
     private const BRIDGE_RESERVE = 512;
 
-    public function __construct(string $directory, int $limit = 18000, int $images = 5,
+    public function __construct(string $directory, int $limit = 250000, int $images = 5,
                                 int $ttl = 3600, int $maxDocuments = 128, int $maxCacheBytes = 67108864,
                                 string $language = 'en')
     {
