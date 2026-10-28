@@ -36,7 +36,11 @@ if (!checkRateLimit()) {
 }
 
 require_once __DIR__ . '/lib/PagePaginator.php';
-$pagePaginator = new RetroWebPagePaginator(CACHE_DIR . '/pages');
+$pageSize = $_GET['page_size'] ?? getenv('RETROMODEM_PROXY_PAGE_SIZE');
+$pageImages = $_GET['page_images'] ?? getenv('RETROMODEM_PROXY_PAGE_IMAGES');
+$pageSize = is_string($pageSize) && in_array($pageSize, ['0', '12000', '18000'], true) ? (int)$pageSize : 18000;
+$pageImages = is_string($pageImages) && preg_match('/^(?:[1-9]|10)$/D', $pageImages) ? (int)$pageImages : 5;
+$pagePaginator = new RetroWebPagePaginator(CACHE_DIR . '/pages', $pageSize, $pageImages);
 // Snapshot navigation is local and must not fetch the original site again.
 // Handle it before requiring an origin URL or loading the content extractor.
 if (isset($_GET['document'])) {

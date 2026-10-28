@@ -146,7 +146,8 @@ _cache_lock = threading.Lock()
 
 def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     key = (url, values.get('RETROMODEM_PROXY_IMAGE_MODE', 'inline'),
-           values.get('RETROMODEM_PROXY_IMAGE_WIDTH', ''), values.get('RETROMODEM_PROXY_IMAGE_HEIGHT', ''))
+           values.get('RETROMODEM_PROXY_IMAGE_WIDTH', ''), values.get('RETROMODEM_PROXY_IMAGE_HEIGHT', ''),
+           values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000'), values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5'))
     with _cache_lock:
         cached = _cache.get(key)
         if cached and cached[0] > time.monotonic():
@@ -178,7 +179,14 @@ def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
 
 def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     mode = values.get("RETROMODEM_PROXY_IMAGE_MODE", "inline")
-    endpoint = "http://127.0.0.1:8090/proxy.php?" + urllib.parse.urlencode({"url": url, "img": mode})
+    page_size = values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000')
+    page_images = values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5')
+    if page_size not in {'0', '12000', '18000'}:
+        page_size = '18000'
+    if page_images not in {str(n) for n in range(1, 11)}:
+        page_images = '5'
+    endpoint = "http://127.0.0.1:8090/proxy.php?" + urllib.parse.urlencode({
+        "url": url, "img": mode, "page_size": page_size, "page_images": page_images})
     request = urllib.request.Request(endpoint, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=45) as response:
         content_type = response.headers.get("Content-Type", "application/octet-stream")

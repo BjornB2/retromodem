@@ -15,7 +15,7 @@ LIBRARY = ROOT / 'proxy/retroweb/lib/PagePaginator.php'
 HARNESS = r'''
 require $argv[1];
 $in = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
-$p = new RetroWebPagePaginator($in['cache'], $in['limit'] ?? 18000, 5, $in['ttl'] ?? 3600, $in['maxDocuments'] ?? 128);
+$p = new RetroWebPagePaginator($in['cache'], $in['limit'] ?? 18000, $in['images'] ?? 5, $in['ttl'] ?? 3600, $in['maxDocuments'] ?? 128);
 if (isset($in['read'])) {
     $r = $p->read($in['read'], $in['part']);
     echo json_encode(['status'=>$r['status'], 'html'=>base64_encode($r['html'])]);
@@ -83,6 +83,18 @@ class RetroWebPaginationTests(unittest.TestCase):
         response['first'] = base64.b64decode(response['first'])
         response['all'] = base64.b64decode(response['all'])
         return response
+
+    def test_small_preset_image_limit_and_entire_page(self):
+        content = '<div id="article">' + '<p>Lots of text here. </p>' * 1800 + '<img src="a.gif">' * 8 + '</div>'
+        small = self.paginate(content, limit=12000, images=2)
+        self.assertGreater(len(small['pages']), 1)
+        for page in small['pages']:
+            self.assertLessEqual(len(page), 12000 - 512)
+            self.assertLessEqual(page.lower().count(b'<img'), 2)
+        entire = self.paginate(content, limit=0, images=1)
+        self.assertIsNone(entire['token'])
+        self.assertEqual(len(entire['pages']), 1)
+        self.assertEqual(entire['first'].lower().count(b'<img'), 8)
 
     def article(self, pages):
         text, links = [], []

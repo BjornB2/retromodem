@@ -15,6 +15,7 @@ import time
 PROJECT = Path(__file__).resolve().parents[1]
 # source path: (installed path, default mode, affected service, new file allowed)
 FILES = {
+    'web/web.py': ('usr/local/lib/retromodem/web.py', 0o644, 'retromodem-web.service', False),
     'web/chatgpt_web.py': ('usr/local/lib/retromodem/chatgpt_web.py', 0o644, 'retromodem-web.service', False),
     'scripts/retroweb-proxy.py': ('usr/local/lib/retromodem/retroweb-proxy.py', 0o755, 'retromodem-proxy.service', False),
     'proxy/retroweb/proxy.php': ('opt/retromodem/retroweb/proxy.php', 0o644, 'retromodem-retroweb-core.service', False),

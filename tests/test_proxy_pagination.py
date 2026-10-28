@@ -13,6 +13,26 @@ TOKEN = 'a' * 64
 
 
 class ProxyPaginationTests(unittest.TestCase):
+    def test_settings_forwarded_to_core(self):
+        response = io.BytesIO(b'<html>ok</html>')
+        response.headers = {'Content-Type': 'text/html'}
+        with patch.object(proxy.urllib.request, 'urlopen', return_value=response) as fetch:
+            proxy._fetch_retroweb('https://example.org', {'RETROMODEM_PROXY_PAGE_SIZE': '12000', 'RETROMODEM_PROXY_PAGE_IMAGES': '2'})
+        query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0].full_url).query)
+        self.assertEqual(query['page_size'], ['12000'])
+        self.assertEqual(query['page_images'], ['2'])
+
+    def test_cache_separates_pagination_settings(self):
+        proxy._cache.clear()
+        proxy._pending.clear()
+        self.addCleanup(proxy._cache.clear)
+        with patch.object(proxy, '_fetch_retroweb', return_value=(b'ok', 'text/html')) as fetch:
+            proxy.fetch_retroweb('https://example.org', {})
+            proxy.fetch_retroweb('https://example.org', {})
+            proxy.fetch_retroweb('https://example.org', {'RETROMODEM_PROXY_PAGE_SIZE': '12000'})
+            proxy.fetch_retroweb('https://example.org', {'RETROMODEM_PROXY_PAGE_IMAGES': '2'})
+        self.assertEqual(fetch.call_count, 3)
+
     def test_snapshot_links_keep_part_and_use_local_search_route(self):
         source = (f'<a href="http://127.0.0.1:8090/proxy.php?document={TOKEN}&amp;part=2">Next</a>'
                   f'<a href="http://127.0.0.1:8090/proxy.php?document={TOKEN}&amp;part=all">All</a>').encode()

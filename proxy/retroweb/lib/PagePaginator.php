@@ -189,7 +189,7 @@ class RetroWebPagePaginator
     {
         [$header, $footer] = $this->frame($title, $navigation, $bodyAttrs);
         $whole = $header . $content . $footer;
-        if (strlen($whole) <= $this->limit - self::BRIDGE_RESERVE && $this->imageCount($content) <= $this->images) {
+        if ($this->limit === 0 || (strlen($whole) <= $this->limit - self::BRIDGE_RESERVE && $this->imageCount($content) <= $this->images)) {
             return $whole;
         }
         $token = hash('sha256', $whole . "\0" . $baseUrl . "\0" . $this->limit . ':' . $this->images);

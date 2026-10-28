@@ -20,6 +20,11 @@ this check: first compare that installation with the reviewed source baseline.
 This initial update covers RetroWEB pagination, chat connection/cache notices and
 adapter-aware diagnosis. Existing explicitly configured speeds remain unchanged.
 
+Under Settings → Built-in web proxy, choose Small (12 kB), Normal (18 kB), or
+Entire page, and 1–10 images per part. Defaults are 18 kB and five images.
+Entire page disables both limits. Reopen the original website after changing
+settings; existing snapshot links intentionally keep their original division.
+
 RetroWEB splits processed pages into approximately 18 kB parts with at most five
 inline images, previous/next navigation and a full-page link. Snapshots expire
 after one hour. These budgets still require physical Palm-browser acceptance.
