@@ -22,10 +22,12 @@ The publication installer has offline tests for adapter selection, boot changes,
 configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
-All 120 Python unit tests pass on the development computer; installer,
+All 121 Python unit tests pass on the development computer; installer,
 bootstrap and verifier shell syntax checks also pass.
 The DKMS inventory now follows target-kernel capabilities; unsupported ISA/PCI
 drivers are not required on the Pi. Full clean-SD acceptance remains pending.
+The modem discovery helper now uses the bundled legacy IrDA header directory.
+Installer C commands are checked for header resolution as part of the tests.
 
 ## Outstanding before release
 

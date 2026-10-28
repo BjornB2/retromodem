@@ -24,7 +24,7 @@ Imager user. It downloads the pinned candidate and asks for the documented
 MY018 wiring confirmation before installation:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/f332397ad3445528b915a1d1f516f054f4982ab5/bootstrap.sh | sh -s -- --ref f332397ad3445528b915a1d1f516f054f4982ab5
+curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/dd6e8f198498da720103b904898967b40caf53a5/bootstrap.sh | sh -s -- --ref dd6e8f198498da720103b904898967b40caf53a5
 ```
 
 The installer includes all three connection options and asks which one should be
