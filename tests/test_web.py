@@ -147,7 +147,7 @@ class InterfaceStructureTests(unittest.TestCase):
         self.assertIn('Uitzonderingen', rendered)
         self.assertIn('retroweb.bjrno.com', rendered)
         self.assertIn('RetroWEB', rendered)
-        self.assertIn('name="image_mode"', rendered)
+        self.assertIn('name="image_start"', rendered)
         self.assertNotIn('name="preview_kb"', rendered)
         self.assertIn('name="exceptions"', rendered)
         self.assertIn('name="image_width"', rendered)

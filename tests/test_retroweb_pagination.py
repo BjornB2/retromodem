@@ -84,15 +84,15 @@ class RetroWebPaginationTests(unittest.TestCase):
         response['all'] = base64.b64decode(response['all'])
         return response
 
-    def test_small_preset_image_limit_and_entire_page(self):
+    def test_small_preset_and_entire_page_ignore_legacy_image_limit(self):
         content = '<div id="article">' + '<p>Lots of text here. </p>' * 1800 + '<img src="a.gif">' * 8 + '</div>'
         small = self.paginate(content, limit=12000, images=2)
         self.assertGreater(len(small['pages']), 1)
         for page in small['pages']:
             self.assertLessEqual(len(page), 12000 - 512)
-            self.assertLessEqual(page.lower().count(b'<img'), 2)
+        self.assertEqual(sum(page.lower().count(b'<img') for page in small['pages']), 8)
         entire = self.paginate(content, limit=0, images=1)
-        self.assertIsNone(entire['token'])
+        self.assertIsNotNone(entire['token'])
         self.assertEqual(len(entire['pages']), 1)
         self.assertEqual(entire['first'].lower().count(b'<img'), 8)
 
@@ -106,11 +106,11 @@ class RetroWebPaginationTests(unittest.TestCase):
         self.assertIn('FINAL ARTICLE MARKER', text)
         self.assertIn(b'FINAL ARTICLE MARKER', response['pages'][-1])
 
-    def test_sixth_image_starts_next_part_without_losing_content(self):
+    def test_sixth_image_does_not_start_a_new_part(self):
         content = '<div id="article"><p>Start</p>' + ''.join(f'<img src="image-{n}.gif"><p>After image {n}</p>' for n in range(12)) + '<p>THE END</p></div>'
         response = self.paginate(content, limit=18000, images=5)
-        self.assertEqual(len(response['pages']), 3)
-        self.assertEqual([page.lower().count(b'<img') for page in response['pages']], [5, 5, 2])
+        self.assertEqual(len(response['pages']), 1)
+        self.assertEqual([page.lower().count(b'<img') for page in response['pages']], [12])
         combined = b''.join(response['pages'])
         for n in range(12):
             self.assertEqual(combined.count(f'src="image-{n}.gif"'.encode()), 1)
@@ -143,12 +143,12 @@ class RetroWebPaginationTests(unittest.TestCase):
             links.extend(parser.links)
         return ''.join(text), links
 
-    def test_short_page_remains_single_without_cache(self):
+    def test_short_page_remains_single_with_a_snapshot_for_image_toggling(self):
         response = self.paginate('<div id="article"><p>Short article.</p></div>')
-        self.assertIsNone(response['token'])
+        self.assertIsNotNone(response['token'])
         self.assertEqual(len(response['pages']), 1)
         self.assertEqual(self.article(response['pages'])[0], 'Short article.')
-        self.assertFalse(self.cache.exists())
+        self.assertTrue(self.cache.exists())
 
     def test_large_nested_paragraph_and_links_preserve_text_and_byte_budget(self):
         text = ('café &amp; &#937; ' * 5000) + ('z' * 20000)
@@ -176,12 +176,12 @@ class RetroWebPaginationTests(unittest.TestCase):
         for page in response['pages']:
             self.assertLessEqual(len(page), 18000 - 512)
 
-    def test_image_limit_applies_even_to_small_html(self):
+    def test_image_count_does_not_split_small_html(self):
         content = '<div id="article">' + ''.join(f'<p><img src="https://example.com/{i}.gif" alt="Image {i}"></p>' for i in range(13)) + '</div>'
         response = self.paginate(content)
-        self.assertEqual(len(response['pages']), 3)
+        self.assertEqual(len(response['pages']), 1)
         self.assertEqual(sum(page.count(b'<img') for page in response['pages']), 13)
-        self.assertTrue(all(page.count(b'<img') <= 5 for page in response['pages']))
+        self.assertEqual(response['pages'][0].count(b'<img'), 13)
 
     def test_snapshot_reload_is_stable_and_entire_page_preserves_original(self):
         content = '<div id="article">' + '<p>Keep this paragraph.</p>' * 2000 + '</div>'
@@ -216,6 +216,6 @@ class RetroWebPaginationTests(unittest.TestCase):
         response = self.paginate(content)
         target_part = next(index + 1 for index, page in enumerate(response['pages']) if b'id="end"' in page)
         self.assertGreater(target_part, 1)
-        expected = ('document=' + response['token'] + '&amp;part=' + str(target_part) + '#end').encode()
+        expected = ('document=' + response['token'] + '&amp;part=' + str(target_part) + '&amp;img=inline#end').encode()
         self.assertIn(expected, response['pages'][0])
         self.assertTrue(all(len(page) <= 18000 - 512 for page in response['pages']))

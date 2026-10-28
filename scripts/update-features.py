@@ -20,6 +20,8 @@ FILES = {
     'scripts/retroweb-proxy.py': ('usr/local/lib/retromodem/retroweb-proxy.py', 0o755, 'retromodem-proxy.service', False),
     'proxy/retroweb/proxy.php': ('opt/retromodem/retroweb/proxy.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/config.php': ('opt/retromodem/retroweb/config.php', 0o644, 'retromodem-retroweb-core.service', False),
+    'proxy/retroweb/image_cruncher.php': ('opt/retromodem/retroweb/image_cruncher.php', 0o644, 'retromodem-retroweb-core.service', False),
+    'proxy/retroweb/lib/ImageFetcher.php': ('opt/retromodem/retroweb/lib/ImageFetcher.php', 0o644, 'retromodem-retroweb-core.service', True),
     'proxy/retroweb/lib/PagePaginator.php': ('opt/retromodem/retroweb/lib/PagePaginator.php', 0o644, 'retromodem-retroweb-core.service', True),
     'scripts/diagnose': ('usr/local/sbin/retromodem-diagnose', 0o755, None, False),
 }

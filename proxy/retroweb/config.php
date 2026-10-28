@@ -1242,41 +1242,80 @@ function extractImageDimensions($imgTag, $originalHtml = '') {
 }
 
 /**
- * Check of image verborgen moet worden (32x32 of kleiner, CSS-aware)
+ * Hide only a clear one-pixel tracker, never arbitrary small images.
  * @param string $imgTag Volledige img tag HTML
  * @param string $url Image URL (voor pattern matching)
  * @param string $originalHtml Originele HTML (voor CSS parsing)
  * @return bool True als image verborgen moet worden
  */
-function shouldHideImage($imgTag, $url = '', $originalHtml = '') {
+function shouldHideImage($imgTag, $url = '', $originalHtml = '', $isLinked = false) {
     $dimensions = extractImageDimensions($imgTag, $originalHtml);
-    
-    // Check dimensions
-    if ($dimensions['width'] !== null && $dimensions['width'] <= MIN_IMAGE_SIZE) {
-        return true;
-    }
-    
-    if ($dimensions['height'] !== null && $dimensions['height'] <= MIN_IMAGE_SIZE) {
-        return true;
-    }
-    
-    // Als beide dimensions bekend zijn en beide <= 32
-    if ($dimensions['width'] !== null && $dimensions['height'] !== null) {
-        if ($dimensions['width'] <= MIN_IMAGE_SIZE && $dimensions['height'] <= MIN_IMAGE_SIZE) {
-            return true;
+    // Small does not mean decorative: retain buttons, diagrams and avatars.
+    // Suppress only an unlinked, unlabelled, explicitly one-pixel tracker.
+    preg_match('/\balt\s*=\s*["\']([^"\']*)["\']/i', $imgTag, $alt);
+    $label = trim(html_entity_decode($alt[1] ?? '', ENT_QUOTES, 'ISO-8859-1'));
+    return !$isLinked && $label === '' && $dimensions['width'] === 1 && $dimensions['height'] === 1;
+}
+
+/** Canonical inline images, retaining location and safe display hints.
+ * The paginator derives image-link variants later from this shared content.
+ */
+function mergeImageHints(array $previous, array $incoming): array {
+    foreach (['width', 'height', 'alt'] as $key) {
+        if (!empty($previous['ambiguous_' . $key]) || ($previous[$key] ?? null) !== ($incoming[$key] ?? null)) {
+            $incoming[$key] = null;
+            $incoming['ambiguous_' . $key] = true;
         }
     }
-    
-    // Check URL patterns die suggereren kleine images
-    // Let op: '/thumb/' is verwijderd omdat Wikipedia en andere sites dit gebruiken voor thumbnails die groter kunnen zijn
-    $smallImagePatterns = ['/icon/', '/avatar/', '/favicon', '/spacer', '/pixel'];
-    foreach ($smallImagePatterns as $pattern) {
-        if (stripos($url, $pattern) !== false) {
-            return true;
+    return $incoming;
+}
+
+function renderCanonicalImages(string $content, string $baseUrl, string $targetUrl,
+                               string $originalHtml = '', array $imageMap = [], array $imageDimensions = []): string {
+    $number = 0;
+    return preg_replace_callback('/<img\b[^>]*>/i', function ($matches) use (&$number, $content, $baseUrl, $targetUrl, $originalHtml, $imageMap, $imageDimensions) {
+        $tag = $matches[0][0];
+        $offset = $matches[0][1];
+        if (!preg_match('/\bsrc\s*=\s*["\']([^"\']+)["\']/i', $tag, $src)) return '';
+        $rawUrl = html_entity_decode($src[1], ENT_QUOTES, 'UTF-8');
+        $url = $imageMap[$rawUrl] ?? normalizeImageUrl($rawUrl, $targetUrl);
+        if (!is_string($url) || !preg_match('/^https?:\/\//i', $url)) return '';
+        // Count anchors before this exact occurrence, not the first identical img.
+        $before = substr($content, 0, $offset);
+        $isLinked = preg_match_all('/<a\b[^>]*>/i', $before) > preg_match_all('/<\/a\s*>/i', $before);
+        if (shouldHideImage($tag, $url, $originalHtml, $isLinked)) return '';
+        $dimensions = extractImageDimensions($tag, $originalHtml);
+        foreach (['width', 'height'] as $axis) {
+            if ($dimensions[$axis] === null && isset($imageDimensions[$url][$axis])) {
+                $dimensions[$axis] = $imageDimensions[$url][$axis];
+            }
+            if ($dimensions[$axis] !== null && $dimensions[$axis] <= 0) $dimensions[$axis] = null;
         }
-    }
-    
-    return false;
+        $width = $dimensions['width'];
+        $height = $dimensions['height'];
+        if ($width !== null && $height !== null) {
+            $ratio = min(1, MAX_IMAGE_WIDTH / $width, MAX_IMAGE_HEIGHT / $height);
+            $width = max(1, (int)floor($width * $ratio));
+            $height = max(1, (int)floor($height * $ratio));
+        } else {
+            if ($width !== null) $width = min($width, MAX_IMAGE_WIDTH);
+            if ($height !== null) $height = min($height, MAX_IMAGE_HEIGHT);
+        }
+        $parameters = ['url' => $url];
+        if ($width !== null) $parameters['w'] = $width;
+        if ($height !== null) $parameters['h'] = $height;
+        $asset = rtrim($baseUrl, '/') . '/image_cruncher.php?' . http_build_query($parameters);
+        preg_match('/\balt\s*=\s*["\']([^"\']*)["\']/i', $tag, $altMatch);
+        $alt = html_entity_decode($altMatch[1] ?? $imageDimensions[$url]['alt'] ?? '', ENT_QUOTES, 'UTF-8');
+        $number++;
+        $label = 'Image ' . $number . ($alt !== '' ? ': ' . $alt : '');
+        $escape = fn($value) => mb_encode_numericentity(htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false), [128, 0x10ffff, 0, 0x1fffff], 'UTF-8');
+        $image = '<img src="' . $escape($asset) . '" alt="' . $escape($alt) . '" data-rm-link-label="' . $escape($label) . '"';
+        if ($width !== null) $image .= ' width="' . $width . '"';
+        if ($height !== null) $image .= ' height="' . $height . '"';
+        // Do not wrap in a paragraph inside an existing functional link.
+        return $image . '>';
+    }, $content, -1, $count, PREG_OFFSET_CAPTURE);
 }
 
 /**
@@ -1306,66 +1345,10 @@ function createStreamContext($method = 'GET') {
  * @return string HTML for navigation bar
  */
 function renderNavigation($imageMode = null) {
-    if ($imageMode === null) {
-        $imageMode = getImageMode();
-    }
-    
-    $basePath = getBasePath();
-    $baseUrl = getBaseUrl();
-    $homeUrl = $baseUrl . '/index.php';
-    
-    // Add image mode parameter to home URL
-    $homeUrl = buildUrlWithImageMode($homeUrl, $imageMode);
-    
-    // Link tekst is altijd "RetroWEB"
-    $linkText = 'RetroWEB';
-    
-    // Gebruik absolute URL voor toggle links (voor oude browsers)
-    // Bouw URL op basis van huidige request met alle parameters
-    $currentPath = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '/proxy.php';
-    // Als het pad niet begint met base path, voeg het toe
-    if ($basePath !== '/' && strpos($currentPath, $basePath) !== 0) {
-        $currentPath = $basePath . $currentPath;
-    }
-    $currentUri = $baseUrl . $currentPath;
-    
-    // Voeg alle bestaande GET parameters toe (behalve img die we gaan updaten)
-    $queryParams = $_GET;
-    unset($queryParams['img']);
-    if (!empty($queryParams)) {
-        $currentUri .= '?' . http_build_query($queryParams);
-    }
-    
-    // Build separate links for Links and Inline modes
-    $linksUrl = buildUrlWithImageMode($currentUri, 'links');
-    $inlineUrl = buildUrlWithImageMode($currentUri, 'inline');
-    
-    // Build image mode text with active mode in bold (HTML 2.0 compatible)
-    if ($imageMode === 'inline') {
-        $linksText = '<a href="' . htmlspecialchars($linksUrl) . '">Links</a>';
-        $inlineText = '<a href="' . htmlspecialchars($inlineUrl) . '"><b>Inline</b></a>';
-    } else {
-        $linksText = '<a href="' . htmlspecialchars($linksUrl) . '"><b>Links</b></a>';
-        $inlineText = '<a href="' . htmlspecialchars($inlineUrl) . '">Inline</a>';
-    }
-    
-    $imageModeText = $linksText . ' | ' . $inlineText;
-    
-    // Haal stats op (met graceful error handling)
-    $stats = getStats();
-    $visitorsText = 'Visits: ' . formatNumber($stats['unique_visitors']);
-    $pageviewsText = 'Pageviews: ' . formatNumber($stats['total_pageviews']);
-    
-    // HTML 2.0 compatibele navigatie (geen tabellen, geen font tags)
-    // Inline layout: alles op één regel met scheidingstekens
-    $html = "<p>\n";
-    $html .= "<a href=\"" . htmlspecialchars($homeUrl) . "\"><b>" . htmlspecialchars($linkText) . "</b></a> | ";
-    $html .= htmlspecialchars($visitorsText) . " | " . htmlspecialchars($pageviewsText) . " | ";
-    $html .= "<b>Images:</b> " . $imageModeText . "\n";
-    $html .= "</p>\n";
-    $html .= "<hr>\n";
-    
-    return $html;
+    $target = isset($_GET['url']) && is_string($_GET['url']) ? $_GET['url'] : '';
+    if ($target === '') return '';
+    $url = getBaseUrl() . '/proxy.php?' . http_build_query(['url' => $target]);
+    return '<p><a href="' . htmlspecialchars($url, ENT_QUOTES, 'ISO-8859-1') . '">Open original again</a></p><hr>';
 }
 
 /**

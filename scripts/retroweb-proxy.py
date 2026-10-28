@@ -10,11 +10,15 @@ so the original site URL remains visible in the browser.
 from __future__ import annotations
 
 import html
+import ipaddress
+import json
 import os
+from pathlib import Path
 import re
 import concurrent.futures
 import http.client
 import threading
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -36,27 +40,147 @@ NON_DOCUMENT_SUFFIXES = {
     ".png", ".svg", ".tif", ".tiff", ".webp", ".zip",
 }
 PAGINATION_PATH = '/__retroweb/page'
+IMAGE_PATH = '/__retroweb/image'
+IMAGE_CHOICE_FILE = Path('/var/lib/retromodem/proxy-image-choice.json')
+_image_session_lock = threading.Lock()
+_image_sessions = {}
+
+
+def image_client(handler: BaseHTTPRequestHandler) -> str:
+    peer = getattr(handler, 'client_address', ('127.0.0.1', 0))[0]
+    # Only our loopback web relay may supply the original client address.
+    forwarded = handler.headers.get('X-Retromodem-Client', '') if peer in {'127.0.0.1', '::1'} else ''
+    try:
+        return str(ipaddress.ip_address(forwarded or peer))
+    except ValueError:
+        return peer
+
+
+def image_session_key(client: str) -> tuple[str, str]:
+    if client == '192.168.77.2':
+        try:
+            marker = Path('/sys/class/net/ppp0/ifindex').read_text().strip()
+        except OSError:
+            marker = 'disconnected'
+        return client, marker
+    return client, 'process-session'
+
+
+def remembered_image_mode() -> str:
+    try:
+        if IMAGE_CHOICE_FILE.is_symlink() or IMAGE_CHOICE_FILE.stat().st_size > 256:
+            return 'inline'
+        value = json.loads(IMAGE_CHOICE_FILE.read_text())
+        if isinstance(value, dict) and set(value) == {'mode'} and value['mode'] in {'inline', 'links'}:
+            return value['mode']
+    except (OSError, ValueError, TypeError):
+        pass
+    return 'inline'
+
+
+def remember_image_mode(mode: str) -> None:
+    if IMAGE_CHOICE_FILE.is_symlink() or IMAGE_CHOICE_FILE.parent.is_symlink():
+        raise OSError('Image preference path must not be a symlink')
+    IMAGE_CHOICE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.proxy-image-choice-', dir=IMAGE_CHOICE_FILE.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(json.dumps({'mode': mode}) + '\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, IMAGE_CHOICE_FILE)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def session_image_mode(values: dict[str, str], client: str, explicit: str | None = None) -> str:
+    policy = values.get('RETROMODEM_PROXY_IMAGE_START', values.get('RETROMODEM_PROXY_IMAGE_MODE', 'inline'))
+    if policy not in {'inline', 'links', 'remember'}:
+        policy = 'inline'
+    if explicit is not None and explicit not in {'inline', 'links'}:
+        raise ValueError('Invalid image mode')
+    key = image_session_key(client)
+    with _image_session_lock:
+        if key not in _image_sessions:
+            # Forget the prior connection for this client; do not inherit a
+            # toggle when fixed start mode is requested on PPP reconnect.
+            for previous in list(_image_sessions):
+                if previous[0] == client:
+                    del _image_sessions[previous]
+            while len(_image_sessions) >= 128:
+                del _image_sessions[next(iter(_image_sessions))]
+            _image_sessions[key] = remembered_image_mode() if policy == 'remember' else policy
+        if explicit is not None:
+            _image_sessions[key] = explicit
+            # Record the actual last PPP choice regardless of the start policy.
+            # A later switch to "remember" must inherit that choice, while a
+            # fixed start mode still wins when the next PPP session begins.
+            # Local QA/relay requests without a real forwarded peer never write.
+            if client == '192.168.77.2' and remembered_image_mode() != explicit:
+                try:
+                    remember_image_mode(explicit)
+                except OSError:
+                    print('RetroModem: could not persist image preference', flush=True)
+        return _image_sessions[key]
 
 
 def pagination_parameters(query: str) -> dict[str, str]:
     values = urllib.parse.parse_qs(query, keep_blank_values=True)
-    if set(values) != {'document', 'part'} or any(len(items) != 1 for items in values.values()):
+    if not {'document', 'part'} <= set(values) or not set(values) <= {'document', 'part', 'img', 'block'} or any(len(items) != 1 for items in values.values()):
         raise ValueError('Invalid page reference')
     token, part = values['document'][0], values['part'][0]
     if not re.fullmatch(r'[a-f0-9]{64}', token) or not re.fullmatch(r'(?:[1-9][0-9]{0,5}|all)', part):
         raise ValueError('Invalid page reference')
-    return {'document': token, 'part': part}
+    result = {'document': token, 'part': part}
+    if 'img' in values:
+        mode = values['img'][0]
+        if mode not in {'inline', 'links'}:
+            raise ValueError('Invalid image mode')
+        result['img'] = mode
+    if 'block' in values:
+        block = values['block'][0]
+        if not re.fullmatch(r'b[1-9][0-9]{0,5}', block):
+            raise ValueError('Invalid document block')
+        result['block'] = block
+    return result
+
+
+def image_parameters(query: str) -> dict[str, str]:
+    values = urllib.parse.parse_qs(query, keep_blank_values=True)
+    if 'url' not in values or not set(values) <= {'url', 'w', 'h'} or any(len(items) != 1 for items in values.values()):
+        raise ValueError('Invalid image reference')
+    url = values['url'][0]
+    if len(url) > 2048 or any(ord(character) < 32 or ord(character) == 127 for character in url):
+        raise ValueError('Invalid image URL')
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.username is not None or parsed.password is not None:
+        raise ValueError('Invalid image URL')
+    result = {'url': url}
+    for key in ('w', 'h'):
+        if key in values:
+            dimension = values[key][0]
+            if not re.fullmatch(r'[1-9][0-9]{0,3}', dimension) or not 1 <= int(dimension) <= 4096:
+                raise ValueError('Invalid image dimensions')
+            result[key] = dimension
+    return result
 
 
 def rewrite_retroweb_html(data: bytes) -> bytes:
     text = data.decode('iso-8859-1', 'replace')
-    text = re.sub(r'<p>\s*<a href="http://127\.0\.0\.1:8090/index\.php.*?</p>\s*<hr>\s*', '', text, count=1, flags=re.S)
     pattern = re.compile(r'http://127\.0\.0\.1:8090/(?:proxy\.php|image_cruncher\.php)\?[^"\' <>]+')
 
     def browser_link(match: re.Match[str]) -> str:
         address = urllib.parse.urlsplit(html.unescape(match.group(0)))
         query = urllib.parse.parse_qs(address.query, keep_blank_values=True)
-        if 'document' in query:
+        if address.path == '/image_cruncher.php':
+            try:
+                params = image_parameters(address.query)
+            except ValueError:
+                return '#invalid-image-reference'
+            result = 'http://search.retromodem' + IMAGE_PATH + '?' + urllib.parse.urlencode(params)
+        elif 'document' in query:
             try:
                 params = pagination_parameters(address.query)
             except ValueError:
@@ -81,6 +205,19 @@ def fetch_retroweb_part(params: dict[str, str]) -> tuple[bytes, str]:
             raise ValueError('processed response too large')
         content_type = response.headers.get('Content-Type', 'text/html; charset=iso-8859-1')
     return rewrite_retroweb_html(data), content_type
+
+
+def fetch_retroweb_image(params: dict[str, str]) -> tuple[bytes, str]:
+    # The core applies its existing URL/SSRF checks and returns the converted
+    # image directly. Never rediscover its type through proxy.php: that loses
+    # the display dimensions and adds an unnecessary second upstream request.
+    endpoint = 'http://127.0.0.1:8090/image_cruncher.php?' + urllib.parse.urlencode(params)
+    with urllib.request.urlopen(endpoint, timeout=45) as response:
+        data = response.read(MAX_DOCUMENT + 1)
+        if len(data) > MAX_DOCUMENT:
+            raise ValueError('processed image too large')
+        content_type = response.headers.get('Content-Type', 'image/gif')
+    return data, content_type
 
 
 def settings() -> dict[str, str]:
@@ -293,6 +430,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         try:
             values = settings()
+            client = image_client(self)
+            values['RETROMODEM_PROXY_IMAGE_MODE'] = session_image_mode(values, client)
             original = requested_url(self)
             parsed = urllib.parse.urlsplit(original)
             host = parsed.hostname or ""
@@ -300,6 +439,19 @@ class Handler(BaseHTTPRequestHandler):
                 self.relay_chat(original)
                 return
             if host in LOCAL_HOSTS and (parsed.port in {None, 8080}):
+                if parsed.path == IMAGE_PATH:
+                    try:
+                        params = image_parameters(parsed.query)
+                    except ValueError:
+                        self.send_error(400, 'Invalid image reference')
+                        return
+                    try:
+                        data, content_type = fetch_retroweb_image(params)
+                        self.reply(data, content_type)
+                    except urllib.error.HTTPError as error:
+                        status = error.code if error.code in {400, 403, 404, 410, 413} else 502
+                        self.send_error(status, 'Image unavailable')
+                    return
                 if parsed.path == PAGINATION_PATH:
                     try:
                         params = pagination_parameters(parsed.query)
@@ -308,6 +460,8 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     try:
                         data, content_type = fetch_retroweb_part(params)
+                        if 'img' in params:
+                            session_image_mode(values, client, params['img'])
                         self.reply(data, content_type)
                     except urllib.error.HTTPError as error:
                         status = error.code if error.code in {400, 404, 410} else 502

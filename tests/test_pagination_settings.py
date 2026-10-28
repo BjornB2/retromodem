@@ -15,11 +15,11 @@ class PaginationSettingsTests(unittest.TestCase):
             page = web.proxy_settings_card(language, {})
             self.assertIn('name="page_size"', page)
             self.assertIn('value="18000" selected', page)
-            self.assertIn('name="page_images"', page)
-            self.assertIn('value="5" selected', page)
-            page = web.proxy_settings_card(language, {'RETROMODEM_PROXY_PAGE_SIZE': '0', 'RETROMODEM_PROXY_PAGE_IMAGES': '2'})
+            self.assertNotIn('name="page_images"', page)
+            self.assertIn('name="image_start"', page)
+            page = web.proxy_settings_card(language, {'RETROMODEM_PROXY_PAGE_SIZE': '0', 'RETROMODEM_PROXY_IMAGE_START': 'remember'})
             self.assertIn('value="0" selected', page)
-            self.assertIn('value="2" selected', page)
+            self.assertIn('value="remember" selected', page)
 
     def handler(self, size='12000', images='2'):
         handler = object.__new__(web.Handler)
@@ -39,12 +39,13 @@ class PaginationSettingsTests(unittest.TestCase):
         with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
             handler.do_POST()
         self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_PAGE_SIZE'], '12000')
-        self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_PAGE_IMAGES'], '2')
+        self.assertNotIn('RETROMODEM_PROXY_PAGE_IMAGES', save.call_args.args[0])
+        self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_IMAGE_START'], 'inline')
         run.assert_not_called()
         self.assertEqual(handler.location, '/settings#webproxy')
 
     def test_invalid_inputs_never_save_or_restart(self):
-        for size, images in [('99999', '5'), ('18000', '-1'), ('0', '11'), ('12000', '<script>')]:
+        for size, images in [('99999', '5')]:
             handler = self.handler(size, images)
             with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
                 handler.do_POST()
@@ -52,13 +53,20 @@ class PaginationSettingsTests(unittest.TestCase):
             save.assert_not_called()
             run.assert_not_called()
 
-    def test_no_image_limit_can_be_selected_and_saved(self):
-        page = web.proxy_settings_card('nl', {'RETROMODEM_PROXY_PAGE_IMAGES': '0'})
-        self.assertIn('value="0" selected>Geen afbeeldingslimiet', page)
-        handler = self.handler('100000', '0')
-        with patch.object(web, 'save_config') as save, patch.object(web, 'run'):
-            handler.do_POST()
-        self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_PAGE_IMAGES'], '0')
+    def test_clear_start_modes_and_legacy_image_count_is_ignored(self):
+        for start in ('inline', 'links', 'remember'):
+            page = web.proxy_settings_card('nl', {'RETROMODEM_PROXY_IMAGE_START': start})
+            self.assertIn(f'value="{start}" selected', page)
+            self.assertIn('Afbeeldingen bij starten', page)
+            self.assertNotIn('In de tekst tonen', page)
+            handler = self.handler('100000', 'arbitrary legacy value')
+            handler.form = lambda: dict(mode='manual', image_start=start, exceptions='example.org',
+                                        image_width='144', image_height='120', page_size='100000')
+            with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
+                handler.do_POST()
+            self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_IMAGE_START'], start)
+            self.assertNotIn('RETROMODEM_PROXY_PAGE_IMAGES', save.call_args.args[0])
+            run.assert_not_called()
 
     def test_mode_change_applies_only_firewall(self):
         handler = self.handler()
@@ -67,6 +75,15 @@ class PaginationSettingsTests(unittest.TestCase):
             run.return_value.returncode = 0
             handler.do_POST()
         run.assert_called_once_with('/usr/local/lib/retromodem/proxy-firewall', 'apply')
+
+    def test_invalid_start_mode_rejected_without_writes(self):
+        handler = self.handler()
+        handler.form = lambda: dict(mode='manual', image_start='invalid', page_size='100000')
+        with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
+            handler.do_POST()
+        self.assertEqual(handler.error, 400)
+        save.assert_not_called()
+        run.assert_not_called()
 
     def test_mode_failure_restores_previous_mode_without_restart(self):
         handler = self.handler()

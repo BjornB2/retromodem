@@ -475,9 +475,9 @@ def library_upload_form(language: str) -> str:
 
 
 def proxy_pagination_settings(page_size: str = "18000", page_images: str = "5") -> dict[str, str]:
-    if page_size not in {"12000", "18000", "25000", "50000", "75000", "100000", "125000", "150000", "175000", "200000", "0"} or page_images not in {str(n) for n in range(0, 11)}:
+    if page_size not in {"12000", "18000", "25000", "50000", "75000", "100000", "125000", "150000", "175000", "200000", "0"}:
         raise ValueError("Invalid pagination settings")
-    return {"RETROMODEM_PROXY_PAGE_SIZE": page_size, "RETROMODEM_PROXY_PAGE_IMAGES": page_images}
+    return {"RETROMODEM_PROXY_PAGE_SIZE": page_size}
 
 
 def proxy_settings_card(language: str, config: dict[str, str]) -> str:
@@ -487,27 +487,25 @@ def proxy_settings_card(language: str, config: dict[str, str]) -> str:
     default_exceptions = "retroweb.bjrno.com,frogfind.com,theoldnet.com,68k.news"
     configured_exceptions = config.get("RETROMODEM_PROXY_EXCEPTIONS", config.get("RETROMODEM_68KPROXY_EXCEPTIONS", "")) or default_exceptions
     extra_exceptions = html.escape("\n".join(value for value in re.split(r"[\s,]+", configured_exceptions) if value))
-    image_mode = config.get("RETROMODEM_PROXY_IMAGE_MODE", "inline")
-    if image_mode not in {"inline", "links"}:
-        image_mode = "inline"
+    image_start = config.get("RETROMODEM_PROXY_IMAGE_START", config.get("RETROMODEM_PROXY_IMAGE_MODE", "inline"))
+    if image_start not in {"inline", "links", "remember"}:
+        image_start = "inline"
     try:
         image_width = max(16, min(4096, int(config.get("RETROMODEM_PROXY_IMAGE_WIDTH", config.get("RETROMODEM_68KPROXY_IMAGE_WIDTH", "200")))))
         image_height = max(16, min(4096, int(config.get("RETROMODEM_PROXY_IMAGE_HEIGHT", config.get("RETROMODEM_68KPROXY_IMAGE_HEIGHT", "150")))))
     except ValueError:
         image_width, image_height = 200, 150
     page_size = config.get("RETROMODEM_PROXY_PAGE_SIZE", "18000")
-    page_images = config.get("RETROMODEM_PROXY_PAGE_IMAGES", "5")
     try:
-        proxy_pagination_settings(page_size, page_images)
+        proxy_pagination_settings(page_size)
     except ValueError:
-        page_size, page_images = "18000", "5"
+        page_size = "18000"
     page_options = ''.join(f'<option value="{value}" {"selected" if page_size == value else ""}>{label}</option>' for value, label in (
         ("12000", tr(language, "Klein — circa 12 kB", "Small — approximately 12 kB")),
         ("18000", tr(language, "Normaal — circa 18 kB (standaard)", "Normal — approximately 18 kB (default)")),
         *((str(n * 1000), f"{n} kB") for n in range(25, 201, 25)),
         ("0", tr(language, "Volledige pagina — niet splitsen", "Entire page — no splitting"))))
-    page_image_options = ''.join(f'<option value="{n}" {"selected" if page_images == str(n) else ""}>{tr(language, "Geen afbeeldingslimiet", "No image limit") if n == 0 else str(n)}</option>' for n in range(0, 11))
-    pagination_controls = f'''<h3>{tr(language,'Pagina’s opdelen','Page splitting')}</h3><label>{tr(language,'Paginagrootte','Page size')}</label><select name="page_size">{page_options}</select><label>{tr(language,'Maximaal afbeeldingen per deel','Maximum images per part')}</label><select name="page_images">{page_image_options}</select><p class="helper">{tr(language,'Klein is bedoeld voor browsers met weinig geheugen. De grens telt HTML inclusief navigatie, niet het uitgepakte afbeeldingsgeheugen. Bij Volledige pagina wordt ook de afbeeldingslimiet genegeerd. Open een website opnieuw om de nieuwe instellingen te gebruiken; bestaande deellinks behouden hun oorspronkelijke verdeling.','Small is intended for low-memory browsers. The budget includes HTML and navigation, not decoded image memory. Entire page also disables the image count limit. Reopen a website to use new settings; existing part links retain their original split.')}</p>'''
+    pagination_controls = f'''<h3>{tr(language,'Pagina’s opdelen','Page splitting')}</h3><label>{tr(language,'HTML-grootte per deel','HTML size per part')}</label><select name="page_size">{page_options}</select><p class="helper">{tr(language,'Alleen de tekst en HTML-opmaak bepalen de deelgrootte. Afbeeldingsbestanden tellen niet mee en het aantal afbeeldingen veroorzaakt geen extra delen. Open de oorspronkelijke website opnieuw na een wijziging; bestaande deellinks houden hun verdeling.','Only text and HTML markup determine the part size. Image files are not included and image counts do not create extra parts. Reopen the original website after a change; existing part links retain their division.')}</p>'''
     option = lambda value, label: f'<option value="{value}" {"selected" if mode == value else ""}>{label}</option>'
     presets = [("600x180", "Psion 5mx (640×240)"), ("144x120", "Palm classic (160×160)"),
                ("288x256", "Palm HiRes (320×320)"), ("288x400", "Palm T3 (320×480)"),
@@ -516,9 +514,9 @@ def proxy_settings_card(language: str, config: dict[str, str]) -> str:
     preset_options = "".join(f'<option value="{value}" {"selected" if value == current_size else ""}>{label}</option>' for value, label in presets)
     if current_size not in {value for value, _ in presets}:
         preset_options += f'<option value="" selected>{tr(language,"Aangepast","Custom")}</option>'
-    image_options = ''.join(f'<option value="{value}" {"selected" if image_mode == value else ""}>{label}</option>' for value, label in (("inline", tr(language,'Afbeeldingen in de pagina','Images in the page')), ("links", tr(language,'Afbeeldingen als links','Images as links'))))
-    advanced_controls = f'''<label>{tr(language,'Afbeeldingen','Images')}</label><select name="image_mode">{image_options}</select><p class="helper">{tr(language,'Inline converteert afbeeldingen naar compacte GIF-bestanden; Links vervangt iedere afbeelding door een genummerde link.','Inline converts images to compact GIF files; Links replaces each image with a numbered link.')}</p><label>{tr(language,'Uitzonderingen','Exceptions')}</label><textarea name="exceptions" rows="8" placeholder="example.com\nretro.example.org">{extra_exceptions}</textarea><p class="helper">{tr(language,'Deze domeinen worden rechtstreeks en ongewijzigd doorgegeven. RetroWEB, FrogFind, The Old Net en 68k.news zijn standaard opgenomen.','These domains are passed through directly and unchanged. RetroWEB, FrogFind, The Old Net and 68k.news are included by default.')}</p><label>{tr(language,'Preset voor afbeeldingsformaat','Image size preset')}</label><select onchange="if(this.value){{const p=this.value.split('x');document.getElementById('proxy-image-width').value=p[0];document.getElementById('proxy-image-height').value=p[1];}}"><option value="">{tr(language,'Kies een apparaat…','Choose a device…')}</option>{preset_options}</select><p class="helper">{tr(language,'De apparaatpresets laten ruimte vrij voor de browserbalken, zodat de volledige afbeelding op het scherm past.','Device presets leave room for browser controls so the complete image fits on screen.')}</p><div class="grid" style="margin-bottom:18px"><div class="span-6"><label>{tr(language,'Maximale afbeeldingsbreedte','Maximum image width')}</label><input id="proxy-image-width" type="number" name="image_width" min="16" max="4096" step="1" value="{image_width}"></div><div class="span-6"><label>{tr(language,'Maximale afbeeldingshoogte','Maximum image height')}</label><input id="proxy-image-height" type="number" name="image_height" min="16" max="4096" step="1" value="{image_height}"></div></div>'''
-    advanced_controls = (f'<div class="notice"><strong>{tr(language,"Zoeken:","Search:")}</strong> {tr(language,"open <code>http://search.retromodem</code>. Deze lokale pagina is alleen voor zoeken; resultaten openen als gewone websites via de proxy.","open <code>http://search.retromodem</code>. This local page is for search only; results open as ordinary websites through the proxy.")}</div>' + advanced_controls.replace('Inline converteert afbeeldingen', 'Afbeeldingen in de pagina converteert afbeeldingen').replace('Inline converts images', 'Images in the page converts images').replace('Links vervangt iedere afbeelding', 'Afbeeldingen als links vervangt iedere afbeelding').replace('Links replaces each image', 'Images as links replaces each image'))
+    image_options = ''.join(f'<option value="{value}" {"selected" if image_start == value else ""}>{label}</option>' for value, label in (("inline", tr(language,'Tonen','Show images')), ("links", tr(language,'Als links tonen','Show as links')), ("remember", tr(language,'Vorige keuze onthouden','Remember previous choice'))))
+    advanced_controls = f'''<label>{tr(language,'Afbeeldingen bij starten','Images at session start')}</label><select name="image_start">{image_options}</select><p class="helper">{tr(language,'Start iedere nieuwe verbinding met afbeeldingen, met klikbare afbeeldingslinks of met je laatst gekozen weergave. Tijdens het browsen kun je bovenaan wisselen met Images: Inline | As links. Deze keuze blijft gelden tijdens die verbinding.','Start each new connection with images, clickable image links, or your last chosen view. While browsing, switch at the top using Images: Inline | As links. The choice remains active for that connection.')}</p><label>{tr(language,'Uitzonderingen','Exceptions')}</label><textarea name="exceptions" rows="8" placeholder="example.com\nretro.example.org">{extra_exceptions}</textarea><p class="helper">{tr(language,'Deze domeinen worden rechtstreeks en ongewijzigd doorgegeven. RetroWEB, FrogFind, The Old Net en 68k.news zijn standaard opgenomen.','These domains are passed through directly and unchanged. RetroWEB, FrogFind, The Old Net and 68k.news are included by default.')}</p><label>{tr(language,'Preset voor afbeeldingsformaat','Image size preset')}</label><select onchange="if(this.value){{const p=this.value.split('x');document.getElementById('proxy-image-width').value=p[0];document.getElementById('proxy-image-height').value=p[1];}}"><option value="">{tr(language,'Kies een apparaat…','Choose a device…')}</option>{preset_options}</select><p class="helper">{tr(language,'De apparaatpresets laten ruimte vrij voor de browserbalken, zodat de volledige afbeelding op het scherm past.','Device presets leave room for browser controls so the complete image fits on screen.')}</p><div class="grid" style="margin-bottom:18px"><div class="span-6"><label>{tr(language,'Maximale afbeeldingsbreedte','Maximum image width')}</label><input id="proxy-image-width" type="number" name="image_width" min="16" max="4096" step="1" value="{image_width}"></div><div class="span-6"><label>{tr(language,'Maximale afbeeldingshoogte','Maximum image height')}</label><input id="proxy-image-height" type="number" name="image_height" min="16" max="4096" step="1" value="{image_height}"></div></div>'''
+    advanced_controls = (f'<div class="notice"><strong>{tr(language,"Zoeken:","Search:")}</strong> {tr(language,"open <code>http://search.retromodem</code>. Deze lokale pagina is alleen voor zoeken; resultaten openen als gewone websites via de proxy.","open <code>http://search.retromodem</code>. This local page is for search only; results open as ordinary websites through the proxy.")}</div>' + advanced_controls)
     return f"""<section class="card" id="webproxy"><h2>{tr(language,'Ingebouwde webproxy','Built-in web proxy')}</h2><p>{tr(language,'Gebaseerd op','Based on')} <a href="http://retroweb.bjrno.com">RetroWEB</a>, {tr(language,'het open webproxyproject voor oude browsers. De proxy haalt moderne HTTPS-pagina’s op, vereenvoudigt ze en levert ze als gewone HTTP-pagina.','the web proxy project for old browsers. The proxy fetches modern HTTPS pages, simplifies them and serves them as ordinary HTTP pages.')}</p><form method="post" action="/settings/proxy"><input type="hidden" name="csrf" value="{{{{csrf}}}}"><label>{tr(language,'Proxystand','Proxy mode')}</label><select name="mode">{option('manual',tr(language,'Handmatig (standaard)','Manual (default)'))}{option('transparent',tr(language,'Automatisch','Automatic'))}</select><p class="helper"><strong>{tr(language,'Handmatig:','Manual:')}</strong> {tr(language,'stel in de browser HTTP-proxy <code>192.168.77.1</code>, poort <code>8080</code> in. Zonder browserinstelling gaat verkeer rechtstreeks.','configure HTTP proxy <code>192.168.77.1</code>, port <code>8080</code> in the browser. Without a browser setting, traffic remains direct.')}<br><strong>{tr(language,'Automatisch:','Automatic:')}</strong> {tr(language,'al het HTTP-webverkeer gaat vanzelf via de ingebouwde proxy.','all HTTP web traffic automatically uses the built-in proxy.')}</p>{pagination_controls}{advanced_controls}<div class="notice warning"><strong>{tr(language,'Niet voor gevoelige gegevens.','Not for sensitive data.')}</strong> {tr(language,'De proxy herschrijft inhoud en ondersteunt alleen GET-verzoeken; gebruik hem niet voor wachtwoorden, accounts of betalingen.','The proxy rewrites content and supports GET requests only; do not use it for passwords, accounts or payments.')}</div><button class="primary" type="submit">{tr(language,'Proxy-instellingen opslaan','Save proxy settings')}</button></form></section>"""
 
 
@@ -811,14 +809,23 @@ class Handler(BaseHTTPRequestHandler):
             return
         if host == "search.retromodem":
             try:
-                with urllib.request.urlopen("http://127.0.0.1:8080" + self.path, timeout=45) as response:
-                    content = response.read(2 * 1024 * 1024)
+                request = urllib.request.Request("http://127.0.0.1:8080" + self.path, headers={
+                    "Host": "search.retromodem",
+                    "X-Retromodem-Client": getattr(self, 'client_address', ('127.0.0.1', 0))[0],
+                })
+                with urllib.request.urlopen(request, timeout=45) as response:
+                    content = response.read(8 * 1024 * 1024 + 1)
                     content_type = response.headers.get("Content-Type", "text/html; charset=iso-8859-1")
+                if len(content) > 8 * 1024 * 1024:
+                    raise ValueError('Local proxy response too large')
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self.wfile.write(content)
+            except urllib.error.HTTPError as error:
+                self.send_error(error.code if error.code in {400, 403, 404, 410, 413} else HTTPStatus.BAD_GATEWAY)
             except (OSError, urllib.error.URLError, ValueError):
                 self.send_error(HTTPStatus.BAD_GATEWAY, tr(config.get('RETROMODEM_LANGUAGE', 'nl'), 'Zoekpagina niet beschikbaar', 'Search page unavailable'))
             return
@@ -1522,8 +1529,8 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             if mode not in {"transparent", "manual"}:
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige proxystand")
                 return
-            image_mode = form.get("image_mode", "")
-            if image_mode not in {"inline", "links"}:
+            image_start = form.get("image_start", form.get("image_mode", ""))
+            if image_start not in {"inline", "links", "remember"}:
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige afbeeldingsweergave")
                 return
             exceptions = [value.lower().strip(".") for value in re.split(r"[\s,]+", form.get("exceptions", "")) if value]
@@ -1541,7 +1548,7 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
                 return
             save_config({**pagination, "RETROMODEM_PROXY_MODE": mode,
                          "RETROMODEM_PROXY_EXCEPTIONS": ",".join(dict.fromkeys(exceptions)),
-                         "RETROMODEM_PROXY_IMAGE_MODE": image_mode,
+                         "RETROMODEM_PROXY_IMAGE_START": image_start,
                          "RETROMODEM_PROXY_IMAGE_WIDTH": str(image_width),
                          "RETROMODEM_PROXY_IMAGE_HEIGHT": str(image_height)})
             old_mode = config.get("RETROMODEM_PROXY_MODE", config.get("RETROMODEM_68KPROXY_MODE", "manual"))

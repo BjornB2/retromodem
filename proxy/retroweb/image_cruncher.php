@@ -26,12 +26,12 @@ if (!checkRateLimit()) {
 // Haal URL parameter op (met fallback voor HTTP/1.0 browsers)
 $imageUrl = '';
 if (isset($_GET['url'])) {
-    $imageUrl = trim($_GET['url']);
+    $imageUrl = is_string($_GET['url']) ? trim($_GET['url']) : '';
 } elseif (!empty($_SERVER['QUERY_STRING'])) {
     // Fallback: parse QUERY_STRING handmatig als $_GET niet werkt
     parse_str($_SERVER['QUERY_STRING'], $params);
     if (isset($params['url'])) {
-        $imageUrl = trim($params['url']);
+        $imageUrl = is_string($params['url']) ? trim($params['url']) : '';
     }
 }
 
@@ -44,92 +44,24 @@ if (empty($imageUrl)) {
     exit;
 }
 
-// Soepelere URL validatie: gebruik regex in plaats van filter_var
-// filter_var kan te strikt zijn voor HTTP/1.0 browsers
-if (!preg_match('/^https?:\/\/[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}/', $imageUrl)) {
-    sendHttp10Response(204);
+// Every hop is validated and pinned; no automatic redirect can reach LAN/loopback.
+require_once __DIR__ . '/lib/ImageFetcher.php';
+$fetcher = new RetroWebImageFetcher(MAX_IMAGE_PROCESSING_SIZE, 25000, 5, USER_AGENT);
+$fetched = $fetcher->fetch($imageUrl);
+if ($fetched['status'] !== 200) {
+    sendHttp10Response($fetched['status']);
     setHttp10Headers(0);
     exit;
 }
-
-// SSRF bescherming: check of URL naar intern/private netwerk verwijst
-if (isInternalUrl($imageUrl)) {
-    logSecurityEvent('ssrf_attempt_image', ['url' => $imageUrl, 'ip' => getClientIp()]);
-    sendHttp10Response(403);
-    setHttp10Headers(0);
-    exit;
-}
-
-// Sanitize URL
-$imageUrl = sanitizeUrl($imageUrl);
-if ($imageUrl === false) {
-    logSecurityEvent('invalid_url_format_image', ['url' => isset($_GET['url']) ? substr($_GET['url'], 0, 200) : '']);
-    sendHttp10Response(204);
-    setHttp10Headers(0);
-    exit;
-}
-
-// Fetch externe image
-$context = createStreamContext('GET');
-$imageData = @file_get_contents($imageUrl, false, $context);
-
-if ($imageData === false) {
-    // Probeer met follow_location voor redirects
-    $timeout = defined('REQUEST_TIMEOUT') ? REQUEST_TIMEOUT : 30;
-    $maxRedirects = defined('MAX_REDIRECT_DEPTH') ? MAX_REDIRECT_DEPTH : 10;
-    $redirectContext = stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'header' => "User-Agent: " . USER_AGENT . "\r\n",
-            'follow_location' => 1,
-            'max_redirects' => $maxRedirects,
-            'timeout' => $timeout,
-            'ignore_errors' => true
-        ]
-    ]);
-    
-    $imageData = @file_get_contents($imageUrl, false, $redirectContext);
-}
-
-if ($imageData === false || empty($imageData)) {
-    sendHttp10Response(204);
-    setHttp10Headers(0);
-    exit;
-}
-
-// Valideer Content-Length header
-$responseHeaders = [];
-if (isset($http_response_header) && is_array($http_response_header)) {
-    $responseHeaders = $http_response_header;
-}
-if (!validateContentLength($imageData, $responseHeaders)) {
-    logSecurityEvent('content_length_mismatch_image', ['url' => $imageUrl]);
-    // Log maar blokkeer niet - image kan nog steeds geldig zijn
-}
-
-// Check image size voor processing
-if (strlen($imageData) > MAX_IMAGE_PROCESSING_SIZE) {
-    logSecurityEvent('image_size_exceeded', ['size' => strlen($imageData), 'max' => MAX_IMAGE_PROCESSING_SIZE, 'url' => $imageUrl]);
-    sendHttp10Response(413);
-    setHttp10Headers(0);
-    exit;
-}
+$imageData = $fetched['body'];
+$imageUrl = $fetched['url'];
 
 // Set timeout voor image processing
 $timeout = defined('IMAGE_PROCESSING_TIMEOUT') ? IMAGE_PROCESSING_TIMEOUT : 30;
 set_time_limit($timeout);
 
-// Check Content-Type via response headers
-$headers = [];
-// Gebruik $http_response_header (deprecated maar werkt nog in PHP 7.4-8.x)
-// Voor PHP 8.1+ zouden we http_get_last_response_headers() moeten gebruiken, maar dat is niet altijd beschikbaar
-if (isset($http_response_header) && is_array($http_response_header)) {
-    foreach ($http_response_header as $header) {
-        if (preg_match('/^Content-Type:\s*(.+)$/i', $header, $matches)) {
-            $headers['content-type'] = strtolower(trim(explode(';', $matches[1])[0]));
-        }
-    }
-}
+// Content type comes from the validated final response, never an old redirect.
+$headers = ['content-type' => $fetched['type']];
 
 // Check if this is an SVG file (by Content-Type, file extension, or content)
 $isSvg = false;

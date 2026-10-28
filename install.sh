@@ -229,6 +229,11 @@ install -m 0644 "$PROJECT_DIR/config/xinetd-retromodem-ppp" /etc/xinetd.d/retrom
 # are intentionally excluded.
 manifest=/usr/local/share/retromodem/install-manifest.sha256
 managed_files='etc/retromodem/nftables.conf
+opt/retromodem/retroweb/proxy.php
+opt/retromodem/retroweb/config.php
+opt/retromodem/retroweb/image_cruncher.php
+opt/retromodem/retroweb/lib/PagePaginator.php
+opt/retromodem/retroweb/lib/ImageFetcher.php
 etc/dnsmasq.d/retromodem.conf
 etc/retromodem/adapters.json
 etc/ppp/peers/retromodem
