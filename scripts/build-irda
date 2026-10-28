@@ -20,6 +20,7 @@ package_version=$(sed -n 's/^PACKAGE_VERSION="\([^"]*\)"/\1/p' "$source_dir/src/
 [ -n "$package_version" ] || { echo 'Unable to determine IrDA version.' >&2; exit 1; }
 install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.c" "$source_dir/src/drivers/irtty-sir.c"
 install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.h" "$source_dir/src/drivers/irtty-sir.h"
+patch -d "$source_dir" -p1 < "$PROJECT_DIR/patches/ircomm-retry-discovery.patch" >&2
 python3 "$PROJECT_DIR/scripts/prepare-irda-dkms.py" "$source_dir/src/dkms.conf" "$kernel_config" >&2
 # Include the filtered inventory and helper, so the failed old registration is
 # not reused, and different target-kernel inventories get distinct registrations.
@@ -28,7 +29,8 @@ import hashlib, pathlib, sys
 project, source = map(pathlib.Path, sys.argv[1:3])
 digest = hashlib.sha256(sys.argv[3].encode())
 for path in (project / 'src/my018/irtty-sir.c', project / 'src/my018/irtty-sir.h',
-             project / 'scripts/prepare-irda-dkms.py', source / 'src/dkms.conf'):
+             project / 'scripts/prepare-irda-dkms.py', source / 'src/dkms.conf',
+             project / 'patches/ircomm-retry-discovery.patch'):
     digest.update(path.read_bytes())
 print(digest.hexdigest()[:12])
 PY

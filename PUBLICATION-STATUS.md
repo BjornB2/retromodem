@@ -3,7 +3,7 @@
 This is the preparation repository for the first RetroModem release.
 It is private again at the owner's request after successful update testing.
 It is not a stable release. Snapshot date: 2026-10-28.
-The development selection contains 113 source files,
+The development selection contains 114 source files,
 plus repository metadata. The publication branch now also contains the
 bootstrap, adapter configuration helper and their tests.
 
@@ -23,7 +23,7 @@ The publication installer has offline tests for adapter selection, boot changes,
 configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
-All 260 Python unit tests pass on the development computer; installer,
+All 262 Python unit tests pass on the development computer; installer,
 bootstrap and verifier shell syntax checks also pass.
 The DKMS inventory now follows target-kernel capabilities; unsupported ISA/PCI
 drivers are not required on the Pi. Full clean-SD acceptance remains pending.
@@ -33,6 +33,11 @@ belong to c_iflag, not c_cflag, where IXOFF overlaps the extended baud bit on
 Linux. Live diagnosis found a requested 115200 port reporting 75. A C regression
 checks baud preservation, but the patched modem still needs physical testing.
 The web-only feature updater does not rebuild tcpser; use the full installer.
+The IrCOMM search watchdog now retries the cached discovery log every three
+seconds after unsuccessful setup. Normal discovery only notifies new peers;
+the upstream disabled retry could leave a visible peer indefinitely in SEARCH.
+The patch is part of the DKMS version hash. A C regression checks retry and
+timer cancellation on synchronous completion. Physical acceptance is pending.
 Installer C commands are checked for header resolution as part of the tests.
 
 Feature updates were applied on the original Pi through the guarded installer,
