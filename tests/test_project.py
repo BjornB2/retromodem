@@ -45,11 +45,12 @@ class InstallationTests(unittest.TestCase):
         self.assertIn("sha256sum -c", verifier)
         self.assertIn("retromodem-web.service", verifier)
 
-    def test_installer_creates_documented_ssh_account_once(self):
+    def test_installer_preserves_imager_ssh_account(self):
         installer = (ROOT / "install.sh").read_text(encoding="utf-8")
-        self.assertIn("if ! id retromodem", installer)
-        self.assertIn("useradd --create-home --shell /bin/bash retromodem", installer)
-        self.assertIn("'retromodem:retromodem'", installer)
+        self.assertIn('admin_user=${SUDO_USER:-}', installer)
+        self.assertNotIn("useradd", installer)
+        self.assertNotIn("chpasswd", installer)
+        self.assertIn("install.json", installer)
         self.assertIn("ssh.service", installer)
 
     def test_installer_rejects_non_bookworm_images(self):
@@ -201,7 +202,8 @@ class InstallationTests(unittest.TestCase):
     def test_quickstart_contains_every_access_route(self):
         guide = (ROOT / "docs/QUICKSTART.md").read_text(encoding="utf-8")
         self.assertIn('`http://10.42.0.1`', guide)
-        self.assertIn('ssh retromodem@retromodem.local', guide)
+        self.assertIn('ssh JOUW_GEBRUIKERSNAAM@retromodem.local', guide)
+        self.assertIn('Raspberry Pi Imager', guide)
         self.assertIn('`retromodem` / `retromodem`', guide)
 
     def test_irda_service_applies_adapter_qos_ceilings(self):

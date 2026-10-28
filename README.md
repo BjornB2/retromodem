@@ -2,8 +2,8 @@
 
 > **Test version — not yet released.** The installer and SD image are being
 > prepared for clean-install testing on a Raspberry Pi 3B. A stable release
-> will follow after the acceptance tests pass. There is no public bootstrap
-> installation command or downloadable SD image yet.
+> will follow after the acceptance tests pass. The private-repository installer
+> is ready for testing; there is no downloadable SD image yet.
 >
 > MY018 is the preferred infrared build. MA-620 is the USB infrared fallback;
 > Prolific USB-to-RS-232 is the main connection for computers without infrared.
@@ -73,6 +73,11 @@ tools or device-control permissions.
 
 ## Eerste installatie (in ontwikkeling)
 
+Volg de [schone-SD-installatiehandleiding](docs/INSTALL.md) voor downloaden uit
+de private repository en de adapterkeuze. Het bootstrap-script haalt één exact
+vastgelegde commit op. Je bestaande SSH-account uit Raspberry Pi Imager blijft
+behouden; er wordt geen extra account met een vast SSH-wachtwoord aangemaakt.
+
 De installer is bedoeld voor een schone **Raspberry Pi OS Legacy Bookworm
 (32-bit) Lite**-installatie. Kies in Raspberry Pi Imager niet de gewone
 32-bit image: die gebruikt inmiddels een nieuwere Debian-versie. De installer
@@ -81,14 +86,14 @@ de Linux-kernel verwijderde IrDA-stack als DKMS-
 modules, installeert de PPP-server en zet IPv4-routing met nftables aan.
 
 ```sh
-sudo ./install.sh
+sudo sh install.sh
 ```
 
 Gebruik bij voorkeur de MY018-opbouw uit de
 [aansluit- en configuratiehandleiding](docs/MY018-SETUP.md). Kies in de
-webinterface de MY018 en pas de daarin beschreven instellingen voor de
-bedrading toe. De huidige ontwikkelinstaller bevat nog de oude adapterdefault;
-automatische MY018-configuratie wordt voor de eerste release voorbereid.
+installer de MY018 en bevestig de gedocumenteerde bedrading. De installer stelt
+57k6 in, configureert de PL011-UART en schakelt daarvoor Bluetooth en de seriële
+console uit. Herstart daarna de Pi voordat je de modemverbinding test.
 Gebruik voor computers zonder infrarood de Prolific RS-232-route. MA-620 is
 alleen de alternatieve USB-infraroodroute.
 
@@ -116,6 +121,7 @@ gebruikersnaam en het standaardwachtwoord zijn beide `retromodem`. Als geen
 opgeslagen wifi-netwerk beschikbaar is, maakt de Pi na ongeveer tien
 seconden accesspoint `retromodem` met wachtwoord `12345678`. Een mislukte
 wifi-koppeling schakelt automatisch terug naar dat accesspoint.
+Deze logins gelden voor de webinterface; SSH gebruikt je eigen Imager-account.
 
 De front-leds geven naast de gekozen modemstand ook de netwerk- en
 voedingsstatus aan: de gekozen P- of D-led knippert bij een moduswissel ten

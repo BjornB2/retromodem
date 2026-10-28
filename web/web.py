@@ -54,8 +54,8 @@ CSRF_TOKENS: set[str] = set()
 GUIDE_TARGETS = {"generic", "psion", "palm-old", "palm-new", "hp200lx", "win95", "win98", "winxp"}
 LIBRARY_PROTOCOLS = {"download", "palm", "epoc", "xmodem", "ymodem", "zmodem"}
 IR_ADAPTERS = {
-    "mobile-action-ma620": {"name": "Mobile Action MA-620", "prefix": "MA620", "tty": "auto", "dongle": "ma600"},
     "ming-yuan-my018": {"name": "Ming Yuan MY018 · GPIO", "prefix": "MY018", "tty": "/dev/serial0", "dongle": ""},
+    "mobile-action-ma620": {"name": "Mobile Action MA-620 · USB fallback", "prefix": "MA620", "tty": "auto", "dongle": "ma600"},
 }
 
 
@@ -83,8 +83,8 @@ def remember_send(path: Path, protocol: str) -> None:
 
 
 def ir_adapter_id(config: dict[str, str]) -> str:
-    value = config.get("RETROMODEM_ADAPTER", "mobile-action-ma620")
-    return value if value in IR_ADAPTERS else "mobile-action-ma620"
+    value = config.get("RETROMODEM_ADAPTER", "ming-yuan-my018")
+    return value if value in IR_ADAPTERS else "ming-yuan-my018"
 
 
 def my018_power_enabled(config: dict[str, str]) -> bool:

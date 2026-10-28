@@ -2,7 +2,8 @@
 
 This is the private preparation repository for the first RetroModem release.
 Snapshot date: 2026-10-28. It contains 92 selected development-source files,
-plus repository metadata and the test-status banner in README.md.
+plus repository metadata. The publication branch now also contains the
+bootstrap, adapter configuration helper and their tests.
 
 ## Scope
 
@@ -16,15 +17,18 @@ plus repository metadata and the test-status banner in README.md.
 
 ## Current validation
 
-All 100 existing Python unit tests pass on the development computer. Selected
+The publication installer has offline tests for adapter selection, boot changes,
+configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
+All 115 Python unit tests pass on the development computer; installer,
+bootstrap and verifier shell syntax checks also pass.
 
 ## Outstanding before release
 
-- Bootstrap download script and private-download test procedure.
-- MY018 defaults/adapter selection and first-start configuration.
-- Password/account handling, including the installation verifier.
+- Clean-SD validation of the bootstrap, adapter selection, MY018 UART/boot
+  setup, preserved Imager SSH account and adapter-aware verifier now implemented.
+- Final web/access-point password policy (test defaults remain documented).
 - Versioned updates, data preservation and recovery procedure.
 - Exact OS baseline and clean image build.
 - Updated wiring, serial RS-232/null-modem and usage guides.

@@ -9,8 +9,9 @@ onaangeraakt.
 - een tweede SD-kaart;
 - Raspberry Pi OS **Legacy Bookworm (32-bit) Lite**;
 - Raspberry Pi met netwerkaansluiting;
-- Mobile Action MA-620;
-- optioneel de Prolific USB-serieeladapter;
+- MY018 met de gedocumenteerde A/B/C- en 2N3904-bedrading (voorkeursopbouw);
+- Prolific USB-naar-RS-232 voor computers zonder infrarood;
+- MA-620 als alternatieve infraroodadapter;
 - Psion 5mx en Palm IIIc voor de fysieke acceptatietests.
 
 Wifi-profielen, ontvangen bestanden en zelf geüploade software zijn
@@ -23,17 +24,20 @@ wel in en wordt hieronder expliciet gecontroleerd.
    Legacy (32-bit) Lite** en flash die image. De gewone 32-bit image is geen
    Bookworm meer en wordt door de installer geweigerd. Een tijdelijk via
    Raspberry Pi Imager ingesteld account mag worden gebruikt om de installer
-   te starten; de installer maakt daarna zelf de gedocumenteerde gebruiker
-   `retromodem`.
-2. Kopieer deze volledige projectmap naar de Pi.
-3. Voer in de projectmap uit:
+   te starten; dit blijft daarna ook het SSH-beheerdersaccount.
+2. Volg [INSTALL.md](INSTALL.md) om de gepinde testcommit uit de private
+   repository te downloaden en kies MY018 als voorkeursopbouw. De bootstrap
+   start de installer; uitvoeren vanuit een gedownloade bronmap kan ook:
 
    ```sh
-   sudo ./install.sh
+   sudo sh install.sh --adapter my018 --my018-wiring-confirmed
    sudo reboot
    ```
 
-4. Sluit na het opnieuw opstarten alleen de MA-620 aan.
+   Gebruik `--my018-wiring-confirmed` uitsluitend bij de beschreven aangepaste
+   bedrading. De installer vraagt interactief om bevestiging als deze vlag ontbreekt.
+3. Controleer na herstart eerst MY018. Test daarna de seriële route en de
+   MA-620-fallback op dezelfde Pi, met de aanwezige apparatuur.
 
 ## 2. Automatische acceptatie
 
@@ -72,7 +76,7 @@ verwacht.
 
 - Het telefoonboek bevat `5559000` en de standaard BBS-reeks vanaf `5551000`.
 - Voeg tijdelijk een BBS toe en herstart de Pi: de invoer moet blijven staan.
-- Voer `sudo ./install.sh` nogmaals uit: het aangepaste telefoonboek en de
+- Voer `sudo sh install.sh` nogmaals uit: het aangepaste telefoonboek en de
   gekozen instellingen mogen niet worden overschreven.
 - Een naar een handleiding geüpload bestand moet een herstart en herinstallatie
   eveneens overleven.

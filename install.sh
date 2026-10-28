@@ -6,11 +6,66 @@ IRDA_COMMIT=6c7ef8c17360dfe049e6315e9291583a6dcaf52a
 TCPSER_REPOSITORY=https://github.com/go4retro/tcpser.git
 TCPSER_COMMIT=234ccfde0bb6a874c353c0cdca0fa0ca76c5cca3
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+adapter=
+wiring_confirmed=0
+non_interactive=0
+admin_user=${SUDO_USER:-}
+usage() {
+    echo 'Usage: sudo sh install.sh [--adapter my018|ma620|serial] [--my018-wiring-confirmed] [--non-interactive] [--admin-user USER]'
+    echo 'Default for new installations: MY018 (documented A/B/C + 2N3904 wiring required).'
+    echo 'Existing installations retain their selected adapter unless --adapter is given.'
+}
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --help|-h) usage; exit 0 ;;
+        --adapter|--admin-user)
+            option=$1
+            [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+            if [ "$option" = --adapter ]; then adapter=$2; else admin_user=$2; fi
+            shift 2 ;;
+        --my018-wiring-confirmed) wiring_confirmed=1; shift ;;
+        --non-interactive) non_interactive=1; shift ;;
+        *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
+    esac
+done
+case "$adapter" in ''|my018|ma620|serial) ;; *) usage >&2; exit 2 ;; esac
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "Start dit script als root: sudo ./install.sh" >&2
     exit 1
 fi
+
+for required in python3 flock; do
+    command -v "$required" >/dev/null || { echo "Required: $required" >&2; exit 1; }
+done
+if [ -z "$admin_user" ] || [ "$admin_user" = root ] || ! id "$admin_user" >/dev/null 2>&1; then
+    echo 'Use sudo from your Raspberry Pi Imager account, or specify --admin-user EXISTING_USER.' >&2
+    exit 1
+fi
+
+if [ "$non_interactive" = 0 ] && [ -z "$adapter" ] && [ ! -f /etc/retromodem/retromodem.env ]; then
+    if [ -r /dev/tty ] && ( : </dev/tty ) 2>/dev/null; then
+        printf 'Adapter: 1 MY018 (preferred), 2 MA-620 (IR fallback), 3 Prolific RS-232 [1]: ' >/dev/tty
+        IFS= read -r answer </dev/tty
+        case "$answer" in ''|1|my018) adapter=my018 ;; 2|ma620) adapter=ma620 ;; 3|serial) adapter=serial ;; *) exit 2 ;; esac
+    fi
+fi
+if [ "$non_interactive" = 0 ] && [ "$wiring_confirmed" = 0 ] &&
+   { [ "$adapter" = my018 ] || { [ -z "$adapter" ] && [ ! -f /etc/retromodem/retromodem.env ]; }; }; then
+    if [ -r /dev/tty ] && ( : </dev/tty ) 2>/dev/null; then
+        printf 'MY018 requires A/B/C selector wiring + the 2N3904 circuit in docs/MY018-SETUP.md. Is that fitted? [yes/no]: ' >/dev/tty
+        IFS= read -r answer </dev/tty
+        case "$answer" in yes|ja) wiring_confirmed=1 ;; *) echo 'Installation cancelled.' >&2; exit 1 ;; esac
+    fi
+fi
+# Validate configuration before package/system changes. No secrets are printed.
+set --
+[ -z "$adapter" ] || set -- "$@" --adapter "$adapter"
+[ "$wiring_confirmed" = 0 ] || set -- "$@" --my018-wiring-confirmed
+python3 "$PROJECT_DIR/scripts/install-configure.py" "$@"
+
+exec 9>/run/lock/retromodem-install.lock
+flock -n 9 || { echo 'Another RetroModem installation is running.' >&2; exit 1; }
 
 if [ ! -r /etc/os-release ] || ! grep -q '^ID=raspbian' /etc/os-release || \
    ! grep -q '^VERSION_ID="\?12"\?$' /etc/os-release; then
@@ -20,13 +75,21 @@ if [ ! -r /etc/os-release ] || ! grep -q '^ID=raspbian' /etc/os-release || \
 fi
 
 case $(uname -m) in
-    armv6l) kernel_headers=linux-headers-rpi-v6 ;;
-    armv7l) kernel_headers=linux-headers-rpi-v7 ;;
+    armv6l|armv7l) ;;
     *)
         echo "Deze eerste installer ondersteunt alleen de 32-bit Raspberry Pi OS-kernel." >&2
         exit 1
         ;;
 esac
+kernel_release=$(uname -r)
+case "$kernel_release" in
+    *-rpi-v6) kernel_headers=linux-headers-rpi-v6 ;;
+    *-rpi-v7) kernel_headers=linux-headers-rpi-v7 ;;
+    *-rpi-v7l) kernel_headers=linux-headers-rpi-v7l ;;
+    *) echo "Unsupported kernel flavor: $kernel_release (expected Bookworm 32-bit rpi-v6/v7/v7l)." >&2; exit 1 ;;
+esac
+available_kb=$(df -Pk / | awk 'NR == 2 {print $4}')
+[ "$available_kb" -ge 1048576 ] || { echo 'At least 1 GiB free space is required for installation builds.' >&2; exit 1; }
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -34,22 +97,19 @@ apt-get install -y \
     avahi-daemon autoconf automake build-essential dkms git irda-utils \
     curl iproute2 iputils-ping nmap arp-scan dnsutils traceroute libtool lrzsz openobex-apps libopenobex2-dev pkg-config "$kernel_headers" \
     composer dnsmasq imagemagick network-manager nftables openssh-server php-cli php-curl php-gd \
-    php-mbstring php-xml ppp procps psmisc python3 python3-bs4 python3-cryptography usbutils xinetd
+    php-mbstring php-xml ppp procps psmisc python3 python3-bs4 python3-cryptography usbutils xinetd \
+    raspi-utils util-linux patch ca-certificates
 
-# The quickstart credentials must also exist on a truly clean image. Preserve
-# an existing account and password during upgrades; only initialise them when
-# the dedicated account does not exist yet.
-if ! id retromodem >/dev/null 2>&1; then
-    useradd --create-home --shell /bin/bash retromodem
-    printf '%s\n' 'retromodem:retromodem' | chpasswd
+# Keep the existing Imager administrator and SSH credentials. Never introduce
+# a shared sudo-capable account/password during installation.
+if [ ! -f "/lib/modules/$kernel_release/build/Makefile" ]; then
+    echo "Headers do not match the running kernel $kernel_release." >&2
+    echo 'Reboot after kernel/header updates, then run this installer again.' >&2
+    exit 1
 fi
-supplementary_groups=
-for group in sudo dialout plugdev netdev gpio; do
-    if getent group "$group" >/dev/null; then
-        supplementary_groups="${supplementary_groups}${supplementary_groups:+,}${group}"
-    fi
+for required in pinctrl vcgencmd timeout; do
+    command -v "$required" >/dev/null || { echo "Required Pi utility missing: $required" >&2; exit 1; }
 done
-[ -z "$supplementary_groups" ] || usermod -a -G "$supplementary_groups" retromodem
 
 work_dir=$(mktemp -d /tmp/retromodem-install.XXXXXX)
 trap 'rm -rf "$work_dir"' EXIT HUP INT TERM
@@ -68,15 +128,22 @@ if [ -z "$package_version" ]; then
     exit 1
 fi
 
-if dkms status -m irda -v "$package_version" 2>/dev/null | grep -q .; then
-    dkms remove -m irda -v "$package_version" --all
-fi
 # Include the PL011 deferred-wakeup fix and opt-in MY018 power-cycle support.
 # Both are tied to this pinned upstream source; USB behaviour is unchanged.
 install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.c" "$work_dir/irda/src/drivers/irtty-sir.c"
 install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.h" "$work_dir/irda/src/drivers/irtty-sir.h"
-dkms add "$work_dir/irda/src"
-dkms install -m irda -v "$package_version"
+# A source-specific DKMS version allows building before replacing the active
+# module. Keep the previously installed version available on build failure.
+driver_hash=$(cat "$PROJECT_DIR/src/my018/irtty-sir.c" "$PROJECT_DIR/src/my018/irtty-sir.h" | sha256sum | cut -c1-12)
+package_version="$package_version.retromodem$driver_hash"
+sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"$package_version\"/" "$work_dir/irda/src/dkms.conf"
+if ! dkms status -m irda -v "$package_version" 2>/dev/null | grep -q .; then
+    dkms add "$work_dir/irda/src"
+fi
+if ! dkms status -m irda -v "$package_version" -k "$kernel_release" | grep -q ': installed'; then
+    dkms build -m irda -v "$package_version" -k "$kernel_release"
+    dkms install --force -m irda -v "$package_version" -k "$kernel_release"
+fi
 
 # tcpser is not available consistently in Raspberry Pi OS repositories. Pin a
 # reviewed upstream release so a clean installation produces the same modem
@@ -96,9 +163,21 @@ install -d -m 0755 /etc/retromodem /usr/local/lib/retromodem /usr/local/sbin \
     /usr/local/share/retromodem/static/software \
     /usr/local/share/retromodem/static/guides/psion /var/lib/retromodem/transfers \
     /var/lib/retromodem/software-library /var/lib/retromodem/chatgpt
-if [ ! -e /etc/retromodem/retromodem.env ]; then
-    install -m 0600 "$PROJECT_DIR/config/retromodem.env" /etc/retromodem/retromodem.env
-fi
+reboot_required=$(python3 "$PROJECT_DIR/scripts/install-configure.py" "$@" --apply)
+python3 - "$admin_user" "$PROJECT_DIR" "$package_version" <<'PY'
+import json, pathlib, re, subprocess, sys
+admin, project, dkms = sys.argv[1:]
+source = pathlib.Path(project) / '.retromodem-source-commit'
+commit = source.read_text().strip() if source.exists() else ''
+if not commit:
+    result = subprocess.run(['git', '-C', project, 'rev-parse', 'HEAD'], capture_output=True, text=True)
+    commit = result.stdout.strip() if result.returncode == 0 else ''
+if not re.fullmatch(r'[0-9a-f]{40}', commit):
+    commit = 'local-unversioned'
+pathlib.Path('/etc/retromodem/install.json').write_text(json.dumps({
+    'admin_user': admin, 'source_commit': commit, 'irda_dkms_version': dkms,
+}, indent=2) + '\n')
+PY
 install -m 0644 "$PROJECT_DIR/config/nftables.conf" /etc/retromodem/nftables.conf
 install -m 0644 "$PROJECT_DIR/config/dnsmasq-retromodem.conf" /etc/dnsmasq.d/retromodem.conf
 install -m 0644 "$PROJECT_DIR/config/hardware/adapters.json" /etc/retromodem/adapters.json
@@ -221,11 +300,15 @@ set -a
 . /etc/retromodem/retromodem.env
 set +a
 if [ "${RETROMODEM_MY018_POWER_CYCLE:-0}" = 1 ]; then
-    install -m 0644 "$PROJECT_DIR/config/my018-power.conf" /etc/modprobe.d/retromodem-my018.conf
-    install -m 0644 "$PROJECT_DIR/config/my018-boot.txt" /boot/firmware/retromodem-my018.txt
-    if ! grep -qx 'include retromodem-my018.txt' /boot/firmware/config.txt; then
-        printf '\n[all]\ninclude retromodem-my018.txt\n' >> /boot/firmware/config.txt
-    fi
+    if systemctl is-active --quiet hciuart.service; then reboot_required=1; fi
+    systemctl disable hciuart.service 2>/dev/null || true
+    for uart in serial0 ttyAMA0 ttyS0; do
+        if systemctl is-active --quiet "serial-getty@$uart.service"; then reboot_required=1; fi
+        systemctl disable "serial-getty@$uart.service" 2>/dev/null || true
+    done
+    # Do not stop Bluetooth/console or drive the GPIO UART live before reboot.
+    [ "$(readlink -f /dev/serial0 2>/dev/null || true)" = /dev/ttyAMA0 ] || reboot_required=1
+    if grep -Eq 'console=(serial0|ttyAMA0|ttyS0)(,| |$)' /proc/cmdline; then reboot_required=1; fi
 fi
 /usr/local/lib/retromodem/configure-ap
 systemctl disable retromodem-irda.service retromodem-ppp.service retromodem-tcpser.service 2>/dev/null || true
@@ -241,7 +324,13 @@ systemctl restart retromodem-network.service
 systemctl restart xinetd.service retromodem-ap-fallback.service retromodem-web.service retromodem-chatgpt.service
 systemctl restart retromodem-retroweb-core.service retromodem-proxy.service || true
 
-if systemctl restart retromodem-mode.service; then
+if [ "$reboot_required" = 1 ] || [ -d /sys/module/irda ]; then
+    # An already-loaded driver may still be the previous build. A reboot loads
+    # the installed DKMS modules and the configured UART/power defaults together.
+    install -d /var/lib/retromodem
+    cat /proc/sys/kernel/random/boot_id > /var/lib/retromodem/reboot-required
+    echo 'RetroModem installed. Reboot required before modem testing: sudo reboot'
+elif systemctl restart retromodem-mode.service; then
     systemctl restart retromodem-button.service
     echo "RetroModem is geïnstalleerd en gestart."
 else
@@ -251,3 +340,4 @@ fi
 
 echo "Diagnose: sudo retromodem-diagnose"
 echo "Installatie controleren: sudo retromodem-verify"
+echo "SSH administrator remains: $admin_user (your existing password/key)."

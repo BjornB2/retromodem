@@ -9,7 +9,7 @@
 | Webinterface | `http://retromodem.local` |
 | Webinterface via nood-accesspoint | `http://10.42.0.1` |
 | Weblogin | `retromodem` / `retromodem` |
-| SSH | `retromodem` / `retromodem` |
+| SSH | je eigen account en wachtwoord/key uit Raspberry Pi Imager |
 
 ## Eerste ingebruikname
 
@@ -24,7 +24,9 @@
    in. De pagina is tijdens het overschakelen kort onbereikbaar.
 5. Verbind telefoon of laptop weer met het gewone netwerk en open voortaan
    `http://retromodem.local`.
-6. Kies onder **Verbinding** de adapter en daarna **Direct internet (PPP)** of
+6. Gebruik bij voorkeur **MY018** voor infrarood, **Prolific RS-232** voor
+   computers zonder infrarood, of **MA-620** als infraroodfallback.
+   Kies onder **Verbinding** de adapter en daarna **Direct internet (PPP)** of
    **Hayes-inbelmodem/BBS**.
 
 ## Telefoonboek en inbellen
@@ -112,7 +114,8 @@ zijn eveneens agentacties.
 Op hetzelfde netwerk:
 
 ```sh
-ssh retromodem@retromodem.local
+ssh JOUW_GEBRUIKERSNAAM@retromodem.local
 ```
 
-Via het nood-accesspoint kan ook `ssh retromodem@10.42.0.1` worden gebruikt.
+Vervang `JOUW_GEBRUIKERSNAAM` door je Imager-account. Via het nood-accesspoint
+kan ook `ssh JOUW_GEBRUIKERSNAAM@10.42.0.1` worden gebruikt.

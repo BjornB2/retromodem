@@ -1,5 +1,5 @@
 #!/bin/sh
-# Experimental Pi 3 MY018 + 2N3904 LOW-SIDE switching only; not installed at boot.
+# Pi 3 MY018 + documented 2N3904 LOW-SIDE switching circuit only.
 # Physical 22/BCM25 -> 1k -> base; emitter Pi GND, collector board GND.
 # Each ABC middle pad has a 10k pulldown to BOARD ground, not Pi ground.
 # Low bits must remain high-impedance during power-on: output-low would itself

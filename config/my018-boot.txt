@@ -1,5 +1,7 @@
 # Modified MY018 low-side power switch: establish ground early at boot.
 # BCM25 is a transistor BASE via 1k, NEVER the board VCC or board GND directly.
 [all]
+enable_uart=1
+dtoverlay=disable-bt
 gpio=25=op,dh
 gpio=17,22,27=ip,pn

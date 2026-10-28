@@ -57,12 +57,19 @@ RETROMODEM_MY018_BITRATE=57600
 RETROMODEM_IRDA_BITRATE=57600
 ```
 
+De publieke testinstaller doet dit bij `--adapter my018` na bevestiging van de
+bedrading. Hij stelt tevens `enable_uart=1` en `dtoverlay=disable-bt` in, schakelt
+`hciuart` en de UART-loginconsole uit en bewaart de oorspronkelijke bootbestanden
+als `.pre-retromodem`. Bluetooth is daardoor niet beschikbaar bij deze opbouw.
+Een herstart is vereist voordat de PL011-UART als `/dev/serial0` gebruikt wordt.
+Zie [INSTALL.md](INSTALL.md) voor de volledige schone-SD-procedure.
+
 De installer neemt de gewijzigde irtty-sir-bron mee in DKMS en installeert de
 helper. Bij deze expliciete opt-in wordt ook de modprobe-optie geïnstalleerd en
 de bootconfig uitgebreid met `include retromodem-my018.txt`. Die bootconfig zet
 BCM25 vroeg hoog, zodat de transistor board-GND verbindt, en laat A/B/C als
-ingangen zonder interne pulls. Een volledige boot-/power-cycle-regressietest van
-deze nieuwe integratie is nog vereist; claim geen al bewezen rebootveiligheid.
+ingangen zonder interne pulls. De boot-/power-cycle-test van de publieke
+installer op een schone SD-kaart hoort bij de releaseacceptatie.
 
 Bij iedere nieuwe IrDA-attachment reset de voorbereiding de module naar 9600.
 Bij een snelheidswissel geeft de driver eerst UART en A/B/C vrij, schakelt de
@@ -82,9 +89,9 @@ verbinding-/modempoortsnelheid van het retroapparaat is niet op zichzelf bewijs
 van de fysieke snelheid. Beam gebruikt niet noodzakelijk het PPP-profiel.
 Start met 57k6 of herstel 9600 bij problemen. Remote Link op de Psion blijft uit.
 
-Op de huidige Pi is een volledige reboot na installatie van deze integratie nog
-niet getest. Bewaar de module-/configback-up en toegang tot de SD-kaart. Na een
-kernelupdate moet de driver opnieuw compatibel gebouwd en geverifieerd worden.
+De bestaande MY018-opstelling werkt; de publieke installer wordt nog op een
+schone SD-kaart geaccepteerd, inclusief herstart. Bewaar toegang tot de SD-kaart.
+Na een kernelupdate moet de driver opnieuw compatibel gebouwd en geverifieerd worden.
 
 Bronnen voor het ontwerp (niet voor bevestiging van het MY018-IC):
 
