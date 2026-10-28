@@ -13,6 +13,8 @@ TOKEN = 'a' * 64
 
 
 class ProxyPaginationTests(unittest.TestCase):
+    def test_server_has_larger_handshake_queue(self):
+        self.assertEqual(proxy.RetroWebHTTPServer.request_queue_size, 128)
     def test_settings_forwarded_to_core(self):
         response = io.BytesIO(b'<html>ok</html>')
         response.headers = {'Content-Type': 'text/html'}

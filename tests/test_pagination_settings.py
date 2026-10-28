@@ -34,13 +34,13 @@ class PaginationSettingsTests(unittest.TestCase):
         handler.send_error = lambda status, *_: setattr(handler, 'error', status)
         return handler
 
-    def test_save_persists_both_options_and_restarts_proxy(self):
+    def test_save_persists_both_options_without_restarting_proxy(self):
         handler = self.handler()
         with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
             handler.do_POST()
         self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_PAGE_SIZE'], '12000')
         self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_PAGE_IMAGES'], '2')
-        self.assertIn('retromodem-proxy.service', run.call_args.args)
+        run.assert_not_called()
         self.assertEqual(handler.location, '/settings#webproxy')
 
     def test_invalid_inputs_never_save_or_restart(self):
@@ -59,3 +59,22 @@ class PaginationSettingsTests(unittest.TestCase):
         with patch.object(web, 'save_config') as save, patch.object(web, 'run'):
             handler.do_POST()
         self.assertEqual(save.call_args.args[0]['RETROMODEM_PROXY_PAGE_IMAGES'], '0')
+
+    def test_mode_change_applies_only_firewall(self):
+        handler = self.handler()
+        handler.config = lambda: {'RETROMODEM_PROXY_MODE': 'transparent'}
+        with patch.object(web, 'save_config'), patch.object(web, 'run') as run:
+            run.return_value.returncode = 0
+            handler.do_POST()
+        run.assert_called_once_with('/usr/local/lib/retromodem/proxy-firewall', 'apply')
+
+    def test_mode_failure_restores_previous_mode_without_restart(self):
+        handler = self.handler()
+        handler.config = lambda: {'RETROMODEM_PROXY_MODE': 'transparent'}
+        with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
+            run.return_value.returncode = 1
+            handler.do_POST()
+        self.assertEqual(handler.error, 500)
+        self.assertEqual(save.call_args.args[0], {'RETROMODEM_PROXY_MODE': 'transparent'})
+        self.assertEqual(run.call_count, 2)
+        self.assertTrue(all(call.args == ('/usr/local/lib/retromodem/proxy-firewall', 'apply') for call in run.call_args_list))

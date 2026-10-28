@@ -1544,7 +1544,18 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
                          "RETROMODEM_PROXY_IMAGE_MODE": image_mode,
                          "RETROMODEM_PROXY_IMAGE_WIDTH": str(image_width),
                          "RETROMODEM_PROXY_IMAGE_HEIGHT": str(image_height)})
-            run("/usr/bin/systemctl", "restart", "retromodem-retroweb-core.service", "retromodem-proxy.service")
+            old_mode = config.get("RETROMODEM_PROXY_MODE", config.get("RETROMODEM_68KPROXY_MODE", "manual"))
+            if old_mode not in {"manual", "transparent"}:
+                old_mode = "manual"
+            # Content settings are read on each request. Only a routing-mode
+            # change needs firewall work; never kill in-flight HTTP requests.
+            if old_mode != mode:
+                applied = run("/usr/local/lib/retromodem/proxy-firewall", "apply")
+                if applied.returncode:
+                    save_config({"RETROMODEM_PROXY_MODE": old_mode})
+                    run("/usr/local/lib/retromodem/proxy-firewall", "apply")
+                    self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Proxyroutering kon niet worden toegepast; vorige instelling teruggezet. Controleer de netwerkstatus.")
+                    return
             self.redirect("/settings#webproxy")
         elif path == "/settings":
             new_language = form.get("language", "")

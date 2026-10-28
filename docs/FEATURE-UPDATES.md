@@ -28,6 +28,12 @@ memory are not included in the HTML byte budget. The default remains five.
 Entire page disables both limits. Reopen the original website after changing
 settings; existing snapshot links intentionally keep their original division.
 
+Saving content settings does not restart the proxy or PHP services. Image
+dimensions are read from the local configuration on each PHP request. Only
+switching manual/automatic mode reapplies firewall routing; existing settings
+are restored if that routing operation fails. The proxy handshake queue is 128.
+Installing changed runtime code still requires a one-time service restart.
+
 RetroWEB splits processed pages into approximately 18 kB parts with at most five
 inline images, previous/next navigation and a full-page link. Snapshots expire
 after one hour. These budgets still require physical Palm-browser acceptance.

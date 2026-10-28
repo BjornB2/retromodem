@@ -364,5 +364,12 @@ class Handler(BaseHTTPRequestHandler):
         print("%s - %s" % (self.client_address[0], pattern % args), flush=True)
 
 
+class RetroWebHTTPServer(ThreadingHTTPServer):
+    # Old browsers open image connections in bursts over a slow IrDA link.
+    # The default queue of five is too small during TCP handshakes/retries.
+    request_queue_size = 128
+    daemon_threads = True
+
+
 if __name__ == "__main__":
-    ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+    RetroWebHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()

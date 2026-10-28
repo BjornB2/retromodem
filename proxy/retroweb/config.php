@@ -39,8 +39,26 @@ define('CACHE_VERSION', '1.4'); // Increment bij parsing logica wijzigingen
 define('MAX_DOWNLOAD_SIZE', 8 * 1024 * 1024);
 
 // Image compression settings
-define('MAX_IMAGE_WIDTH', (int)(getenv('RETROMODEM_PROXY_IMAGE_WIDTH') ?: getenv('RETROMODEM_68KPROXY_IMAGE_WIDTH') ?: 200));
-define('MAX_IMAGE_HEIGHT', (int)(getenv('RETROMODEM_PROXY_IMAGE_HEIGHT') ?: getenv('RETROMODEM_68KPROXY_IMAGE_HEIGHT') ?: 150));
+// Reload only numeric image limits from the local config for every request.
+// Never source/evaluate the file or expose other settings to the response.
+function retromodemImageDimension(string $key, string $legacy, int $fallback): int {
+    $path = getenv('RETROMODEM_CONFIG_FILE') ?: '/etc/retromodem/retromodem.env';
+    $local = [];
+    foreach (@file($path, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        if (preg_match('/^(RETROMODEM_(?:PROXY|68KPROXY)_IMAGE_(?:WIDTH|HEIGHT))=(.*)$/D', $line, $match)) {
+            $value = trim($match[2], " \t\r\n\"'");
+            if (ctype_digit($value) && (int)$value >= 16 && (int)$value <= 4096) {
+                $local[$match[1]] = (int)$value;
+            }
+        }
+    }
+    foreach ([$local[$key] ?? null, $local[$legacy] ?? null, getenv($key), getenv($legacy)] as $value) {
+        if (is_numeric($value) && (int)$value >= 16 && (int)$value <= 4096) return (int)$value;
+    }
+    return $fallback;
+}
+define('MAX_IMAGE_WIDTH', retromodemImageDimension('RETROMODEM_PROXY_IMAGE_WIDTH', 'RETROMODEM_68KPROXY_IMAGE_WIDTH', 200));
+define('MAX_IMAGE_HEIGHT', retromodemImageDimension('RETROMODEM_PROXY_IMAGE_HEIGHT', 'RETROMODEM_68KPROXY_IMAGE_HEIGHT', 150));
 define('MIN_IMAGE_SIZE', 32); // Verberg images kleiner dan 32x32
 define('JPG_QUALITY', 70); // JPG compressie kwaliteit (0-100)
 
