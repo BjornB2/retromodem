@@ -184,7 +184,7 @@ install -m 0755 "$PROJECT_DIR/scripts/verify-install" /usr/local/sbin/retromodem
 cc -O2 -Wall -I"$PROJECT_DIR/src/legacy-irda" \
     -o /usr/local/lib/retromodem/irpsion5-send \
     "$PROJECT_DIR/src/legacy-irda/irpsion5.c"
-cc -O2 -Wall -I"$PROJECT_DIR/src" \
+cc -O2 -Wall -I"$PROJECT_DIR/src/legacy-irda" \
     -o /usr/local/lib/retromodem/irda-modem-hints \
     "$PROJECT_DIR/src/irda-modem-hints.c"
 install -m 0755 "$PROJECT_DIR/web/web.py" /usr/local/lib/retromodem/web.py
