@@ -96,6 +96,34 @@ class RetroWebPaginationTests(unittest.TestCase):
         self.assertEqual(len(entire['pages']), 1)
         self.assertEqual(entire['first'].lower().count(b'<img'), 8)
 
+    def test_more_than_five_parts_preserve_all_text(self):
+        content = '<div id="article">' + ''.join(f'<p>Block {n}: ' + 'text ' * 180 + '</p>' for n in range(140)) + '<p>FINAL ARTICLE MARKER</p></div>'
+        response = self.paginate(content, limit=12000)
+        self.assertGreater(len(response['pages']), 5)
+        text, _ = self.article(response['pages'])
+        for n in range(140):
+            self.assertIn(f'Block {n}:', text)
+        self.assertIn('FINAL ARTICLE MARKER', text)
+        self.assertIn(b'FINAL ARTICLE MARKER', response['pages'][-1])
+
+    def test_sixth_image_starts_next_part_without_losing_content(self):
+        content = '<div id="article"><p>Start</p>' + ''.join(f'<img src="image-{n}.gif"><p>After image {n}</p>' for n in range(12)) + '<p>THE END</p></div>'
+        response = self.paginate(content, limit=18000, images=5)
+        self.assertEqual(len(response['pages']), 3)
+        self.assertEqual([page.lower().count(b'<img') for page in response['pages']], [5, 5, 2])
+        combined = b''.join(response['pages'])
+        for n in range(12):
+            self.assertEqual(combined.count(f'src="image-{n}.gif"'.encode()), 1)
+            self.assertIn(f'After image {n}'.encode(), combined)
+        self.assertIn(b'THE END', response['pages'][-1])
+
+    def test_larger_part_budgets(self):
+        content = '<div id="article">' + '<p>Long article text. </p>' * 18000 + '</div>'
+        for limit in range(25000, 200001, 25000):
+            response = self.paginate(content, limit=limit)
+            self.assertTrue(all(len(page) <= limit - 512 for page in response['pages']))
+            self.assertGreater(len(response['pages'][0]), 18000)
+
     def article(self, pages):
         text, links = [], []
         for page in pages:

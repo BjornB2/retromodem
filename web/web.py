@@ -475,7 +475,7 @@ def library_upload_form(language: str) -> str:
 
 
 def proxy_pagination_settings(page_size: str = "18000", page_images: str = "5") -> dict[str, str]:
-    if page_size not in {"12000", "18000", "0"} or page_images not in {str(n) for n in range(1, 11)}:
+    if page_size not in {"12000", "18000", "25000", "50000", "75000", "100000", "125000", "150000", "175000", "200000", "0"} or page_images not in {str(n) for n in range(1, 11)}:
         raise ValueError("Invalid pagination settings")
     return {"RETROMODEM_PROXY_PAGE_SIZE": page_size, "RETROMODEM_PROXY_PAGE_IMAGES": page_images}
 
@@ -504,6 +504,7 @@ def proxy_settings_card(language: str, config: dict[str, str]) -> str:
     page_options = ''.join(f'<option value="{value}" {"selected" if page_size == value else ""}>{label}</option>' for value, label in (
         ("12000", tr(language, "Klein — circa 12 kB", "Small — approximately 12 kB")),
         ("18000", tr(language, "Normaal — circa 18 kB (standaard)", "Normal — approximately 18 kB (default)")),
+        *((str(n * 1000), f"{n} kB") for n in range(25, 201, 25)),
         ("0", tr(language, "Volledige pagina — niet splitsen", "Entire page — no splitting"))))
     pagination_controls = f'''<h3>{tr(language,'Pagina’s opdelen','Page splitting')}</h3><label>{tr(language,'Paginagrootte','Page size')}</label><select name="page_size">{page_options}</select><label>{tr(language,'Maximaal afbeeldingen per deel','Maximum images per part')}</label><input type="number" name="page_images" min="1" max="10" value="{page_images}"><p class="helper">{tr(language,'Klein is bedoeld voor browsers met weinig geheugen. De grens telt HTML inclusief navigatie, niet het uitgepakte afbeeldingsgeheugen. Bij Volledige pagina wordt ook de afbeeldingslimiet genegeerd. Open een website opnieuw om de nieuwe instellingen te gebruiken; bestaande deellinks behouden hun oorspronkelijke verdeling.','Small is intended for low-memory browsers. The budget includes HTML and navigation, not decoded image memory. Entire page also disables the image count limit. Reopen a website to use new settings; existing part links retain their original split.')}</p>'''
     option = lambda value, label: f'<option value="{value}" {"selected" if mode == value else ""}>{label}</option>'

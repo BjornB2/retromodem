@@ -181,7 +181,7 @@ def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     mode = values.get("RETROMODEM_PROXY_IMAGE_MODE", "inline")
     page_size = values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000')
     page_images = values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5')
-    if page_size not in {'0', '12000', '18000'}:
+    if page_size not in {'0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000'}:
         page_size = '18000'
     if page_images not in {str(n) for n in range(1, 11)}:
         page_images = '5'

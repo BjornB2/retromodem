@@ -4,6 +4,12 @@ from web import web
 
 
 class PaginationSettingsTests(unittest.TestCase):
+    def test_larger_sizes_are_selectable_and_validated(self):
+        for size in ('25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000'):
+            self.assertEqual(web.proxy_pagination_settings(size)['RETROMODEM_PROXY_PAGE_SIZE'], size)
+            for language in ('nl', 'en'):
+                page = web.proxy_settings_card(language, {'RETROMODEM_PROXY_PAGE_SIZE': size})
+                self.assertIn(f'value="{size}" selected', page)
     def test_form_defaults_and_saved_choices_in_both_languages(self):
         for language in ('nl', 'en'):
             page = web.proxy_settings_card(language, {})
