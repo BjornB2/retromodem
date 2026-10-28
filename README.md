@@ -2,8 +2,8 @@
 
 > **Test version — not yet released.** The installer and SD image are being
 > prepared for clean-install testing on a Raspberry Pi 3B. A stable release
-> will follow after the acceptance tests pass. The private-repository installer
-> is ready for testing; there is no downloadable SD image yet.
+> will follow after the acceptance tests pass. This repository is temporarily
+> public for installation testing; there is no downloadable SD image yet.
 >
 > MY018 is the preferred infrared build. MA-620 is the USB infrared fallback;
 > Prolific USB-to-RS-232 is the main connection for computers without infrared.
@@ -73,8 +73,8 @@ tools or device-control permissions.
 
 ## Eerste installatie (in ontwikkeling)
 
-Volg de [schone-SD-installatiehandleiding](docs/INSTALL.md) voor downloaden uit
-de private repository en de adapterkeuze. Het bootstrap-script haalt één exact
+Volg de [schone-SD-installatiehandleiding](docs/INSTALL.md) voor het installatiecommando
+zonder GitHub-login en de adapterkeuze. Het bootstrap-script haalt één exact
 vastgelegde commit op. Je bestaande SSH-account uit Raspberry Pi Imager blijft
 behouden; er wordt geen extra account met een vast SSH-wachtwoord aangemaakt.
 

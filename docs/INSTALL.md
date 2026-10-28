@@ -1,6 +1,6 @@
 # Clean-SD installation test
 
-This is the test procedure for the private `BjornB2/retromodem` repository.
+This is the test procedure for `BjornB2/retromodem`, temporarily public for testing.
 Use a clean second SD card in the Pi 3B. Keep the working SD card as your
 reference. The installer is prepared for Raspberry Pi OS Legacy Bookworm
 32-bit Lite; physical clean-install acceptance is still required.
@@ -10,11 +10,30 @@ reference. The installer is prepared for Raspberry Pi OS Legacy Bookworm
 1. Flash **Raspberry Pi OS Legacy Bookworm (32-bit) Lite** with Raspberry Pi Imager.
 2. Set your own SSH username, password/key, Wi-Fi and locale in Imager.
 3. Boot the Pi and connect over SSH using that account.
-4. Select a full 40-character commit SHA from the private GitHub repository.
+4. Use the pinned candidate below, or select a full 40-character commit SHA.
    Use the same commit for both the bootstrap and its source download. Record
    that SHA in the test report; do not use a moving branch such as `main`.
 
-## Download from the private repository
+## Single-command installation (no GitHub login)
+
+> **Test version:** clean-SD acceptance is in progress. Keep the working card
+> available. No stable release date is guaranteed.
+
+For the preferred MY018 build, paste this into the SSH session as your own
+Imager user. It downloads the pinned candidate and asks for the documented
+MY018 wiring confirmation before installation:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/a54a0555cb705774a07b9409e1c8ed87c8702d1b/bootstrap.sh | sh -s -- --ref a54a0555cb705774a07b9409e1c8ed87c8702d1b --adapter my018
+```
+
+For the main RS-232 route, replace `--adapter my018` with `--adapter serial`.
+For the MA-620 infrared fallback use `--adapter ma620`.
+
+After installation, continue at **Reboot and verify** below. The following
+authentication procedure is only needed if the repository is made private again.
+
+## Download when the repository is private
 
 Private GitHub files require authentication. Make a temporary fine-grained
 GitHub token with **Contents: read-only** access to only `BjornB2/retromodem`.
@@ -120,9 +139,9 @@ Record the selected adapter and source commit, then follow
 Installer and image acceptance are separate checks; no downloadable image is
 provided yet.
 
-## After the repository becomes public
+## Download integrity
 
-The same bootstrap can download a pinned commit without any token. The final
-release guide will provide the concrete tested SHA and download command.
+The bootstrap can download a pinned commit without a token while the repository
+is public. Both the script URL and source revision above point to the same commit.
 HTTPS plus a pinned Git commit identifies the requested source revision; the
 bootstrap does not claim an independently verified release-archive checksum.

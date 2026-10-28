@@ -1,6 +1,7 @@
 # Publication preparation
 
-This is the private preparation repository for the first RetroModem release.
+This is the preparation repository for the first RetroModem release, temporarily
+public for single-command installation testing. It is not a stable release.
 Snapshot date: 2026-10-28. It contains 92 selected development-source files,
 plus repository metadata. The publication branch now also contains the
 bootstrap, adapter configuration helper and their tests.
@@ -42,5 +43,6 @@ Redistribution terms and guide-image provenance still need recording.
 The personal SD backup, local administration files, credentials, logs and
 development caches are not included. Do not add device-state backups here.
 
-Keep this repository private until release checks are complete. Before making
-it public, review the full Git history and any Actions logs/artifacts as well.
+The owner authorized temporary public access for clean-SD installation testing.
+The tracked Git history was checked before changing visibility. Final release
+checks, including license documentation and physical acceptance, remain pending.
