@@ -162,15 +162,18 @@ if ($targetUrl === false) {
 
 // Fetch once: retain cookies and use the same response for type detection and extraction.
 require_once __DIR__ . '/upstream.php';
-$upstream = fetchModemUpstream($targetUrl);
+$upstream = fetchModemUpstream($targetUrl, ($_GET['http_fallback'] ?? '') === '1');
 $targetUrl = $upstream['url'];
 $contentType = $upstream['type'];
 $prefetchedContent = $upstream['body'];
 $upstreamProblem = modemUpstreamProblem($upstream);
 if ($upstreamProblem !== null) {
-    $page = '<html><head><title>Website niet beschikbaar</title></head><body><h1>Website niet beschikbaar</h1><p>'
+    $problemTitle = modemText('Website niet beschikbaar', 'Website unavailable');
+    $retrySeconds = (int)($upstream['retry_seconds'] ?? 15);
+    $page = '<html><head><title>' . $problemTitle . '</title><meta name="retromodem-source-error" content="1">'
+        . '<meta name="retromodem-retry-seconds" content="' . $retrySeconds . '"></head><body><h1>' . $problemTitle . '</h1><p>'
         . htmlspecialchars($upstreamProblem) . '</p><p>Webadres: ' . htmlspecialchars($targetUrl)
-        . '</p><p>Probeer het later opnieuw. Deze browser kan geen JavaScript-controle uitvoeren.</p></body></html>';
+        . '</p>' . ($upstream['status'] === 429 ? '<p>' . modemText('Wacht ongeveer ', 'Wait approximately ') . $retrySeconds . modemText(' seconden voor een nieuwe poging.', ' seconds before trying again.') . '</p>' : '') . '</body></html>';
     sendHttp10Response(200);
     header('Content-Type: text/html; charset=iso-8859-1');
     setHttp10Headers(strlen($page));
@@ -678,6 +681,12 @@ if (!empty($colors['link'])) {
 
 // Split only after extraction, cleanup, link and image rewriting. The paginator
 // budgets the actual ISO-8859-1 output including both navigation bars.
+if (($upstream['transport_note'] ?? '') === 'http-fallback') {
+    $content = '<p><b>' . modemText('Deze oude website werkt alleen via onversleuteld HTTP.', 'This legacy website only works over unencrypted HTTP.') . '</b></p>' . $content;
+}
+if (($upstream['transport_note'] ?? '') === 'original-wikipedia') {
+    $content = '<p><b>' . modemText('Wikiwand blokkeert de proxy. Hieronder staat het oorspronkelijke Wikipedia-artikel.', 'Wikiwand blocks the proxy. The original Wikipedia article is shown below.') . '</b></p>' . $content;
+}
 try {
     $htmlOutput = $pagePaginator->first($content, $title, renderNavigation($imageMode), $bodyAttrs, $baseUrl, $imageMode);
     sendHttp10Response(200);

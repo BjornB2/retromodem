@@ -9,6 +9,14 @@ from web import web
 
 
 class ConfigTests(unittest.TestCase):
+    def test_connection_mode_labels_keep_existing_two_backends(self):
+        source = Path(web.__file__).read_text()
+        self.assertIn("Direct internet (PPP)", source)
+        self.assertIn("Inbelmodem (Dial-Up) en BBS", source)
+        self.assertIn('<option value="ppp"', source)
+        self.assertIn('<option value="dialup"', source)
+        self.assertNotIn('<option value="bbs"', source)
+
     def test_combined_budget_and_translated_settings(self):
         dutch = web.proxy_settings_card("nl", {})
         english = web.proxy_settings_card("en", {})

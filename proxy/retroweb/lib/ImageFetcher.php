@@ -37,7 +37,8 @@ class RetroWebImageFetcher
         if ($octets[0] === 0 || $octets[0] >= 224 || $octets[0] === 127) return false;
         if ($octets[0] === 100 && $octets[1] >= 64 && $octets[1] <= 127) return false;
         if ($octets[0] === 198 && in_array($octets[1], [18, 19], true)) return false;
-        if (($octets[0] === 192 && $octets[1] === 0) || ($octets[0] === 198 && $octets[1] === 51 && $octets[2] === 100)
+        if (($octets[0] === 192 && $octets[1] === 0 && in_array($octets[2], [0, 2], true))
+            || ($octets[0] === 198 && $octets[1] === 51 && $octets[2] === 100)
             || ($octets[0] === 203 && $octets[1] === 0 && $octets[2] === 113)) return false;
         return true;
     }

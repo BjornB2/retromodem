@@ -50,6 +50,26 @@ serving an unbounded old page.
 Small functional images, links and labels are retained. Removed site-wide
 images are not blindly appended after the article. Resize hints survive the
 internal image route; images load individually, not as a preflight of the page.
+Snapshot framing metadata is base64-encoded like the HTML payloads, preserving
+Latin-1 bytes without triggering JSON UTF-8 errors (HTTP 500). Older valid
+snapshots remain readable.
+
+Search results include the source's short description where available. Provider
+continuation forms are stored server-side behind bounded, temporary local page
+tokens; More/Previous results do not accept arbitrary upstream URLs. Previous
+pages use cached results. The number of results per page is controlled by the
+search provider, and anti-bot restrictions can still interrupt searching.
+
+Public WordPress image addresses in 192.0.78/24 are allowed; special-use address
+blocks and private/loopback targets remain blocked. Known source transport
+failures no longer surface as uncaught internal 500 errors. HTTP-origin browser
+requests may recover from an unsupported TLS handshake over plain HTTP, with a
+visible notice. Explicit HTTPS requests and certificate failures never use this
+recovery. Wikiwand refusals can use the original Wikipedia article. Source 429
+responses respect bounded host backoff (Retry-After, maximum five minutes).
+Search credits identify RetroWEB and the actual search provider. External
+reader services are not enabled. Cloudflare-protected pages are not guaranteed
+to work, including with local headless Chromium.
 In inline view the part budget combines transmitted HTML bytes and an estimated
 image weight of one byte per displayed pixel (the indexed GIF raster). In links
 view only HTML counts, so it can have fewer parts. This is a pagination weight,

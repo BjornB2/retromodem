@@ -47,7 +47,7 @@ class RetroWebPagePaginator
             return htmlspecialchars(rtrim($base, '/') . '/proxy.php?' . http_build_query($query), ENT_QUOTES, 'ISO-8859-1');
         };
         $images = $this->tr('Afbeeldingen: ', 'Images: ');
-        foreach (['inline' => $this->tr('Afbeeldingen laten zien', 'Inline'), 'links' => $this->tr('Als links', 'As links')] as $value => $label) {
+        foreach (['inline' => $this->tr('Laten zien', 'Inline'), 'links' => $this->tr('als links', 'As links')] as $value => $label) {
             if ($value !== 'inline') $images .= ' | ';
             $images .= $mode === $value ? '<b>' . $label . '</b>'
                 : '<a href="' . $url($all ? 'all' : $part, $value, $all ? null : $block) . '">' . $label . '</a>';
@@ -434,7 +434,17 @@ class RetroWebPagePaginator
 
     private function save(string $token, array $snapshot): void
     {
-        $encoded = json_encode($snapshot, JSON_THROW_ON_ERROR);
+        // Output is deliberately Latin-1 HTML, whereas JSON requires UTF-8.
+        // Preserve framing bytes just as we already preserve content/pages.
+        $stored = $snapshot;
+        foreach (['title', 'navigation', 'body_attrs', 'base_url'] as $field) {
+            if (!isset($stored[$field]) || !is_string($stored[$field])) {
+                throw new RuntimeException('Invalid snapshot metadata');
+            }
+            $stored[$field] = base64_encode($stored[$field]);
+        }
+        $stored['metadata_encoding'] = 'base64';
+        $encoded = json_encode($stored, JSON_THROW_ON_ERROR);
         if (!is_dir($this->directory) && !mkdir($this->directory, 0700, true) && !is_dir($this->directory)) {
             throw new RuntimeException('Pagination cache unavailable');
         }
@@ -472,7 +482,7 @@ class RetroWebPagePaginator
         foreach (['inline', 'links'] as $imageMode) {
             $variants[$imageMode] = $this->renderVariant($canonical, $title, $navigation, $bodyAttrs, $baseUrl, $token, $imageMode);
         }
-        $snapshot = ['schema_version' => 3, 'language' => $this->language, 'weight_policy' => 'html-plus-pixels-v3-image-label',
+        $snapshot = ['schema_version' => 3, 'language' => $this->language, 'weight_policy' => 'html-plus-pixels-v4-compact-label',
                      'created' => time(), 'default_mode' => $mode,
                      'content' => base64_encode($canonical), 'title' => $title,
                      'navigation' => $navigation, 'body_attrs' => $bodyAttrs, 'base_url' => $baseUrl,
@@ -502,6 +512,17 @@ class RetroWebPagePaginator
             return $error(404, 'Pagina verlopen. Open de oorspronkelijke pagina opnieuw.',
                 'Page snapshot expired. Open the original page again.');
         }
+        if (($snapshot['metadata_encoding'] ?? null) === 'base64') {
+            foreach (['title', 'navigation', 'body_attrs', 'base_url'] as $field) {
+                $decoded = isset($snapshot[$field]) && is_string($snapshot[$field])
+                    ? base64_decode($snapshot[$field], true) : false;
+                if ($decoded === false) {
+                    return $error(410, 'Pagina beschadigd. Open de oorspronkelijke pagina opnieuw.',
+                        'Page snapshot damaged. Open the original page again.');
+                }
+                $snapshot[$field] = $decoded;
+            }
+        }
         if (!in_array($snapshot['schema_version'] ?? null, [2, 3], true)) {
             return $error(410, 'Deze oude pagina is vervallen. Open de oorspronkelijke pagina opnieuw.',
                 'This old page has been retired. Open the original page again.');
@@ -509,7 +530,7 @@ class RetroWebPagePaginator
         // Rebuild old canonical snapshots locally under the current language
         // and combined-budget policy. Keep their original page-size setting.
         if (($snapshot['language'] ?? null) !== $this->language
-            || ($snapshot['weight_policy'] ?? null) !== 'html-plus-pixels-v3-image-label') {
+            || ($snapshot['weight_policy'] ?? null) !== 'html-plus-pixels-v4-compact-label') {
             $canonical = isset($snapshot['content']) && is_string($snapshot['content'])
                 ? base64_decode($snapshot['content'], true) : false;
             if ($canonical === false || !isset($snapshot['title'], $snapshot['navigation'], $snapshot['body_attrs'],
@@ -528,7 +549,7 @@ class RetroWebPagePaginator
                 $snapshot['variants'] = $variants;
                 $snapshot['schema_version'] = 3;
                 $snapshot['language'] = $this->language;
-                $snapshot['weight_policy'] = 'html-plus-pixels-v3-image-label';
+                $snapshot['weight_policy'] = 'html-plus-pixels-v4-compact-label';
                 $this->save($token, $snapshot);
             } catch (Throwable $failure) {
                 return $error(503, 'De pagina kon niet opnieuw worden ingedeeld. Probeer het later opnieuw.',

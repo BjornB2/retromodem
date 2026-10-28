@@ -3,7 +3,7 @@
 This is the private preparation repository for the first RetroModem release.
 It was temporarily public for installation testing and is private again.
 It is not a stable release. Snapshot date: 2026-10-28.
-The development selection contains 109 source files,
+The development selection contains 111 source files,
 plus repository metadata. The publication branch now also contains the
 bootstrap, adapter configuration helper and their tests.
 
@@ -23,7 +23,7 @@ The publication installer has offline tests for adapter selection, boot changes,
 configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
-All 240 Python unit tests pass on the development computer; installer,
+All 256 Python unit tests pass on the development computer; installer,
 bootstrap and verifier shell syntax checks also pass.
 The DKMS inventory now follows target-kernel capabilities; unsupported ISA/PCI
 drivers are not required on the Pi. Full clean-SD acceptance remains pending.
@@ -38,6 +38,16 @@ image pixels, not download bytes. Tweakers main-content selection and duplicate
 nested articles are fixed; upstream consent pages can still prevent a fetch.
 See docs/FEATURE-UPDATES.md. Physical browser memory acceptance and a new
 clean-SD run remain required.
+
+The next clean-SD candidate also contains the byte-safe snapshot encoding fix,
+search descriptions and cached next/previous results, corrected public-IP image
+validation, explicit HTTP-origin recovery for legacy TLS-incompatible sites,
+source-error handling and bounded 429 backoff. Live Pi checks passed for McGST
+image conversion, Foldsoc, Wikiwand/Wikipedia recovery and search credits.
+The browser fallback is not included: isolated local Chromium tests still got
+Cloudflare challenges on Psionex, including after JavaScript waiting. Cloudflare
+pages remain an explicit unresolved limitation. No external reader service is
+used. Do not describe the next installation candidate as universal web access.
 
 ## Outstanding before release
 

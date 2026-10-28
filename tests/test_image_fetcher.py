@@ -55,6 +55,15 @@ class ImageFetcherTests(unittest.TestCase):
         self.assertIn("CURLOPT_PROXY => ''", source)
         self.assertIn('CURLOPT_WRITEFUNCTION', source)
 
+    def test_public_wordpress_network_is_not_confused_with_special_use_subnets(self):
+        for ip in ('192.0.78.24', '192.0.78.25', '192.0.1.1', '192.0.255.1'):
+            response = self.fetch(dns={'example.org': [ip]})
+            self.assertEqual(response['result']['status'], 200, ip)
+        for ip in ('192.0.0.8', '192.0.2.1'):
+            response = self.fetch(dns={'example.org': [ip]})
+            self.assertEqual(response['result']['status'], 403, ip)
+            self.assertEqual(response['calls'], [])
+
     def test_private_local_credentials_and_non_http_rejected(self):
         for url in ('file:///etc/passwd', 'http://localhost/x', 'http://127.0.0.2/x',
                     'http://10.0.0.1/x', 'http://192.168.0.1/x', 'http://169.254.169.254/x',

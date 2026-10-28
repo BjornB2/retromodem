@@ -22,7 +22,7 @@ if (isset($in['token'])) {
     $result = $p->read($in['token'], $in['part'], $in['mode'] ?? null, $in['block'] ?? null);
     echo json_encode(['status'=>$result['status'],'html'=>base64_encode($result['html'])]);
 } else {
-    $first = $p->first(base64_decode($in['content']), 'Article', '<p>Reload page</p>', '',
+    $first = $p->first(base64_decode($in['content']), isset($in['title']) ? base64_decode($in['title']) : 'Article', '<p>Reload page</p>', '',
                        'http://127.0.0.1:8090', $in['mode'] ?? 'inline');
     preg_match('/document=([a-f0-9]{64})/', $first, $match);
     echo json_encode(['status'=>200,'token'=>$match[1],'html'=>base64_encode($first)]);
@@ -51,6 +51,23 @@ class DocumentVariantTests(unittest.TestCase):
 
     def snapshot(self, token):
         return json.loads((self.cache / ('pagination-' + token + '.json')).read_text())
+
+    def old_metadata(self, snapshot):
+        if snapshot.pop('metadata_encoding', None) == 'base64':
+            for field in ('title', 'navigation', 'body_attrs', 'base_url'):
+                snapshot[field] = base64.b64decode(snapshot[field]).decode('iso-8859-1')
+        return snapshot
+
+    def test_latin1_framing_is_byte_exact_after_save_reload_and_language_rebuild(self):
+        title = b'Psion caf\xe9 \x81 review'
+        first = self.first('<p>Body</p>', title=base64.b64encode(title).decode())
+        self.assertIn(title, first['html'])
+        self.assertEqual(self.snapshot(first['token'])['metadata_encoding'], 'base64')
+        again = self.invoke(token=first['token'], part='1', mode='inline')
+        self.assertEqual(first['html'], again['html'])
+        rebuilt = self.invoke(token=first['token'], part='1', mode='links', language='nl')
+        self.assertEqual(rebuilt['status'], 200)
+        self.assertIn(title, rebuilt['html'])
 
     def test_short_page_has_both_views_without_fetching_images(self):
         content = '<p>Hello <img src="http://unreachable.invalid/photo.gif" width="40" height="30" alt="A photo" data-rm-link-label="Image 1: A photo"></p>'
@@ -162,7 +179,7 @@ class DocumentVariantTests(unittest.TestCase):
         content = '<img src="huge.gif" width="500" height="500" data-rm-link-label="Image 1: Big">'
         dutch = self.first(content, language='nl')
         page = dutch['html']
-        for control in (b'Afbeeldingen:', b'Afbeeldingen laten zien', b'Als links', b'Deel 1 van', b'Volledige pagina tonen'):
+        for control in (b'Afbeeldingen:', b'Laten zien', b'als links', b'Deel 1 van', b'Volledige pagina tonen'):
             self.assertIn(control, page)
             self.assertLess(page.index(control), page.index(b'<h1>'))
         self.assertIn(b'[Afbeelding 1: Big]', page)
@@ -179,6 +196,7 @@ class DocumentVariantTests(unittest.TestCase):
         content = '<p>Photos</p>' + '<img src="x.gif" width="100" height="100" data-rm-link-label="Image 1: Photo">' * 6
         original = self.first(content, limit=25000)
         snapshot = self.snapshot(original['token'])
+        snapshot = self.old_metadata(snapshot)
         snapshot['schema_version'] = 2
         snapshot.pop('language')
         snapshot.pop('weight_policy')
@@ -198,6 +216,7 @@ class DocumentVariantTests(unittest.TestCase):
     def test_existing_same_language_snapshot_loses_obsolete_reload_control(self):
         original = self.first('<p>Content</p>', language='nl')
         snapshot = self.snapshot(original['token'])
+        snapshot = self.old_metadata(snapshot)
         snapshot['weight_policy'] = 'html-plus-pixels-v1'
         snapshot['navigation'] = '<p><a href="https://example.org/">Pagina opnieuw ophalen</a></p><hr>'
         snapshot['variants']['inline']['pages'] = [base64.b64encode(b'OLD RELOAD CONTROL').decode()]

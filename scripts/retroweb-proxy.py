@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import concurrent.futures
 import http.client
 import threading
@@ -295,7 +296,7 @@ def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     key = (url, values.get('RETROMODEM_PROXY_IMAGE_MODE', 'inline'),
            values.get('RETROMODEM_PROXY_IMAGE_WIDTH', ''), values.get('RETROMODEM_PROXY_IMAGE_HEIGHT', ''),
            values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000'), values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5'),
-           options['lang'])
+           options['lang'], values.get('RETROMODEM_PROXY_HTTP_FALLBACK', '0'))
     with _cache_lock:
         cached = _cache.get(key)
         if cached and cached[0] > time.monotonic():
@@ -313,7 +314,8 @@ def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
             # Bound total memory as well as entry count on the Pi.
             while _cache and (len(_cache) >= 32 or sum(len(v[1][0]) for v in _cache.values()) + len(result[0]) > 16 * 1024 * 1024):
                 del _cache[next(iter(_cache))]
-            ttl = 15 if b'<title>Website niet beschikbaar</title>' in result[0] else 60
+            retry = re.search(rb'name="retromodem-retry-seconds" content="([0-9]+)"', result[0])
+            ttl = min(300, max(1, int(retry[1]))) if retry else (15 if b'retromodem-source-error' in result[0] else 60)
             _cache[key] = (time.monotonic() + ttl, result)
         future.set_result(result)
         return result
@@ -335,6 +337,7 @@ def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
         page_images = '5'
     endpoint = "http://127.0.0.1:8090/proxy.php?" + urllib.parse.urlencode({
         "url": url, "img": mode, "page_size": page_size, "page_images": page_images,
+        "http_fallback": '1' if values.get('RETROMODEM_PROXY_HTTP_FALLBACK') == '1' else '0',
         **rendering_options()})
     request = urllib.request.Request(endpoint, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=45) as response:
@@ -352,46 +355,123 @@ def likely_document(url: str) -> bool:
     return not any(path.endswith(suffix) for suffix in NON_DOCUMENT_SUFFIXES)
 
 
-def search_page(query: str = "", language: str | None = None) -> bytes:
+_search_pages = {}
+_search_lock = threading.Lock()
+_SEARCH_UA = "Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+
+
+def new_search_page(query, parameters=None, previous=None, number=1):
+    token = secrets.token_hex(16)
+    now = time.monotonic()
+    with _search_lock:
+        for expired in [key for key, value in _search_pages.items() if value['expires'] < now]:
+            del _search_pages[expired]
+        while len(_search_pages) >= 64:
+            del _search_pages[next(iter(_search_pages))]
+        _search_pages[token] = dict(query=query, parameters=parameters, previous=previous,
+                                    number=number, expires=now + 1200, results=None, next=None)
+    return token
+
+
+def search_document(query, parameters=None):
+    endpoint = 'https://html.duckduckgo.com/html/'
+    payload = urllib.parse.urlencode(parameters).encode() if parameters is not None else None
+    url = endpoint if payload is not None else endpoint + '?' + urllib.parse.urlencode({'q': query})
+    request = urllib.request.Request(url, data=payload, headers={'User-Agent': _SEARCH_UA, 'Accept': 'text/html',
+                                                               'Referer': 'https://duckduckgo.com/'})
+    with urllib.request.urlopen(request, timeout=20) as response:
+        soup = BeautifulSoup(response.read(2 * 1024 * 1024), 'html.parser')
+    links = soup.select('a.result__a, a.result-link')
+    provider = 'duckduckgo'
+    if not links and parameters is None:
+        provider = 'startpage'
+        fallback = 'https://www.startpage.com/sp/search?' + urllib.parse.urlencode({'query': query, 'language': 'english'})
+        request = urllib.request.Request(fallback, headers={'User-Agent': _SEARCH_UA, 'Accept': 'text/html'})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            soup = BeautifulSoup(response.read(2 * 1024 * 1024), 'html.parser')
+        links = soup.select("a.result-link, a.w-gl__result-title, a[href*='/sp/click']")
+    results, seen = [], set()
+    for link in links[:50]:
+        href = link.get('href', '')
+        parsed = urllib.parse.urlsplit(href)
+        redirect = urllib.parse.parse_qs(parsed.query).get('uddg', [])
+        if redirect and (not parsed.netloc or parsed.hostname in {'duckduckgo.com', 'www.duckduckgo.com'}):
+            href = redirect[0]
+        title = link.get_text(' ', strip=True)
+        if not href.startswith(('http://', 'https://')) or not title or href in seen:
+            continue
+        block = link.find_parent(class_='result') or link.find_parent(class_='w-gl__result') or link.find_parent('article')
+        snippet = block.select_one('.result__snippet, .w-gl__description, .result-snippet, .description') if block else None
+        summary = ' '.join(snippet.get_text(' ', strip=True).split())[:800] if snippet else ''
+        results.append((title[:500], href, summary))
+        seen.add(href)
+    continuation = None
+    if provider == 'duckduckgo' and results:
+        offset = int((parameters or {}).get('s', '0'))
+        allowed = {'q', 's', 'nextParams', 'v', 'o', 'dc', 'api', 'vqd', 'kl', 'df'}
+        for form in soup.select('form'):
+            action = urllib.parse.urljoin(endpoint, form.get('action', ''))
+            if action.rstrip('/') != endpoint.rstrip('/'):
+                continue
+            fields = {item.get('name'): item.get('value', '') for item in form.select('input[name]')
+                      if item.get('name') in allowed and len(item.get('value', '')) <= 4096}
+            if fields.get('s', '').isdigit() and int(fields['s']) > offset:
+                fields['q'] = query
+                continuation = fields
+                break
+    return results, continuation, provider
+
+
+def search_results_page(query, token=''):
+    if not token:
+        token = new_search_page(query)
+    with _search_lock:
+        entry = _search_pages.get(token)
+        if not re.fullmatch('[a-f0-9]{32}', token) or not entry or entry['expires'] < time.monotonic() or entry['query'] != query:
+            raise ValueError('Expired search page')
+    if entry['results'] is None:
+        results, continuation, provider = search_document(query, entry['parameters'])
+        next_token = new_search_page(query, continuation, token, entry['number'] + 1) if continuation else None
+        with _search_lock:
+            entry.update(results=results, next=next_token, provider=provider)
+    return entry
+
+
+def search_page(query: str = "", language: str | None = None, page_token: str = '') -> bytes:
     language = language or local_ui.language()
     t = lambda nl, en: local_ui.tr(language, nl, en)
     items = ""
+    search_credit = '<a href="http://duckduckgo.com/">DuckDuckGo</a> / <a href="http://www.startpage.com/">Startpage</a>'
     if query:
         if re.match(r"^(?:https?://)?[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?:/|$)", query):
             target = query if query.startswith(("http://", "https://")) else "http://" + query
             items = '<p><a href="%s">Open %s</a></p>' % (html.escape(browser_url(target), quote=True), html.escape(query))
         else:
             try:
-                url = "https://html.duckduckgo.com/html/?" + urllib.parse.urlencode({"q": query})
-                request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 Chrome/120 Safari/537.36", "Accept": "text/html", "Referer": "https://duckduckgo.com/"})
-                with urllib.request.urlopen(request, timeout=20) as response:
-                    data = response.read(2 * 1024 * 1024)
-                soup = BeautifulSoup(data, "html.parser")
-                rows = []
-                links = soup.select("a.result__a, a.result-link")
-                if not links:
-                    fallback = "https://www.startpage.com/sp/search?" + urllib.parse.urlencode({"query": query, "language": "english"})
-                    request = urllib.request.Request(fallback, headers={"User-Agent": "Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 Chrome/120 Safari/537.36", "Accept": "text/html"})
-                    with urllib.request.urlopen(request, timeout=20) as response:
-                        soup = BeautifulSoup(response.read(2 * 1024 * 1024), "html.parser")
-                    links = soup.select("a.result-link, a.w-gl__result-title, a[href*='/sp/click']")
-                for link in links[:20]:
-                    href = link.get("href", "")
-                    parsed = urllib.parse.urlsplit(href)
-                    redirect = urllib.parse.parse_qs(parsed.query).get("uddg", [])
-                    if redirect:
-                        href = redirect[0]
-                    if href.startswith(("http://", "https://")):
-                        rows.append('<li><a href="%s">%s</a></li>' % (html.escape(browser_url(href), quote=True), html.escape(link.get_text(" ", strip=True))))
+                entry = search_results_page(query, page_token)
+                search_credit = ('<a href="http://www.startpage.com/">Startpage</a>' if entry['provider'] == 'startpage'
+                                 else '<a href="http://duckduckgo.com/">DuckDuckGo</a>')
+                rows = ['<li><a href="%s">%s</a>%s</li>' % (
+                    html.escape(browser_url(href), quote=True), html.escape(title),
+                    '<p>' + html.escape(summary) + '</p>' if summary else '')
+                    for title, href, summary in entry['results']]
                 items = '<h2>' + t('Zoekresultaten', 'Search results') + '</h2><ol>' + ''.join(rows) + '</ol>' if rows else '<p>' + t('Geen resultaten gevonden.', 'No results found.') + '</p>'
+                navigation = []
+                for key, label in [('previous', t('Vorige resultaten', 'Previous results')), ('next', t('Meer resultaten', 'More results'))]:
+                    if entry[key]:
+                        target = '/?' + urllib.parse.urlencode({'q': query, 'page': entry[key]})
+                        navigation.append('<a href="' + html.escape(target, quote=True) + '">' + label + '</a>')
+                if navigation:
+                    items += '<p>' + t('Pagina ', 'Page ') + str(entry['number']) + ' | ' + ' | '.join(navigation) + '</p>'
             except (OSError, ValueError, urllib.error.URLError):
                 items = '<p>' + t('Zoeken is tijdelijk niet beschikbaar.', 'Search is temporarily unavailable.') + '</p>'
     title = t('RetroWEB zoeken', 'RetroWEB search')
     page = ('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 2.0//EN"><html><head><title>' + title + '</title></head><body>'
             '<h1>' + title + '</h1><p>' + t('Zoek het web of voer een webadres in.', 'Search the web or enter a web address.') + '</p>'
             '<form method="get" action="/"><input type="text" name="q" size="40" value="%s"> '
-            '<input type="submit" value="' + t('Zoeken / Openen', 'Search / Open') + '"></form>%s<hr><p>' + t('Gebaseerd op ', 'Based on ') +
-            '<a href="http://retroweb.bjrno.com">RetroWEB</a> | <a href="http://chatgpt.retromodem/">ChatGPT</a></p></body></html>') % (html.escape(query, quote=True), items)
+            '<input type="submit" value="' + t('Zoeken / Openen', 'Search / Open') + '"></form>%s<hr><p>' + t('Powered by ', 'Powered by ') +
+            '<a href="http://retroweb.bjrno.com">RetroWEB</a> | <a href="http://chatgpt.retromodem/">ChatGPT</a><br>' +
+            t('Zoeken via ', 'Search powered by ') + search_credit + '</p></body></html>') % (html.escape(query, quote=True), items)
     return page.encode("iso-8859-1", "xmlcharrefreplace")
 
 
@@ -480,14 +560,17 @@ class Handler(BaseHTTPRequestHandler):
                         self.reply(b'<html><body><h1>Page unavailable</h1><p>This page reference is invalid or expired. Open the original page again.</p></body></html>',
                                    'text/html; charset=iso-8859-1', status)
                     return
-                query = urllib.parse.parse_qs(parsed.query).get("q", [""])[0].strip()[:500]
-                self.reply(search_page(query), "text/html; charset=iso-8859-1")
+                search_args = urllib.parse.parse_qs(parsed.query)
+                query = search_args.get("q", [""])[0].strip()[:500]
+                token = search_args.get('page', [''])[0][:128]
+                self.reply(search_page(query, page_token=token), "text/html; charset=iso-8859-1")
                 return
             excluded = is_excluded(host, values)
             if excluded:
                 data, content_type, _ = fetch(original, MAX_DOCUMENT)
                 self.reply(data, content_type)
             elif likely_document(original):
+                values['RETROMODEM_PROXY_HTTP_FALLBACK'] = '1' if parsed.scheme == 'http' else '0'
                 self.reply_retroweb_live(upstream_url(original, False), values)
             else:
                 data, content_type = fetch_retroweb(upstream_url(original, False), values)
