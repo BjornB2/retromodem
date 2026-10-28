@@ -89,21 +89,28 @@ class CustomDOMExtractor extends BaseContentExtractor {
             // Eerst proberen semantische HTML5 tags
             $contentNodes = [];
             
-            // Prioriteit 1: <article> tag
-            $articles = $xpath->query('//article');
-            if ($articles->length > 0) {
-                foreach ($articles as $article) {
-                    $contentNodes[] = $article;
+            // Prefer the page's explicit main landmark. On overview pages,
+            // articles can be individual headlines rather than the whole page.
+            $mains = $xpath->query('//main | //*[@role="main"]');
+            foreach ($mains as $main) {
+                $nested = false;
+                for ($parent = $main->parentNode; $parent instanceof \DOMElement; $parent = $parent->parentNode) {
+                    if ($parent->tagName === 'main' || $parent->getAttribute('role') === 'main') {
+                        $nested = true;
+                        break;
+                    }
+                }
+                if (!$nested) {
+                    $contentNodes[] = $main;
                 }
             }
-            
-            // Prioriteit 2: <main> tag
+
+            // Without a main landmark, retain outer articles only: nested
+            // articles are already included in their parent's serialized HTML.
             if (empty($contentNodes)) {
-                $mains = $xpath->query('//main');
-                if ($mains->length > 0) {
-                    foreach ($mains as $main) {
-                        $contentNodes[] = $main;
-                    }
+                $articles = $xpath->query('//article[not(ancestor::article)]');
+                foreach ($articles as $article) {
+                    $contentNodes[] = $article;
                 }
             }
             

@@ -85,7 +85,7 @@ class RetroWebPaginationTests(unittest.TestCase):
         return response
 
     def test_small_preset_and_entire_page_ignore_legacy_image_limit(self):
-        content = '<div id="article">' + '<p>Lots of text here. </p>' * 1800 + '<img src="a.gif">' * 8 + '</div>'
+        content = '<div id="article">' + '<p>Lots of text here. </p>' * 1800 + '<img src="a.gif" width="8" height="8">' * 8 + '</div>'
         small = self.paginate(content, limit=12000, images=2)
         self.assertGreater(len(small['pages']), 1)
         for page in small['pages']:
@@ -107,7 +107,7 @@ class RetroWebPaginationTests(unittest.TestCase):
         self.assertIn(b'FINAL ARTICLE MARKER', response['pages'][-1])
 
     def test_sixth_image_does_not_start_a_new_part(self):
-        content = '<div id="article"><p>Start</p>' + ''.join(f'<img src="image-{n}.gif"><p>After image {n}</p>' for n in range(12)) + '<p>THE END</p></div>'
+        content = '<div id="article"><p>Start</p>' + ''.join(f'<img src="image-{n}.gif" width="12" height="12"><p>After image {n}</p>' for n in range(12)) + '<p>THE END</p></div>'
         response = self.paginate(content, limit=18000, images=5)
         self.assertEqual(len(response['pages']), 1)
         self.assertEqual([page.lower().count(b'<img') for page in response['pages']], [12])
@@ -118,7 +118,7 @@ class RetroWebPaginationTests(unittest.TestCase):
         self.assertIn(b'THE END', response['pages'][-1])
 
     def test_no_image_limit_still_enforces_byte_budget(self):
-        content = '<div id="article">' + '<img src="a.gif">' * 49 + '<p>' + 'word ' * 12000 + '</p></div>'
+        content = '<div id="article">' + '<img src="a.gif" width="12" height="9">' * 49 + '<p>' + 'word ' * 12000 + '</p></div>'
         large = self.paginate(content, limit=100000, images=0)
         self.assertEqual(len(large['pages']), 1)
         self.assertEqual(large['first'].count(b'<img'), 49)
@@ -177,7 +177,7 @@ class RetroWebPaginationTests(unittest.TestCase):
             self.assertLessEqual(len(page), 18000 - 512)
 
     def test_image_count_does_not_split_small_html(self):
-        content = '<div id="article">' + ''.join(f'<p><img src="https://example.com/{i}.gif" alt="Image {i}"></p>' for i in range(13)) + '</div>'
+        content = '<div id="article">' + ''.join(f'<p><img src="https://example.com/{i}.gif" width="8" height="8" alt="Image {i}"></p>' for i in range(13)) + '</div>'
         response = self.paginate(content)
         self.assertEqual(len(response['pages']), 1)
         self.assertEqual(sum(page.count(b'<img') for page in response['pages']), 13)

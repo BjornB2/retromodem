@@ -1308,9 +1308,12 @@ function renderCanonicalImages(string $content, string $baseUrl, string $targetU
         preg_match('/\balt\s*=\s*["\']([^"\']*)["\']/i', $tag, $altMatch);
         $alt = html_entity_decode($altMatch[1] ?? $imageDimensions[$url]['alt'] ?? '', ENT_QUOTES, 'UTF-8');
         $number++;
-        $label = 'Image ' . $number . ($alt !== '' ? ': ' . $alt : '');
+        $label = (retromodemNavigationLanguage() === 'nl' ? 'Afbeelding ' : 'Image ') . $number . ($alt !== '' ? ': ' . $alt : '');
         $escape = fn($value) => mb_encode_numericentity(htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false), [128, 0x10ffff, 0, 0x1fffff], 'UTF-8');
         $image = '<img src="' . $escape($asset) . '" alt="' . $escape($alt) . '" data-rm-link-label="' . $escape($label) . '"';
+        // Unknown source dimensions can still be bounded by the converter's
+        // configured output rectangle; do not assume a fixed device preset.
+        $image .= ' data-rm-pixels="' . (($width ?? MAX_IMAGE_WIDTH) * ($height ?? MAX_IMAGE_HEIGHT)) . '"';
         if ($width !== null) $image .= ' width="' . $width . '"';
         if ($height !== null) $image .= ' height="' . $height . '"';
         // Do not wrap in a paragraph inside an existing functional link.
@@ -1344,11 +1347,14 @@ function createStreamContext($method = 'GET') {
  * @param string $imageMode Current image mode
  * @return string HTML for navigation bar
  */
+function retromodemNavigationLanguage(): string {
+    $language = $_GET['lang'] ?? getenv('RETROMODEM_LANGUAGE');
+    return is_string($language) && $language === 'nl' ? 'nl' : 'en';
+}
+
 function renderNavigation($imageMode = null) {
-    $target = isset($_GET['url']) && is_string($_GET['url']) ? $_GET['url'] : '';
-    if ($target === '') return '';
-    $url = getBaseUrl() . '/proxy.php?' . http_build_query(['url' => $target]);
-    return '<p><a href="' . htmlspecialchars($url, ENT_QUOTES, 'ISO-8859-1') . '">Open original again</a></p><hr>';
+    // Reload is provided by the browser; keep the small viewport for content.
+    return '';
 }
 
 /**

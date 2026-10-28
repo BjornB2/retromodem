@@ -38,9 +38,11 @@ if (!checkRateLimit()) {
 require_once __DIR__ . '/lib/PagePaginator.php';
 $pageSize = $_GET['page_size'] ?? getenv('RETROMODEM_PROXY_PAGE_SIZE');
 $pageImages = $_GET['page_images'] ?? getenv('RETROMODEM_PROXY_PAGE_IMAGES');
-$pageSize = is_string($pageSize) && in_array($pageSize, ['0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000'], true) ? (int)$pageSize : 18000;
+$pageSize = is_string($pageSize) && in_array($pageSize, ['0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000', '250000', '500000', '750000', '1000000', '1250000', '1500000', '1750000', '2000000'], true) ? (int)$pageSize : 18000;
 $pageImages = is_string($pageImages) && preg_match('/^(?:[0-9]|10)$/D', $pageImages) ? (int)$pageImages : 5;
-$pagePaginator = new RetroWebPagePaginator(CACHE_DIR . '/pages', $pageSize, $pageImages);
+$pageLanguage = retromodemNavigationLanguage();
+$pagePaginator = new RetroWebPagePaginator(CACHE_DIR . '/pages', $pageSize, $pageImages,
+    3600, 128, 67108864, $pageLanguage);
 // Snapshot navigation is local and must not fetch the original site again.
 // Handle it before requiring an origin URL or loading the content extractor.
 if (isset($_GET['document'])) {

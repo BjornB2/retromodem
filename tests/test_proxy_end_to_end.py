@@ -37,7 +37,7 @@ if(isset($_GET['document'])) {
   http_response_code($r['status']); echo $r['html'];
 } else {
   $c='<p>Article start</p>'.str_repeat('<p>Article text.</p>',1000);
-  for($i=0;$i<49;$i++) $c.='<img src="http://127.0.0.1:8090/image_cruncher.php?url=https%3A%2F%2Fimages.example%2F'.$i.'.gif&amp;w=12&amp;h=9" alt="icon '.$i.'">';
+  for($i=0;$i<49;$i++) $c.='<img width="12" height="9" src="http://127.0.0.1:8090/image_cruncher.php?url=https%3A%2F%2Fimages.example%2F'.$i.'.gif&amp;w=12&amp;h=9" alt="icon '.$i.'">';
   echo $p->first($c,'Fixture','','','http://127.0.0.1:8090',$mode);
 }
 ''')

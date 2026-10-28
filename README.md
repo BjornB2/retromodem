@@ -81,7 +81,7 @@ tools or device-control permissions.
 ## Eerste installatie (in ontwikkeling)
 
 Volg de [schone-SD-installatiehandleiding](docs/INSTALL.md) voor het installatiecommando
-zonder GitHub-login en de adapterkeuze. Het bootstrap-script haalt één exact
+met de private GitHub-downloadroute en de adapterkeuze. Het bootstrap-script haalt één exact
 vastgelegde commit op. Je bestaande SSH-account uit Raspberry Pi Imager blijft
 behouden; er wordt geen extra account met een vast SSH-wachtwoord aangemaakt.
 

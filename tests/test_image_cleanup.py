@@ -131,7 +131,7 @@ class ImageCleanupTests(unittest.TestCase):
 
     def test_navigation_is_minimal_and_canonical_pipeline_independent_of_mode(self):
         text, _ = self.render(operation='navigation')
-        self.assertIn('Open original again', text)
+        self.assertEqual(text, '')
         self.assertNotIn('Visits:', text)
         self.assertNotIn('index.php', text)
         source = (ROOT / 'proxy/retroweb/proxy.php').read_text()
@@ -140,6 +140,12 @@ class ImageCleanupTests(unittest.TestCase):
         self.assertIn('$baseUrl, $imageMode)', source)
         links, _ = self.render(operation='navigation', mode='links')
         self.assertEqual(links, text)
+
+    def test_unknown_dimensions_carry_converter_bound_for_pagination(self):
+        _, parser = self.render('<img src="unknown.jpg">')
+        self.assertEqual(parser.images[0]['data-rm-pixels'], '30000')
+        _, parser = self.render('<img src="small.jpg" width="12" height="9">')
+        self.assertEqual(parser.images[0]['data-rm-pixels'], '108')
 
     def test_alt_entities_survive_latin1_document_output(self):
         text, parser = self.render('<img src="photo.jpg" alt="caf&#233; &#937;">')

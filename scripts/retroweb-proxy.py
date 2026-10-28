@@ -198,7 +198,11 @@ def rewrite_retroweb_html(data: bytes) -> bytes:
 
 
 def fetch_retroweb_part(params: dict[str, str]) -> tuple[bytes, str]:
-    endpoint = 'http://127.0.0.1:8090/proxy.php?' + urllib.parse.urlencode(params)
+    # The UI language is a server setting, never a browser parameter.
+    # Inject current values even for an older document/snapshot link.
+    query = dict(params)
+    query.update(rendering_options())
+    endpoint = 'http://127.0.0.1:8090/proxy.php?' + urllib.parse.urlencode(query)
     with urllib.request.urlopen(endpoint, timeout=30) as response:
         data = response.read(MAX_DOCUMENT + 1)
         if len(data) > MAX_DOCUMENT:
@@ -232,6 +236,11 @@ def settings() -> dict[str, str]:
     except OSError:
         pass
     return result
+
+
+def rendering_options() -> dict[str, str]:
+    language = 'en' if local_ui.language() == 'en' else 'nl'
+    return {'lang': language}
 
 
 def requested_url(handler: BaseHTTPRequestHandler) -> str:
@@ -282,9 +291,11 @@ _cache_lock = threading.Lock()
 
 
 def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
+    options = rendering_options()
     key = (url, values.get('RETROMODEM_PROXY_IMAGE_MODE', 'inline'),
            values.get('RETROMODEM_PROXY_IMAGE_WIDTH', ''), values.get('RETROMODEM_PROXY_IMAGE_HEIGHT', ''),
-           values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000'), values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5'))
+           values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000'), values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5'),
+           options['lang'])
     with _cache_lock:
         cached = _cache.get(key)
         if cached and cached[0] > time.monotonic():
@@ -318,12 +329,13 @@ def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     mode = values.get("RETROMODEM_PROXY_IMAGE_MODE", "inline")
     page_size = values.get('RETROMODEM_PROXY_PAGE_SIZE', '18000')
     page_images = values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5')
-    if page_size not in {'0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000'}:
+    if page_size not in {'0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000', '250000', '500000', '750000', '1000000', '1250000', '1500000', '1750000', '2000000'}:
         page_size = '18000'
     if page_images not in {str(n) for n in range(0, 11)}:
         page_images = '5'
     endpoint = "http://127.0.0.1:8090/proxy.php?" + urllib.parse.urlencode({
-        "url": url, "img": mode, "page_size": page_size, "page_images": page_images})
+        "url": url, "img": mode, "page_size": page_size, "page_images": page_images,
+        **rendering_options()})
     request = urllib.request.Request(endpoint, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=45) as response:
         content_type = response.headers.get("Content-Type", "application/octet-stream")

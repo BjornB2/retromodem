@@ -9,6 +9,18 @@ from web import web
 
 
 class ConfigTests(unittest.TestCase):
+    def test_combined_budget_and_translated_settings(self):
+        dutch = web.proxy_settings_card("nl", {})
+        english = web.proxy_settings_card("en", {})
+        self.assertNotIn('name="image_pixels"', dutch)
+        self.assertIn("Geschatte paginagrootte per deel", dutch)
+        self.assertIn("byte per weergegeven pixel", dutch)
+        self.assertIn("Afbeeldingen: Afbeeldingen laten zien | Als links", dutch)
+        self.assertNotIn("Images: Inline", dutch)
+        self.assertIn("Estimated page size per part", english)
+        self.assertIn("inclusief uitgepakte afbeeldingen", dutch)
+        self.assertIn('value="2000000"', dutch)
+
     def test_config_round_trip_preserves_spaces_and_shell_characters(self):
         with tempfile.TemporaryDirectory() as directory:
             config = Path(directory) / "retromodem.env"

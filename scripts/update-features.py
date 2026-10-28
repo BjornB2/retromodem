@@ -23,6 +23,7 @@ FILES = {
     'proxy/retroweb/image_cruncher.php': ('opt/retromodem/retroweb/image_cruncher.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/lib/ImageFetcher.php': ('opt/retromodem/retroweb/lib/ImageFetcher.php', 0o644, 'retromodem-retroweb-core.service', True),
     'proxy/retroweb/lib/PagePaginator.php': ('opt/retromodem/retroweb/lib/PagePaginator.php', 0o644, 'retromodem-retroweb-core.service', True),
+    'proxy/retroweb/lib/ContentExtractor.php': ('opt/retromodem/retroweb/lib/ContentExtractor.php', 0o644, 'retromodem-retroweb-core.service', False),
     'scripts/diagnose': ('usr/local/sbin/retromodem-diagnose', 0o755, None, False),
 }
 MANIFEST = 'usr/local/share/retromodem/install-manifest.sha256'

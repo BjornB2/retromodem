@@ -100,6 +100,58 @@ class ProxyPaginationTests(unittest.TestCase):
         self.assertEqual(query['page_size'], ['12000'])
         self.assertEqual(query['page_images'], ['2'])
 
+    def test_large_decoded_page_budgets_are_forwarded_and_accepted_by_php(self):
+        php = (ROOT / 'proxy/retroweb/proxy.php').read_text()
+        for size in (str(n * 1000) for n in range(250, 2001, 250)):
+            response = io.BytesIO(b'<html>ok</html>')
+            response.headers = {'Content-Type': 'text/html'}
+            with patch.object(proxy.urllib.request, 'urlopen', return_value=response) as fetch:
+                proxy._fetch_retroweb('https://example.org', {'RETROMODEM_PROXY_PAGE_SIZE': size})
+            query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0].full_url).query)
+            self.assertEqual(query['page_size'], [size])
+            self.assertIn("'" + size + "'", php)
+
+    def test_rendering_language_follows_ui_language(self):
+        with patch.object(proxy.local_ui, 'language', return_value='nl'):
+            self.assertEqual(proxy.rendering_options(), {'lang': 'nl'})
+        with patch.object(proxy.local_ui, 'language', return_value='en'):
+            self.assertEqual(proxy.rendering_options(), {'lang': 'en'})
+
+    def test_origin_request_forwards_ui_language(self):
+        response = io.BytesIO(b'<html>ok</html>')
+        response.headers = {'Content-Type': 'text/html'}
+        with patch.object(proxy.local_ui, 'language', return_value='en'), patch.object(proxy.urllib.request, 'urlopen', return_value=response) as fetch:
+            proxy._fetch_retroweb('https://example.org', {})
+        query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0].full_url).query)
+        self.assertEqual(query['lang'], ['en'])
+        self.assertNotIn('image_pixels', query)
+
+    def test_snapshot_fetch_injects_current_settings_not_client_values(self):
+        response = io.BytesIO(b'<html>ok</html>')
+        response.headers = {'Content-Type': 'text/html'}
+        with patch.object(proxy.local_ui, 'language', return_value='nl'), patch.object(proxy.urllib.request, 'urlopen', return_value=response) as fetch:
+            proxy.fetch_retroweb_part({'document': TOKEN, 'part': '2', 'img': 'inline', 'lang': 'unsafe'})
+        query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0]).query)
+        self.assertEqual(query['lang'], ['nl'])
+        self.assertNotIn('image_pixels', query)
+        self.assertEqual(query['img'], ['inline'])
+
+    def test_browser_snapshot_links_cannot_override_server_language(self):
+        for extra in ('lang=en', 'image_pixels=0'):
+            with self.assertRaises(ValueError):
+                proxy.pagination_parameters(f'document={TOKEN}&part=2&{extra}')
+
+    def test_cache_separates_language(self):
+        proxy._cache.clear()
+        proxy._pending.clear()
+        self.addCleanup(proxy._cache.clear)
+        with patch.object(proxy.local_ui, 'language', return_value='nl') as language, patch.object(proxy, '_fetch_retroweb', return_value=(b'ok', 'text/html')) as fetch:
+            proxy.fetch_retroweb('https://example.org', {})
+            proxy.fetch_retroweb('https://example.org', {})
+            language.return_value = 'en'
+            proxy.fetch_retroweb('https://example.org', {})
+        self.assertEqual(fetch.call_count, 2)
+
     def test_cache_separates_pagination_settings(self):
         proxy._cache.clear()
         proxy._pending.clear()

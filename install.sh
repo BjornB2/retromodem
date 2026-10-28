@@ -234,6 +234,7 @@ opt/retromodem/retroweb/config.php
 opt/retromodem/retroweb/image_cruncher.php
 opt/retromodem/retroweb/lib/PagePaginator.php
 opt/retromodem/retroweb/lib/ImageFetcher.php
+opt/retromodem/retroweb/lib/ContentExtractor.php
 etc/dnsmasq.d/retromodem.conf
 etc/retromodem/adapters.json
 etc/ppp/peers/retromodem
