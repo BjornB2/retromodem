@@ -3,7 +3,7 @@
 This is the preparation repository for the first RetroModem release.
 It is private again at the owner's request after successful update testing.
 It is not a stable release. Snapshot date: 2026-10-28.
-The development selection contains 114 source files,
+The development selection contains 115 source files,
 plus repository metadata. The publication branch now also contains the
 bootstrap, adapter configuration helper and their tests.
 
@@ -23,7 +23,7 @@ The publication installer has offline tests for adapter selection, boot changes,
 configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
-All 262 Python unit tests pass on the development computer; installer,
+All 263 Python unit tests pass on the development computer; installer,
 bootstrap and verifier shell syntax checks also pass.
 The DKMS inventory now follows target-kernel capabilities; unsupported ISA/PCI
 drivers are not required on the Pi. Full clean-SD acceptance remains pending.
@@ -38,6 +38,11 @@ seconds after unsuccessful setup. Normal discovery only notifies new peers;
 the upstream disabled retry could leave a visible peer indefinitely in SEARCH.
 The patch is part of the DKMS version hash. A C regression checks retry and
 timer cancellation on synchronous completion. Physical acceptance is pending.
+Search/recovery waits are now one second instead of three: initial search,
+search retry and the return to search after failed query/setup or disconnect.
+The three-second deadlines for an in-flight IAS query or setup are unchanged,
+as are discovery frequency, slots and hardware power-cycle timing. The extra
+timer patch is also included in the DKMS source hash.
 Installer C commands are checked for header resolution as part of the tests.
 
 Feature updates were applied on the original Pi through the guarded installer,

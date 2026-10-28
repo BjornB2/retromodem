@@ -1,0 +1,55 @@
+--- a/src/net/ircomm/ircomm_tty_attach.c
++++ b/src/net/ircomm/ircomm_tty_attach.c
+@@ -667,7 +667,7 @@
+ 	switch (event) {
+ 	case IRCOMM_TTY_ATTACH_CABLE:
+ 		/* Try to discover any remote devices */
+-		ircomm_tty_start_watchdog_timer(self, 3*HZ);
++		ircomm_tty_start_watchdog_timer(self, HZ);
+ 		ircomm_tty_next_state(self, IRCOMM_TTY_SEARCH);
+ 
+ 		irlmp_discovery_request(DISCOVERY_DEFAULT_SLOTS);
+@@ -775,6 +775,6 @@
+ 		 * and cancel the timer. Connected states are never polled here.
+ 		 */
+-		ircomm_tty_start_watchdog_timer(self, 3*HZ);
++		ircomm_tty_start_watchdog_timer(self, HZ);
+ 		irlmp_discovery_request(DISCOVERY_DEFAULT_SLOTS);
+ 		break;
+ 	case IRCOMM_TTY_DETACH_CABLE:
+@@ -823,7 +823,7 @@
+ 	case IRCOMM_TTY_WD_TIMER_EXPIRED:
+ 		/* Go back to search mode */
+ 		ircomm_tty_next_state(self, IRCOMM_TTY_SEARCH);
+-		ircomm_tty_start_watchdog_timer(self, 3*HZ);
++		ircomm_tty_start_watchdog_timer(self, HZ);
+ 		break;
+ 	case IRCOMM_TTY_CONNECT_INDICATION:
+ 		timer_delete(&self->watchdog_timer);
+@@ -872,7 +872,7 @@
+ 	case IRCOMM_TTY_WD_TIMER_EXPIRED:
+ 		/* Go back to search mode */
+ 		ircomm_tty_next_state(self, IRCOMM_TTY_SEARCH);
+-		ircomm_tty_start_watchdog_timer(self, 3*HZ);
++		ircomm_tty_start_watchdog_timer(self, HZ);
+ 		break;
+ 	case IRCOMM_TTY_CONNECT_INDICATION:
+ 		timer_delete(&self->watchdog_timer);
+@@ -933,7 +933,7 @@
+ 	case IRCOMM_TTY_WD_TIMER_EXPIRED:
+ 		/* Go back to search mode */
+ 		ircomm_tty_next_state(self, IRCOMM_TTY_SEARCH);
+-		ircomm_tty_start_watchdog_timer(self, 3*HZ);
++		ircomm_tty_start_watchdog_timer(self, HZ);
+ 		break;
+ 	case IRCOMM_TTY_DETACH_CABLE:
+ 		/* ircomm_disconnect_request(self->ircomm, NULL); */
+@@ -971,7 +971,7 @@
+ 	case IRCOMM_TTY_DISCONNECT_INDICATION:
+ 		ircomm_tty_ias_register(self);
+ 		ircomm_tty_next_state(self, IRCOMM_TTY_SEARCH);
+-		ircomm_tty_start_watchdog_timer(self, 3*HZ);
++		ircomm_tty_start_watchdog_timer(self, HZ);
+ 
+ 		if (tty_port_check_carrier(&self->port)) {
+ 			/* Drop carrier */

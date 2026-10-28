@@ -77,3 +77,17 @@ class IrcommRetryTests(unittest.TestCase):
         build = (ROOT / 'scripts/build-irda').read_text()
         self.assertIn('patch -d "$source_dir" -p1', build)
         self.assertGreaterEqual(build.count('patches/ircomm-retry-discovery.patch'), 2)
+
+    def test_shorter_interval_only_changes_six_search_waits(self):
+        patch = (ROOT / 'patches/ircomm-search-interval.patch').read_text()
+        removed = [line[1:] for line in patch.splitlines() if line.startswith('-') and not line.startswith('---')]
+        added = [line[1:] for line in patch.splitlines() if line.startswith('+') and not line.startswith('+++')]
+        self.assertEqual(removed, ['\t\tircomm_tty_start_watchdog_timer(self, 3*HZ);'] * 6)
+        self.assertEqual(added, ['\t\tircomm_tty_start_watchdog_timer(self, HZ);'] * 6)
+        self.assertEqual(patch.count('ircomm_tty_next_state(self, IRCOMM_TTY_SEARCH)'), 5)
+        self.assertEqual(patch.count('Go back to search mode'), 3)
+        self.assertIn('Connected states are never polled here', patch)
+        build = (ROOT / 'scripts/build-irda').read_text()
+        self.assertGreaterEqual(build.count('patches/ircomm-search-interval.patch'), 2)
+        self.assertLess(build.index('patches/ircomm-retry-discovery.patch'),
+                        build.index('patches/ircomm-search-interval.patch'))
