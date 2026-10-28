@@ -101,7 +101,9 @@ class InstallationTests(unittest.TestCase):
 
     def test_external_sources_are_pinned_to_full_commits(self):
         installer = (ROOT / "install.sh").read_text(encoding="utf-8")
-        self.assertRegex(installer, r"IRDA_COMMIT=[0-9a-f]{40}\n")
+        builder = (ROOT / "scripts/build-irda").read_text(encoding="utf-8")
+        self.assertRegex(builder, r"IRDA_COMMIT=[0-9a-f]{40}\n")
+        self.assertIn('scripts/build-irda', installer)
         self.assertRegex(installer, r"TCPSER_COMMIT=[0-9a-f]{40}\n")
 
     def test_tcpser_starts_from_valid_termios_state(self):

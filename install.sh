@@ -1,8 +1,6 @@
 #!/bin/sh
 set -eu
 
-IRDA_REPOSITORY=https://github.com/cschramm/irda.git
-IRDA_COMMIT=6c7ef8c17360dfe049e6315e9291583a6dcaf52a
 TCPSER_REPOSITORY=https://github.com/go4retro/tcpser.git
 TCPSER_COMMIT=234ccfde0bb6a874c353c0cdca0fa0ca76c5cca3
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -114,36 +112,7 @@ done
 work_dir=$(mktemp -d /tmp/retromodem-install.XXXXXX)
 trap 'rm -rf "$work_dir"' EXIT HUP INT TERM
 
-git clone --filter=blob:none "$IRDA_REPOSITORY" "$work_dir/irda"
-git -C "$work_dir/irda" checkout --detach "$IRDA_COMMIT"
-(
-    cd "$work_dir/irda"
-    autoconf -f
-    ./configure
-)
-
-package_version=$(sed -n 's/^PACKAGE_VERSION="\([^"]*\)"/\1/p' "$work_dir/irda/src/dkms.conf")
-if [ -z "$package_version" ]; then
-    echo "Kon de DKMS-versie niet bepalen." >&2
-    exit 1
-fi
-
-# Include the PL011 deferred-wakeup fix and opt-in MY018 power-cycle support.
-# Both are tied to this pinned upstream source; USB behaviour is unchanged.
-install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.c" "$work_dir/irda/src/drivers/irtty-sir.c"
-install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.h" "$work_dir/irda/src/drivers/irtty-sir.h"
-# A source-specific DKMS version allows building before replacing the active
-# module. Keep the previously installed version available on build failure.
-driver_hash=$(cat "$PROJECT_DIR/src/my018/irtty-sir.c" "$PROJECT_DIR/src/my018/irtty-sir.h" | sha256sum | cut -c1-12)
-package_version="$package_version.retromodem$driver_hash"
-sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"$package_version\"/" "$work_dir/irda/src/dkms.conf"
-if ! dkms status -m irda -v "$package_version" 2>/dev/null | grep -q .; then
-    dkms add "$work_dir/irda/src"
-fi
-if ! dkms status -m irda -v "$package_version" -k "$kernel_release" | grep -q ': installed'; then
-    dkms build -m irda -v "$package_version" -k "$kernel_release"
-    dkms install --force -m irda -v "$package_version" -k "$kernel_release"
-fi
+package_version=$(sh "$PROJECT_DIR/scripts/build-irda" "$work_dir/irda" "$kernel_release")
 
 # tcpser is not available consistently in Raspberry Pi OS repositories. Pin a
 # reviewed upstream release so a clean installation produces the same modem

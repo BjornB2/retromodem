@@ -1,0 +1,51 @@
+#!/bin/sh
+# Build/install the pinned IrDA stack. Logs to stderr; only version to stdout.
+set -eu
+IRDA_REPOSITORY=https://github.com/cschramm/irda.git
+IRDA_COMMIT=6c7ef8c17360dfe049e6315e9291583a6dcaf52a
+PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+[ "$#" = 2 ] || { echo 'Usage: sudo sh scripts/build-irda NEW_SOURCE_DIRECTORY KERNEL_RELEASE' >&2; exit 2; }
+[ "$(id -u)" = 0 ] || { echo 'IrDA driver build requires root.' >&2; exit 1; }
+source_dir=$1
+kernel_release=$2
+kernel_build="/lib/modules/$kernel_release/build"
+kernel_config="$kernel_build/.config"
+[ -f "$kernel_config" ] || kernel_config="$kernel_build/include/config/auto.conf"
+[ -f "$kernel_config" ] || { echo "Missing kernel configuration: $kernel_build" >&2; exit 1; }
+
+git clone --filter=blob:none "$IRDA_REPOSITORY" "$source_dir" >&2
+git -C "$source_dir" checkout --detach "$IRDA_COMMIT" >&2
+(cd "$source_dir" && autoconf -f && ./configure) >&2
+package_version=$(sed -n 's/^PACKAGE_VERSION="\([^"]*\)"/\1/p' "$source_dir/src/dkms.conf")
+[ -n "$package_version" ] || { echo 'Unable to determine IrDA version.' >&2; exit 1; }
+install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.c" "$source_dir/src/drivers/irtty-sir.c"
+install -m 0644 "$PROJECT_DIR/src/my018/irtty-sir.h" "$source_dir/src/drivers/irtty-sir.h"
+python3 "$PROJECT_DIR/scripts/prepare-irda-dkms.py" "$source_dir/src/dkms.conf" "$kernel_config" >&2
+# Include the filtered inventory and helper, so the failed old registration is
+# not reused, and different target-kernel inventories get distinct registrations.
+driver_hash=$(python3 - "$PROJECT_DIR" "$source_dir" "$IRDA_COMMIT" <<'PY'
+import hashlib, pathlib, sys
+project, source = map(pathlib.Path, sys.argv[1:3])
+digest = hashlib.sha256(sys.argv[3].encode())
+for path in (project / 'src/my018/irtty-sir.c', project / 'src/my018/irtty-sir.h',
+             project / 'scripts/prepare-irda-dkms.py', source / 'src/dkms.conf'):
+    digest.update(path.read_bytes())
+print(digest.hexdigest()[:12])
+PY
+)
+package_version="$package_version.retromodem$driver_hash"
+sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"$package_version\"/" "$source_dir/src/dkms.conf"
+if ! dkms status -m irda -v "$package_version" 2>/dev/null | grep -q .; then
+    dkms add "$source_dir/src" >&2
+fi
+if ! dkms status -m irda -v "$package_version" -k "$kernel_release" | grep -q ': installed'; then
+    dkms build -m irda -v "$package_version" -k "$kernel_release" >&2
+    dkms install --force -m irda -v "$package_version" -k "$kernel_release" >&2
+fi
+# Recover only the known failed, never-built registration from the first test.
+# Do not remove an installed/built version or unrelated DKMS packages.
+failed_version=20251215~6c7ef8c.retromodemdb4606d831a1
+if [ "$(dkms status -m irda -v "$failed_version" 2>/dev/null)" = "irda/$failed_version: added" ]; then
+    dkms remove -m irda -v "$failed_version" --all >&2
+fi
+printf '%s\n' "$package_version"
