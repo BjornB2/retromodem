@@ -117,6 +117,16 @@ class RetroWebPaginationTests(unittest.TestCase):
             self.assertIn(f'After image {n}'.encode(), combined)
         self.assertIn(b'THE END', response['pages'][-1])
 
+    def test_no_image_limit_still_enforces_byte_budget(self):
+        content = '<div id="article">' + '<img src="a.gif">' * 49 + '<p>' + 'word ' * 12000 + '</p></div>'
+        large = self.paginate(content, limit=100000, images=0)
+        self.assertEqual(len(large['pages']), 1)
+        self.assertEqual(large['first'].count(b'<img'), 49)
+        small = self.paginate(content, limit=18000, images=0)
+        self.assertGreater(len(small['pages']), 1)
+        self.assertTrue(all(len(page) <= 18000 - 512 for page in small['pages']))
+        self.assertEqual(sum(page.count(b'<img') for page in small['pages']), 49)
+
     def test_larger_part_budgets(self):
         content = '<div id="article">' + '<p>Long article text. </p>' * 18000 + '</div>'
         for limit in range(25000, 200001, 25000):

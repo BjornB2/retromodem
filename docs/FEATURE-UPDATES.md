@@ -23,6 +23,8 @@ adapter-aware diagnosis. Existing explicitly configured speeds remain unchanged.
 Under Settings → Built-in web proxy, choose Small (12 kB), Normal (18 kB), or
 25, 50, 75, 100, 125, 150, 175 or 200 kB, Entire page, and 1–10 images per part. Defaults are 18 kB and five images.
 There is no five-part limit: five refers to images per part, not article length.
+Choose No image limit to split by HTML size only. Image files and decoded image
+memory are not included in the HTML byte budget. The default remains five.
 Entire page disables both limits. Reopen the original website after changing
 settings; existing snapshot links intentionally keep their original division.
 

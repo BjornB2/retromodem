@@ -15,7 +15,7 @@ class RetroWebPagePaginator
     {
         $this->directory = $directory;
         $this->limit = $limit;
-        $this->images = $images;
+        $this->images = $images === 0 ? PHP_INT_MAX : $images;
         $this->ttl = $ttl;
         $this->maxDocuments = $maxDocuments;
         $this->maxCacheBytes = $maxCacheBytes;
