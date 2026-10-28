@@ -9,6 +9,23 @@ sh install.sh --features-check
 sudo sh install.sh --features-only
 ```
 
+For the temporarily public installation test, the same bootstrap also supports
+a check and a separate apply step (each resolves the current main commit):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/main/bootstrap.sh | sh -s -- --features-check
+curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/main/bootstrap.sh | sh -s -- --features-only
+```
+
+The 28 October clean-install comparison found all eleven mapped feature files
+identical to candidate c34886a. A fresh Pi search returned descriptions,
+continuation and provider credits. Missing visible descriptions were not traced
+to an older installed version. The next update adds explicit no-cache headers
+to HTML on the direct proxy route and strengthens the search relay headers.
+This prevents future cache reuse; it does not prove caching caused the reported
+display difference or necessarily remove a page already held by a browser.
+Reload or clear the browser cache when verifying the update.
+
 The check does not change installed files or services. Applying an update backs
 up all affected originals under `/var/lib/retromodem/update-backups/`, replaces
 only explicitly mapped feature files and restarts only affected active web/proxy

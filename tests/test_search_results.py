@@ -26,6 +26,19 @@ NEXT = '<form action="/html/" method="post"><input name="q" value="wrong"><input
 
 
 class SearchResultTests(unittest.TestCase):
+    def test_html_responses_disable_legacy_browser_caching(self):
+        handler = object.__new__(proxy.Handler)
+        handler.wfile = io.BytesIO()
+        headers = {}
+        handler.send_response = lambda status: None
+        handler.send_header = lambda key, value: headers.update({key: value})
+        handler.end_headers = lambda: None
+        handler.reply(b'<html>search</html>', 'text/html; charset=iso-8859-1')
+        self.assertIn('no-store', headers['Cache-Control'])
+        self.assertEqual(headers['Pragma'], 'no-cache')
+        self.assertEqual(headers['Expires'], '0')
+        self.assertEqual(handler.wfile.getvalue(), b'<html>search</html>')
+
     def setUp(self):
         proxy._search_pages.clear()
 

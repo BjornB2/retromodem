@@ -15,7 +15,8 @@ class SearchRelayTests(unittest.TestCase):
         handler.wfile = io.BytesIO()
         handler.send_response = lambda status: setattr(handler, 'status', status)
         handler.send_error = lambda status, *_: setattr(handler, 'status', status)
-        handler.send_header = lambda *_: None
+        handler.response_headers = {}
+        handler.send_header = lambda key, value: handler.response_headers.update({key: value})
         handler.end_headers = lambda: None
         return handler
 
@@ -29,6 +30,9 @@ class SearchRelayTests(unittest.TestCase):
         self.assertEqual(request.get_header('X-retromodem-client'), '192.168.77.2')
         self.assertEqual(handler.status, 200)
         self.assertEqual(handler.wfile.getvalue(), b'<html>links</html>')
+        self.assertIn('no-cache', handler.response_headers['Cache-Control'])
+        self.assertEqual(handler.response_headers['Pragma'], 'no-cache')
+        self.assertEqual(handler.response_headers['Expires'], '0')
 
     def test_expired_snapshot_status_is_not_changed_to_502(self):
         handler = self.handler()
