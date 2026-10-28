@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+export LC_ALL=C
+
+ssid=${1:?SSID ontbreekt}
+password=${2-}
+: "${RETROMODEM_WIFI_INTERFACE:=wlan0}"
+
+/usr/bin/install -d -m 0755 /run/retromodem
+touch /run/retromodem/wifi-transition
+trap 'rm -f /run/retromodem/wifi-transition' EXIT HUP INT TERM
+
+# Let the browser finish rendering the transition page before the AP disappears.
+/usr/bin/sleep 2
+/usr/bin/nmcli connection down retromodem-ap >/dev/null 2>&1 || true
+
+if [ -n "$password" ]; then
+    if /usr/bin/nmcli device wifi connect "$ssid" password "$password" ifname "$RETROMODEM_WIFI_INTERFACE"; then
+        exit 0
+    fi
+else
+    if /usr/bin/nmcli device wifi connect "$ssid" ifname "$RETROMODEM_WIFI_INTERFACE"; then
+        exit 0
+    fi
+fi
+
+# A failed password or unavailable network must not leave the appliance unreachable.
+/usr/local/lib/retromodem/configure-ap
+/usr/bin/nmcli connection up retromodem-ap ifname "$RETROMODEM_WIFI_INTERFACE"
+exit 1

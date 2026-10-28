@@ -1,0 +1,17 @@
+[Unit]
+Description=RetroModem IrDA adapter
+After=systemd-udevd.service
+Before=retromodem-ppp.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/retromodem/retromodem.env
+ExecStartPre=/usr/local/lib/retromodem/prepare-irda
+ExecStart=/usr/local/lib/retromodem/start-irda
+ExecStartPost=/bin/sh -c 'echo ${RETROMODEM_IRDA_BITRATE} > /proc/sys/net/irda/max_baud_rate; echo ${RETROMODEM_IRDA_MAX_TX_DATA_SIZE:-2042} > /proc/sys/net/irda/max_tx_data_size; echo ${RETROMODEM_IRDA_MAX_TX_WINDOW:-7} > /proc/sys/net/irda/max_tx_window'
+ExecStop=/usr/bin/killall irattach
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+export LC_ALL=C
+
+: "${RETROMODEM_WIFI_INTERFACE:=wlan0}"
+: "${RETROMODEM_AP_SSID:=retromodem}"
+: "${RETROMODEM_AP_PASSWORD:=12345678}"
+
+connection=retromodem-ap
+
+if ! /usr/bin/nmcli -t -f NAME connection show | /usr/bin/grep -Fxq "$connection"; then
+    /usr/bin/nmcli connection add \
+        type wifi ifname "$RETROMODEM_WIFI_INTERFACE" con-name "$connection" \
+        autoconnect no ssid "$RETROMODEM_AP_SSID"
+fi
+
+/usr/bin/nmcli connection modify "$connection" \
+    connection.autoconnect no \
+    connection.autoconnect-priority -999 \
+    802-11-wireless.mode ap \
+    802-11-wireless.band bg \
+    802-11-wireless.channel 6 \
+    802-11-wireless.powersave 2 \
+    802-11-wireless.ssid "$RETROMODEM_AP_SSID" \
+    802-11-wireless-security.key-mgmt wpa-psk \
+    802-11-wireless-security.psk "$RETROMODEM_AP_PASSWORD" \
+    ipv4.method shared \
+    ipv4.addresses 10.42.0.1/24 \
+    connection.mdns 2 \
+    ipv6.method disabled

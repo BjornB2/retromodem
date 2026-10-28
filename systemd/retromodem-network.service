@@ -1,0 +1,14 @@
+[Unit]
+Description=RetroModem IPv4 forwarding and NAT
+After=network-pre.target
+Before=retromodem-ppp.service
+
+[Service]
+Type=oneshot
+ExecStartPre=-/usr/sbin/nft delete table ip retromodem_nat
+ExecStart=/usr/sbin/nft -f /etc/retromodem/nftables.conf
+RemainAfterExit=yes
+ExecStop=-/usr/sbin/nft delete table ip retromodem_nat
+
+[Install]
+WantedBy=multi-user.target

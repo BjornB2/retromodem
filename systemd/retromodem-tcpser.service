@@ -1,0 +1,16 @@
+[Unit]
+Description=RetroModem Hayes modem emulator
+After=network-online.target retromodem-irda.service
+Wants=network-online.target
+Conflicts=retromodem-ppp.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/retromodem/retromodem.env
+ExecStartPre=/usr/local/lib/retromodem/wait-irda
+ExecStart=/usr/local/lib/retromodem/modem-backend.py tcpser
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

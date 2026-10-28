@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {"number": "5559000", "label": "RetroModem internet", "kind": "ppp", "host": "127.0.0.1", "port": 2323},
+    {"number": "5551000", "label": "Particles BBS", "kind": "bbs", "host": "particlesbbs.dyndns.org", "port": 6400},
+    {"number": "5551001", "label": "Bitwoods", "kind": "bbs", "host": "bitwoods.duckdns.org", "port": 23},
+    {"number": "5551002", "label": "Onix BBS", "kind": "bbs", "host": "onixbbs.servebbs.com", "port": 2525},
+    {"number": "5551003", "label": "20 For Beers", "kind": "bbs", "host": "20forbeers.com", "port": 1337},
+    {"number": "5551004", "label": "ConstructiveChaos", "kind": "bbs", "host": "conchaos.synchro.net", "port": 23},
+    {"number": "5551005", "label": "Zruspa's BBS", "kind": "bbs", "host": "bbs.zruspas.org", "port": 23},
+    {"number": "5551006", "label": "Veleno BBS", "kind": "bbs", "host": "velenobbs.net", "port": 23},
+    {"number": "5551007", "label": "Magnum BBS", "kind": "bbs", "host": "magnumbbs.net", "port": 23},
+    {"number": "5551008", "label": "The Gate BBS", "kind": "bbs", "host": "thegateb.synchro.net", "port": 23},
+    {"number": "5551009", "label": "Retro Tech Haus", "kind": "bbs", "host": "bbs.retrotech.haus", "port": 23},
+    {"number": "5559999", "label": "ChatGPT BBS", "kind": "chatgpt", "host": "127.0.0.1", "port": 2324}
+  ]
+}

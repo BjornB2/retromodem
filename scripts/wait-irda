@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+. /etc/retromodem/retromodem.env
+
+# This precondition belongs to the IrDA transport only. USB-serial uses its
+# own udev lookup in modem-backend.py and must not depend on irda0/ircomm0.
+[ "${RETROMODEM_TRANSPORT:-irda}" = irda ] || exit 0
+
+count=0
+while [ ! -e /sys/class/net/irda0 ] || [ ! -c /dev/ircomm0 ]; do
+    count=$((count + 1))
+    [ "$count" -lt 100 ] || {
+        echo "RetroModem: IrDA is niet binnen 10 seconden gereed" >&2
+        exit 1
+    }
+    /usr/bin/sleep 0.1
+done

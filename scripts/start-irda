@@ -1,0 +1,35 @@
+#!/bin/sh
+set -eu
+
+: "${RETROMODEM_DEVICE:=/run/retromodem/tty}"
+: "${RETROMODEM_DONGLE=ma600}"
+
+device=$(/usr/bin/readlink -f "$RETROMODEM_DEVICE")
+if [ -n "$RETROMODEM_DONGLE" ]; then
+    /usr/sbin/irattach "$device" -d "$RETROMODEM_DONGLE" -s
+else
+    /usr/sbin/irattach "$device" -s
+fi
+
+count=0
+while [ ! -e /sys/class/net/irda0 ]; do
+    count=$((count + 1))
+    [ "$count" -lt 50 ] || {
+        echo "RetroModem: irda0 verscheen niet" >&2
+        exit 1
+    }
+    /usr/bin/sleep 0.1
+done
+
+# Windows IrEnum only creates "Standard Modem over IR link" when the remote
+# device advertises the MODEM discovery hint. Keep its owning socket open.
+/usr/local/lib/retromodem/irda-modem-hints &
+hints_pid=$!
+trap '/usr/bin/kill "$hints_pid" 2>/dev/null || true' EXIT HUP INT TERM
+
+pid=$(/usr/bin/cat /run/irattach.pid)
+while /usr/bin/kill -0 "$pid" 2>/dev/null; do
+    /usr/bin/sleep 1
+done
+echo "RetroModem: irattach is onverwacht gestopt" >&2
+exit 1

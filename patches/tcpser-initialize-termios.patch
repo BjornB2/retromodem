@@ -1,0 +1,18 @@
+--- a/src/serial.c
++++ b/src/serial.c
+@@ -96,6 +96,15 @@ int ser_init_conn(char *tty, int speed) {
+     } else {
+       LOG(LOG_INFO, "Opened serial device %s at speed %d as fd %d", tty, speed, fd);
+ 
++      /* Start from the driver's real termios state.  Using an uninitialised
++         stack struct here left c_cc and implementation-specific fields random;
++         on IrCOMM this has been observed to request 75 baud despite 115200
++         being selected, delaying the first command-mode characters. */
++      if (tcgetattr(fd, &tio) != 0) {
++        ELOG(LOG_FATAL, "Could not get serial port attributes");
++        close(fd);
++        return -1;
++      }
+       /* Make the file descriptor asynchronous (the manual page says only 
+          O_APPEND and O_NONBLOCK, will work with F_SETFL...) */
+       fcntl(fd, F_SETFL, FASYNC);

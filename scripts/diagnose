@@ -1,0 +1,57 @@
+#!/bin/sh
+set -u
+
+say_status() {
+    label=$1
+    shift
+    if "$@" >/dev/null 2>&1; then
+        printf '[OK]   %s\n' "$label"
+    else
+        printf '[FOUT] %s\n' "$label"
+    fi
+}
+
+printf 'RetroModem diagnose\n'
+printf 'Model:  '; tr -d '\000' </proc/device-tree/model 2>/dev/null || printf 'onbekend'
+printf '\nKernel: %s\n\n' "$(uname -r)"
+
+if command -v vcgencmd >/dev/null 2>&1; then
+    throttle_text=$(vcgencmd get_throttled 2>/dev/null || true)
+    case $throttle_text in
+        throttled=0x*)
+            throttle_hex=${throttle_text#throttled=}
+            throttle_value=$((throttle_hex))
+            if [ $((throttle_value & 0x5)) -ne 0 ]; then
+                printf '[FOUT] Actuele onderspanning of throttling (%s)\n' "$throttle_text"
+            elif [ $((throttle_value & 0x50000)) -ne 0 ]; then
+                printf '[WAARSCHUWING] Sinds de laatste boot is onderspanning of throttling gemeten (%s)\n' "$throttle_text"
+            else
+                printf '[OK]   Voeding stabiel (%s)\n' "$throttle_text"
+            fi
+            ;;
+        *) printf '[WAARSCHUWING] Voedingsstatus kon niet worden gelezen\n' ;;
+    esac
+fi
+
+say_status 'MA-620 USB-adapter gevonden' sh -c 'lsusb -d 0df7:0620 | grep -q .'
+say_status 'IrDA-kernelmodule beschikbaar' /sbin/modinfo irda
+say_status 'IrCOMM-apparaat aanwezig' test -c /dev/ircomm0
+say_status 'IPv4-forwarding ingeschakeld' sh -c 'test "$(cat /proc/sys/net/ipv4/ip_forward)" = 1'
+say_status 'NAT-regel geladen' /usr/sbin/nft list table ip retromodem_nat
+say_status 'IrDA-service actief' /usr/bin/systemctl is-active --quiet retromodem-irda.service
+say_status 'ChatGPT BBS-service actief' /usr/bin/systemctl is-active --quiet retromodem-chatgpt.service
+if [ -r /etc/retromodem/retromodem.env ]; then
+    . /etc/retromodem/retromodem.env
+    case ${RETROMODEM_LINE_MODE:-ppp} in
+        ppp) selected_service=retromodem-ppp.service ;;
+        dialup) selected_service=retromodem-tcpser.service ;;
+        *) selected_service=onbekend ;;
+    esac
+    printf 'Gekozen route: %s over %s\n' "${RETROMODEM_LINE_MODE:-onbekend}" "${RETROMODEM_TRANSPORT:-onbekend}"
+    [ "$selected_service" = onbekend ] || say_status "Gekozen dienst actief ($selected_service)" /usr/bin/systemctl is-active --quiet "$selected_service"
+fi
+
+printf '\nInterfaces:\n'
+/usr/sbin/ip -brief address show 2>/dev/null || true
+printf '\nRecente servicemeldingen:\n'
+/usr/bin/journalctl -u retromodem-irda.service -u retromodem-ppp.service -n 20 --no-pager 2>/dev/null || true

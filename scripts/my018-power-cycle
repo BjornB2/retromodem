@@ -1,0 +1,49 @@
+#!/bin/sh
+# Experimental Pi 3 MY018 + 2N3904 LOW-SIDE switching only; not installed at boot.
+# Physical 22/BCM25 -> 1k -> base; emitter Pi GND, collector board GND.
+# Each ABC middle pad has a 10k pulldown to BOARD ground, not Pi ground.
+# Low bits must remain high-impedance during power-on: output-low would itself
+# provide a return path around the transistor. Only high bits are driven.
+set -eu
+
+[ "$#" -eq 1 ] || exit 64
+case "$1" in
+    9600) bits=0 ;;
+    19200) bits=1 ;;
+    38400) bits=2 ;;
+    57600) bits=3 ;;
+    115200) bits=4 ;;
+    *) exit 64 ;;
+esac
+
+# Overrides are for mock tests. The kernel helper uses a fixed, clean env.
+PINCTRL=${MY018_PINCTRL:-/usr/bin/pinctrl}
+SLEEP=${MY018_SLEEP:-/usr/bin/sleep}
+FLOCK=${MY018_FLOCK:-/usr/bin/flock}
+lockfile=${MY018_LOCKFILE:-/run/lock/retromodem-my018-power.lock}
+exec 9>"$lockfile"
+"$FLOCK" -w 1 9
+
+recover() {
+    "$PINCTRL" set 14,15,17,27,22 ip pn || :
+    "$PINCTRL" set 25 op dh || :
+    "$SLEEP" 0.05 || :
+    "$PINCTRL" set 14,15 a0 || :
+}
+trap 'result=$?; if [ "$result" -ne 0 ]; then recover; fi' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Release every connected signal BEFORE removing the ground return.
+"$PINCTRL" set 14,15,17,27,22 ip pn
+"$PINCTRL" set 25 op dl
+"$SLEEP" 0.1
+
+# Logic high is safe while board ground floats up towards the 3.3V rail.
+# Logic low is provided only by the existing board-referenced pulldowns.
+[ $((bits & 1)) -eq 0 ] || "$PINCTRL" set 17 op dh
+[ $((bits & 2)) -eq 0 ] || "$PINCTRL" set 27 op dh
+[ $((bits & 4)) -eq 0 ] || "$PINCTRL" set 22 op dh
+"$PINCTRL" set 25 op dh
+"$SLEEP" 0.05
+"$PINCTRL" set 14,15 a0

@@ -1,0 +1,20 @@
+{
+    "name": "retroweb/proxy",
+    "description": "RetroWEB - PHP Web Proxy voor oude browsers",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "ext-gd": "*",
+        "fivefilters/readability.php": "^3.1"
+    },
+    "config": {
+        "platform": {
+            "php": "8.0.23"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "RetroWEB\\": "lib/"
+        }
+    }
+}

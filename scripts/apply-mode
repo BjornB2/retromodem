@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+. /etc/retromodem/retromodem.env
+
+lock=/run/retromodem/mode.lock
+/usr/bin/mkdir -p /run/retromodem
+exec 9>"$lock"
+/usr/bin/flock -x 9
+
+# Stop every consumer first and wait until systemd has reaped it. This keeps
+# pppd/tcpser and file-transfer tools from racing for the same tty.
+/usr/bin/systemctl stop retromodem-ppp.service retromodem-tcpser.service
+
+if [ "$RETROMODEM_TRANSPORT" = irda ]; then
+    # A full restart clears stale IrCOMM/IrLMP state left by a disconnected
+    # device or an interrupted transfer.
+    /usr/bin/systemctl restart retromodem-irda.service
+else
+    /usr/bin/systemctl stop retromodem-irda.service
+fi
+
+case "$RETROMODEM_LINE_MODE" in
+    ppp)
+        /usr/bin/systemctl start retromodem-ppp.service
+        ;;
+    dialup)
+        /usr/bin/systemctl start retromodem-tcpser.service
+        ;;
+    *) echo "Onbekende lijnmodus: $RETROMODEM_LINE_MODE" >&2; exit 1 ;;
+esac
+
+# This is an idempotent state setter, not a daemon. Calling it directly avoids
+# systemd's start-rate limiter when modes are switched repeatedly (for example
+# by the regression test or the web interface). The unit remains useful once
+# at boot.
+/usr/local/lib/retromodem/set-mode-leds

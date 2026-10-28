@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply the selected RetroModem adapter and line mode
+After=retromodem-network.service retromodem-irda.service xinetd.service
+Wants=retromodem-network.service xinetd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/retromodem/apply-mode
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+/dev/ircomm0
+9600
+local
+nocrtscts
+noauth
+passive
+silent
+persist
+holdoff 2
+192.168.77.1:192.168.77.2
+netmask 255.255.255.0
+ms-dns 192.168.77.1
+ms-dns 192.168.77.1
+# EPOC asks for two WINS addresses during IPCP. Without these options pppd
+# rejects the request and the Psion restarts the complete negotiation.
+ms-wins 192.168.77.1
+ms-wins 192.168.77.1
+noipv6
+noccp
+novj
+debug
+logfile /var/log/retromodem-ppp.log

@@ -1,0 +1,61 @@
+#!/bin/sh
+set -eu
+
+: "${RETROMODEM_TTY:=auto}"
+: "${RETROMODEM_DEVICE:=/run/retromodem/tty}"
+: "${RETROMODEM_USB_ID:=0df7:0620}"
+: "${RETROMODEM_DONGLE=ma600}"
+
+my018_power=0
+if [ "${RETROMODEM_ADAPTER:-}" = ming-yuan-my018 ] &&
+   [ "${RETROMODEM_MY018_POWER_CYCLE:-0}" = 1 ]; then
+    my018_power=1
+    # Establish real board ground before UART traffic; low-side power must
+    # never be toggled with active signal pins providing an alternative return.
+    /usr/bin/pinctrl set 25 op dh
+    /usr/sbin/modprobe irtty-sir my018_power_cycle=1
+    [ "$(/usr/bin/cat /sys/module/irtty_sir/parameters/my018_power_cycle 2>/dev/null)" = Y ] || {
+        echo "MY018: driver met voedingsschakeling ontbreekt; herstel de driver voor hogere snelheden" >&2
+        exit 1
+    }
+fi
+
+for module in irda sir-dev irtty-sir ircomm ircomm-tty; do
+    /usr/sbin/modprobe "$module"
+done
+
+# GPIO-UART SIR boards contain their own UART-to-IrDA encoder and therefore
+# don't need a serial-dongle driver. USB/RS-232 adapters still load the driver
+# selected by RETROMODEM_DONGLE.
+if [ -n "$RETROMODEM_DONGLE" ]; then
+    /usr/sbin/modprobe "${RETROMODEM_DONGLE}-sir"
+fi
+
+if [ "$RETROMODEM_TTY" = auto ]; then
+    vendor=${RETROMODEM_USB_ID%:*}
+    product=${RETROMODEM_USB_ID#*:}
+    RETROMODEM_TTY=
+
+    for candidate in /dev/ttyUSB*; do
+        [ -c "$candidate" ] || continue
+        properties=$(/usr/bin/udevadm info --query=property --name="$candidate" 2>/dev/null || true)
+        if printf '%s\n' "$properties" | /usr/bin/grep -qx "ID_VENDOR_ID=$vendor" &&
+           printf '%s\n' "$properties" | /usr/bin/grep -qx "ID_MODEL_ID=$product"; then
+            RETROMODEM_TTY=$candidate
+            break
+        fi
+    done
+
+    [ -n "$RETROMODEM_TTY" ] || {
+        echo "RetroModem: adapter $RETROMODEM_USB_ID is niet aangesloten" >&2
+        exit 1
+    }
+fi
+
+test -c "$RETROMODEM_TTY"
+if [ "$my018_power" = 1 ]; then
+    /usr/local/lib/retromodem/my018-power-cycle 9600
+fi
+runtime_dir=$(dirname "$RETROMODEM_DEVICE")
+[ -d "$runtime_dir" ] || /usr/bin/install -d -m 0755 "$runtime_dir"
+/usr/bin/ln -sfn "$RETROMODEM_TTY" "$RETROMODEM_DEVICE"

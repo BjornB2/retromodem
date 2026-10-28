@@ -1,0 +1,12 @@
+service retromodem-ppp
+{
+    type        = UNLISTED
+    bind        = 127.0.0.1
+    port        = 2323
+    socket_type = stream
+    protocol    = tcp
+    wait        = no
+    user        = root
+    server      = /usr/local/lib/retromodem/dialup-ppp
+    disable     = no
+}

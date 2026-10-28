@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/sbin/pppd notty nodetach local noauth proxyarp 192.168.77.1:192.168.77.2 netmask 255.255.255.0 ms-dns 192.168.77.1 ms-dns 192.168.77.1 ms-wins 192.168.77.1 ms-wins 192.168.77.1 noipv6 noccp novj

@@ -1,0 +1,3 @@
+RetroModem EPOC transfer test
+
+If this text is readable on the Psion, the native infrared file transfer completed successfully.

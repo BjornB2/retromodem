@@ -1,0 +1,34 @@
+#!/bin/sh
+set -eu
+export LC_ALL=C
+
+: "${RETROMODEM_WIFI_INTERFACE:=wlan0}"
+: "${RETROMODEM_WIFI_FALLBACK_SECONDS:=10}"
+: "${RETROMODEM_WIFI_CHECK_SECONDS:=5}"
+
+active_connection() {
+    /usr/bin/nmcli -g GENERAL.CONNECTION device show "$RETROMODEM_WIFI_INTERFACE" 2>/dev/null || true
+}
+
+wifi_active() {
+    [ "$(/usr/bin/nmcli -g GENERAL.STATE device show "$RETROMODEM_WIFI_INTERFACE" 2>/dev/null || true)" = "100 (connected)" ]
+}
+
+# Give NetworkManager a short, configurable opportunity to reconnect. Ten
+# seconds is enough for normal association, without leaving an unknown-location
+# setup looking dead for the former 20+ seconds.
+/usr/bin/sleep "$RETROMODEM_WIFI_FALLBACK_SECONDS"
+
+while :; do
+    if [ ! -e /run/retromodem/wifi-transition ]; then
+        current=$(active_connection)
+        # An active client connection or the already-running setup AP must be
+        # left alone. Re-running `nmcli connection up` disrupts associated
+        # phones and was the cause of the periodic hotspot disconnects.
+        if ! wifi_active || [ -z "$current" ] || [ "$current" = "--" ]; then
+            /usr/local/lib/retromodem/configure-ap
+            /usr/bin/nmcli connection up retromodem-ap ifname "$RETROMODEM_WIFI_INTERFACE" || true
+        fi
+    fi
+    /usr/bin/sleep "$RETROMODEM_WIFI_CHECK_SECONDS"
+done

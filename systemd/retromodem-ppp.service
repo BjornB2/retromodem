@@ -1,0 +1,15 @@
+[Unit]
+Description=RetroModem PPP server
+Wants=retromodem-network.service
+After=retromodem-irda.service retromodem-network.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/lib/retromodem/wait-irda
+EnvironmentFile=-/etc/retromodem/retromodem.env
+ExecStart=/usr/local/lib/retromodem/modem-backend.py direct-ppp
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

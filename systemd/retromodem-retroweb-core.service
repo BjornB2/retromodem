@@ -1,0 +1,17 @@
+[Unit]
+Description=RetroModem local RetroWEB processing core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/retromodem/retromodem.env
+WorkingDirectory=/opt/retromodem/retroweb
+ExecStart=/usr/bin/php -S 127.0.0.1:8090
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

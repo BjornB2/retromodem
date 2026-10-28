@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.retromodem-local/
+runtime/
+tmp/
+dist/
+*.img
+*.img.gz
+*.img.xz
+credentials.json
+pending.json
+host.json
+*.pem
+*.key

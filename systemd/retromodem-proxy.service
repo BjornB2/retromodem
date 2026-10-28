@@ -1,0 +1,19 @@
+[Unit]
+Description=RetroModem built-in RetroWEB proxy
+After=network-online.target nftables.service retromodem-retroweb-core.service
+Wants=network-online.target retromodem-retroweb-core.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/retromodem/retromodem.env
+ExecCondition=/usr/local/lib/retromodem/proxy-enabled
+ExecStartPre=/usr/local/lib/retromodem/proxy-firewall apply
+ExecStart=/usr/bin/python3 /usr/local/lib/retromodem/retroweb-proxy.py
+ExecStopPost=/usr/local/lib/retromodem/proxy-firewall disable
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

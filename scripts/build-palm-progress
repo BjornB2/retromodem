@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+"""Build the upstream Palm Beam sender with public-API byte progress.
+
+Uses OpenOBEX 1.7.2's example (GPL-2.0-or-later). No library, driver or
+distribution binary is replaced. Streaming counts complete payload chunks;
+100% is reported only when the peer confirms the PUT request.
+"""
+import hashlib
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+
+URL = 'https://deb.debian.org/debian/pool/main/libo/libopenobex/libopenobex_1.7.2.orig.tar.gz'
+SHA256 = '158860aaea52f0fce0c8e4b64550daaae06df2689e05834697b7e8c7d73dd4fc'
+
+
+def replace_once(source, old, new):
+    if source.count(old) != 1:
+        raise RuntimeError('Unexpected OpenOBEX source; refusing to patch')
+    return source.replace(old, new, 1)
+
+
+def main():
+    destination = Path(sys.argv[1])
+    with tempfile.TemporaryDirectory(prefix='retromodem-palm-build-') as directory:
+        root = Path(directory)
+        archive = root / 'source.tar.gz'
+        urllib.request.urlretrieve(URL, archive)
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != SHA256:
+            raise RuntimeError('OpenOBEX checksum mismatch')
+        names = ['irobex_palm3.c', 'lib/obex_io.c', 'lib/obex_io.h',
+                 'lib/obex_put_common.c', 'lib/obex_put_common.h']
+        with tarfile.open(archive) as source:
+            for name in names:
+                (root / Path(name).name).write_bytes(source.extractfile(
+                    'openobex-1.7.2-Source/apps/' + name).read())
+        io = root / 'obex_io.c'
+        text = io.read_text()
+        text = replace_once(text, 'int obex_protocol_type = OBEX_PROTOCOL_GENERIC;', '''int obex_protocol_type = OBEX_PROTOCOL_GENERIC;
+static uint8_t *transfer_data;
+static uint32_t transfer_total, transfer_offset, transfer_completed;
+
+void retromodem_progress(int complete)
+{
+    if (!transfer_data) return;
+    printf("RETROMODEM_PROGRESS %u %u\\n",
+           complete ? transfer_total : transfer_completed, transfer_total);
+    fflush(stdout);
+}
+
+void retromodem_stream_next(obex_t *self, obex_object_t *object)
+{
+    obex_headerdata_t header;
+    uint32_t remaining = transfer_total - transfer_offset;
+    uint32_t count = remaining > 1024 ? 1024 : remaining;
+    transfer_completed = transfer_offset;
+    header.bs = transfer_data + transfer_offset;
+    transfer_offset += count;
+    OBEX_ObjectAddHeader(self, object, OBEX_HDR_BODY, header, count,
+        transfer_offset == transfer_total ? OBEX_FL_STREAM_DATAEND : OBEX_FL_STREAM_DATA);
+}''')
+        text = replace_once(text, '''hdd.bs = buf;
+\tOBEX_ObjectAddHeader(handle, object, OBEX_HDR_BODY,
+\t\t\t\thdd, file_size, 0);
+
+\tfree(buf);''', '''transfer_data = buf;
+    transfer_total = file_size;
+    transfer_offset = transfer_completed = 0;
+    hdd.bs = NULL;
+    OBEX_ObjectAddHeader(handle, object, OBEX_HDR_BODY,
+                        hdd, 0, OBEX_FL_STREAM_START);''')
+        io.write_text(text)
+        common = root / 'obex_put_common.c'
+        text = common.read_text()
+        text = replace_once(text, 'case OBEX_EV_PROGRESS:\n\t\tprintf(".");', '''case OBEX_EV_STREAMEMPTY:
+        retromodem_stream_next(handle, object);
+        break;
+    case OBEX_EV_PROGRESS:
+        if (mode == OBEX_MODE_CLIENT && obex_cmd == OBEX_CMD_PUT)
+            retromodem_progress(0);
+        printf(".");''')
+        text = replace_once(text, 'case OBEX_EV_REQDONE:\n\t\tprintf("\\n");', '''case OBEX_EV_REQDONE:
+        if (mode == OBEX_MODE_CLIENT && obex_cmd == OBEX_CMD_PUT && obex_rsp == OBEX_RSP_SUCCESS)
+            retromodem_progress(1);
+        printf("\\n");''')
+        common.write_text(text)
+        header = root / 'obex_io.h'
+        header.write_text(header.read_text() + '\nvoid retromodem_progress(int complete);\nvoid retromodem_stream_next(obex_t *, obex_object_t *);\n')
+        palm = root / 'irobex_palm3.c'
+        palm.write_text(replace_once(palm.read_text(), 'printf("Send and receive files to Palm3\\n");',
+                                    'setvbuf(stdout, NULL, _IONBF, 0);\n\tprintf("Send and receive files to Palm3\\n");'))
+        flags = subprocess.check_output(['pkg-config', '--cflags', '--libs', 'openobex'], text=True).split()
+        harness = Path(__file__).resolve().parents[1] / 'tests/palm_progress_roundtrip.c'
+        if len(sys.argv) > 2:
+            harness = Path(sys.argv[2])
+        if harness.is_file():
+            test_binary = root / 'roundtrip-test'
+            subprocess.run(['cc', '-O2', '-I', str(root), str(harness), str(common), str(io),
+                            '-o', str(test_binary), *flags], check=True)
+            subprocess.run([str(test_binary)], check=True, timeout=30)
+        subprocess.run(['cc', '-O2', '-Wall', '-Wextra', '-I', str(root), str(palm),
+                        str(common), str(io), '-o', str(destination), *flags], check=True)
+
+
+if __name__ == '__main__':
+    main()

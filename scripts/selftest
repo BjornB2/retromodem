@@ -1,0 +1,125 @@
+#!/bin/bash
+set -Eeuo pipefail
+
+CONFIG=/etc/retromodem/retromodem.env
+APPLY=/usr/local/lib/retromodem/apply-mode
+TRANSFER=/usr/local/lib/retromodem/transfer.py
+RESULT=/var/lib/retromodem/selftest-latest.log
+SNAPSHOT=$(mktemp /run/retromodem/selftest-config.XXXXXX)
+TEST_FILE=/var/lib/retromodem/transfers/selftest.bin
+
+exec > >(tee "$RESULT") 2>&1
+cp "$CONFIG" "$SNAPSHOT"
+
+restore() {
+    cp "$SNAPSHOT" "$CONFIG"
+    rm -f "$SNAPSHOT" "$TEST_FILE"
+    "$APPLY" || true
+}
+trap restore EXIT INT TERM
+
+pass() { printf 'PASS: %s\n' "$*"; }
+fail() { printf 'FAIL: %s\n' "$*"; exit 1; }
+
+assert_no_failed_units() {
+    local failed_units
+    failed_units=$(systemctl --failed --no-legend --plain)
+    [ -z "$failed_units" ] || fail "gefaalde units:\n$failed_units"
+}
+
+assert_dialup_listener() {
+    ss -ltnH | awk '$4 == "127.0.0.1:2323" { found=1 } END { exit !found }' ||
+        fail "lokale inbel-PPP luistert niet op 127.0.0.1:2323"
+    pass "lokale inbel-PPP luistert uitsluitend op loopbackpoort 2323"
+}
+
+set_value() {
+    local key=$1 value=$2
+    if grep -q "^${key}=" "$CONFIG"; then
+        sed -i "s/^${key}=.*/${key}=${value}/" "$CONFIG"
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$CONFIG"
+    fi
+}
+
+active() { systemctl is-active --quiet "$1"; }
+inactive() { ! systemctl is-active --quiet "$1"; }
+
+wait_active() {
+    local unit=$1
+    for _attempt in $(seq 1 30); do
+        active "$unit" && return 0
+        sleep 0.25
+    done
+    systemctl --no-pager --full status "$unit" || true
+    return 1
+}
+
+assert_process() {
+    local process=$1 argument=$2
+    for _attempt in $(seq 1 30); do
+        if pgrep -af "$process" | grep -F -- "$argument" >/dev/null; then
+            return 0
+        fi
+        sleep 0.25
+    done
+    pgrep -af "$process" || true
+    fail "$process gebruikt niet $argument"
+}
+
+apply_case() {
+    local transport=$1 mode=$2 expected=$3 device=$4
+    set_value RETROMODEM_TRANSPORT "$transport"
+    set_value RETROMODEM_LINE_MODE "$mode"
+    "$APPLY"
+    wait_active "$expected" || fail "$transport/$mode start $expected niet"
+    if [ "$expected" = retromodem-ppp.service ]; then
+        inactive retromodem-tcpser.service || fail "tcpser draait naast PPP"
+        assert_process pppd "$device"
+    else
+        inactive retromodem-ppp.service || fail "PPP draait naast tcpser"
+        assert_process tcpser "$device"
+    fi
+    if [ "$transport" = irda ]; then
+        active retromodem-irda.service || fail "IrDA is niet actief"
+    else
+        inactive retromodem-irda.service || fail "IrDA bleef actief bij USB-serieel"
+    fi
+    pass "$transport/$mode gebruikt exclusief $device"
+}
+
+cancel_transfer() {
+    local protocol=$1
+    dd if=/dev/zero of="$TEST_FILE" bs=1024 count=4 status=none
+    "$TRANSFER" send "$protocol" "$TEST_FILE" &
+    local transfer_pid=$!
+    sleep 3
+    inactive retromodem-ppp.service || fail "PPP bleef actief tijdens $protocol"
+    inactive retromodem-tcpser.service || fail "tcpser bleef actief tijdens $protocol"
+    kill -TERM "$transfer_pid" 2>/dev/null || true
+    wait "$transfer_pid" || true
+    wait_active retromodem-ppp.service || fail "PPP kwam niet terug na $protocol"
+    active retromodem-irda.service || fail "IrDA kwam niet terug na $protocol"
+    pgrep -af 'transfer.py send' >/dev/null && fail "transferproces bleef achter na $protocol"
+    grep -q '"state": "cancelled"' /var/lib/retromodem/transfers/status.json ||
+        fail "$protocol eindigde niet als geannuleerd"
+    pass "herstel na afgebroken $protocol-overdracht"
+}
+
+printf 'RetroModem selftest %s\n' "$(date --iso-8601=seconds)"
+assert_no_failed_units
+assert_dialup_listener
+
+apply_case irda ppp retromodem-ppp.service /dev/ircomm0
+apply_case irda dialup retromodem-tcpser.service /dev/ircomm0
+apply_case serial ppp retromodem-ppp.service /dev/ttyUSB0
+apply_case serial dialup retromodem-tcpser.service /dev/ttyUSB0
+
+set_value RETROMODEM_TRANSPORT irda
+set_value RETROMODEM_LINE_MODE ppp
+"$APPLY"
+cancel_transfer ymodem
+cancel_transfer epoc
+
+assert_no_failed_units
+pass "alle regressietests voltooid"

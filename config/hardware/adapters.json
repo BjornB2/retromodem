@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "adapters": [
+    {
+      "id": "mobile-action-ma620",
+      "name": "Mobile Action MA-620",
+      "transport": "usb-serial-sir",
+      "usb_ids": ["0df7:0620"],
+      "tty_glob": "/dev/ttyUSB*",
+      "kernel_modules": ["irda", "sir-dev", "irtty-sir", "ma600-sir", "ircomm", "ircomm-tty"],
+      "irattach_dongle": "ma600",
+      "supported_bitrates": [9600, 19200, 38400, 57600, 115200],
+      "default_bitrate": 9600,
+      "verified_bitrates": [9600],
+      "known_bad_bitrates": [57600, 115200],
+      "capabilities": {
+        "ircomm_ppp": "verified",
+        "ircomm_hayes": "verified",
+        "serial_file_transfer": "verified",
+        "epoc_eikonir_send": "experimental",
+        "epoc_eikonir_receive": "experimental",
+        "irobex": "verified-send",
+        "raw_hpsir": "unsupported"
+      },
+      "observations": {
+        "epoc_eikonir_send": "Device-dependent: a second 5mx transfers quickly, while the first device repeatedly stalls or disconnects, including near 95%.",
+        "irobex": "Palm Beam send completed with EudoraWeb_2.1.prc on a Palm IIIc running Palm OS 4.1."
+      },
+      "notes": {
+        "nl": "Dit exemplaar is betrouwbaar op 9600 bit/s. Bij 57k6 en 115k2 valt de link na de snelheidswissel stil.",
+        "en": "This unit is reliable at 9600 bit/s. At 57.6k and 115.2k the link stalls after changing speed."
+      }
+    },
+    {
+      "id": "ming-yuan-my018",
+      "name": "Ming Yuan MY018 TTL-SIR",
+      "transport": "gpio-uart-sir",
+      "tty": "/dev/serial0",
+      "kernel_modules": ["irda", "sir-dev", "irtty-sir", "ircomm", "ircomm-tty"],
+      "irattach_dongle": "",
+      "supported_bitrates": [9600, 19200, 38400, 57600, 115200],
+      "default_bitrate": 9600,
+      "verified_bitrates": [9600, 57600],
+      "partial_bitrates": [19200],
+      "untested_bitrates": [38400],
+      "experimental_bitrates": [115200],
+      "required_for_dynamic_speed": "Modified A/B/C selectors, board-referenced pulldowns, 2N3904 low-side switch and opt-in driver/helper",
+      "status": "experimental",
+      "capabilities": {
+        "ircomm_ppp": "verified-57600-palm-psion",
+        "ircomm_hayes": "untested",
+        "serial_file_transfer": "untested",
+        "epoc_eikonir_send": "untested",
+        "epoc_eikonir_receive": "untested",
+        "irobex": "verified-send-57600-palm",
+        "raw_hpsir": "unsupported"
+      },
+      "notes": {
+        "nl": "Met aangepaste A/B/C-bedrading en transistorschakeling: 57k6 getest voor PPP op Palm IIIc en Psion 5mx, en Beam naar Palm. 19k2 gedeeltelijk getest; 38k4 nog niet. 115k2 experimenteel: verbindingen mislukten in de tests. Dit is geen algemene IrDA-grens. EPOC en terminaltransfers met deze module nog niet opnieuw geverifieerd.",
+        "en": "With modified A/B/C wiring and transistor switch: 57.6k tested for PPP on Palm IIIc and Psion 5mx, and Beam to Palm. 19.2k partially tested; 38.4k untested. 115.2k experimental: test connections failed. This is not a general IrDA limit. EPOC and terminal transfers have not been reverified on this module."
+      }
+    },
+    {
+      "id": "mcp2120-pihat",
+      "name": "MCP2120 Raspberry Pi HAT",
+      "transport": "gpio-uart-sir",
+      "kernel_modules": ["irda", "sir-dev", "irtty-sir", "mcp2120-sir", "ircomm", "ircomm-tty"],
+      "irattach_dongle": "mcp2120",
+      "supported_bitrates": [9600, 19200, 38400, 57600, 115200],
+      "default_bitrate": 9600,
+      "status": "experimental",
+      "capabilities": {
+        "ircomm_ppp": "untested",
+        "ircomm_hayes": "untested",
+        "serial_file_transfer": "untested",
+        "epoc_eikonir_send": "untested",
+        "epoc_eikonir_receive": "untested",
+        "irobex": "not-implemented",
+        "raw_hpsir": "unsupported"
+      },
+      "notes": {
+        "nl": "Experimenteel. Het geteste bord was elektrisch defect en produceerde geen TXIR-pulsen.",
+        "en": "Experimental. The tested board was electrically defective and produced no TXIR pulses."
+      }
+    }
+  ]
+}

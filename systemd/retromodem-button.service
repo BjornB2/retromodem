@@ -1,0 +1,14 @@
+[Unit]
+Description=RetroModem front-panel button
+After=local-fs.target retromodem-mode.service
+Wants=retromodem-mode.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/retromodem/retromodem.env
+ExecStart=/usr/bin/python3 /usr/local/lib/retromodem/button-control.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

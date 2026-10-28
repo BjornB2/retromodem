@@ -1,0 +1,151 @@
+#!/bin/sh
+set -u
+
+# Read-only verification for a freshly installed RetroModem. This deliberately
+# does not require an IrDA or serial adapter: hardware tests are reported as
+# SKIP and belong to the acceptance checklist.
+
+failures=0
+warnings=0
+
+pass() { printf 'PASS  %s\n' "$*"; }
+warn() { printf 'WARN  %s\n' "$*"; warnings=$((warnings + 1)); }
+fail() { printf 'FAIL  %s\n' "$*"; failures=$((failures + 1)); }
+
+check_file() {
+    if [ -e "$1" ]; then pass "$1 aanwezig"; else fail "$1 ontbreekt"; fi
+}
+
+check_command() {
+    if command -v "$1" >/dev/null 2>&1; then
+        pass "$1 beschikbaar"
+    else
+        fail "$1 niet beschikbaar"
+    fi
+}
+
+check_enabled() {
+    if systemctl is-enabled --quiet "$1"; then
+        pass "$1 ingeschakeld"
+    else
+        fail "$1 niet ingeschakeld"
+    fi
+}
+
+check_active() {
+    if systemctl is-active --quiet "$1"; then
+        pass "$1 actief"
+    else
+        fail "$1 niet actief"
+    fi
+}
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Start deze controle als root: sudo retromodem-verify" >&2
+    exit 2
+fi
+
+printf 'RetroModem installatiecontrole\n'
+printf '%s\n' '================================'
+
+for command in python3 pppd tcpser nft nmcli pinctrl irattach irobex_palm3 ircp \
+    sx rx sb rb sz rz lsusb udevadm; do
+    check_command "$command"
+done
+
+if id retromodem >/dev/null 2>&1; then
+    pass "SSH-gebruiker retromodem bestaat"
+else
+    fail "SSH-gebruiker retromodem ontbreekt"
+fi
+
+for path in \
+    /etc/retromodem/retromodem.env \
+    /etc/retromodem/phonebook.json \
+    /etc/retromodem/adapters.json \
+    /usr/local/lib/retromodem/web.py \
+    /usr/local/lib/retromodem/openai_auth.py \
+    /usr/local/lib/retromodem/chatgpt-bbs.py \
+    /usr/local/lib/retromodem/transfer.py \
+    /usr/local/lib/retromodem/modem-backend.py \
+    /usr/local/lib/retromodem/button-control.py \
+    /usr/local/lib/retromodem/irpsion5-send \
+    /usr/local/share/retromodem/install-manifest.sha256; do
+    check_file "$path"
+done
+
+if [ -s /etc/retromodem/phonebook.json ] && \
+   grep -q '"5559000"' /etc/retromodem/phonebook.json && \
+   grep -q '"5551000"' /etc/retromodem/phonebook.json && \
+   grep -q '"5559999"' /etc/retromodem/phonebook.json; then
+    pass "standaard internet- en BBS-nummers aanwezig"
+else
+    fail "standaardtelefoonboek onvolledig"
+fi
+
+if [ -s /usr/local/share/retromodem/install-manifest.sha256 ]; then
+    if (cd / && sha256sum -c /usr/local/share/retromodem/install-manifest.sha256 >/dev/null); then
+        pass "alle door de installer beheerde bestanden komen overeen"
+    else
+        fail "een of meer beheerde bestanden wijken af van de installer"
+        (cd / && sha256sum -c /usr/local/share/retromodem/install-manifest.sha256) 2>&1 || true
+    fi
+fi
+
+for unit in NetworkManager.service avahi-daemon.service ssh.service xinetd.service \
+    retromodem-network.service retromodem-mode.service \
+    retromodem-button.service retromodem-ap-fallback.service retromodem-web.service \
+    retromodem-chatgpt.service; do
+    check_enabled "$unit"
+done
+
+check_active retromodem-network.service
+check_active retromodem-ap-fallback.service
+check_active retromodem-web.service
+check_active retromodem-chatgpt.service
+check_active retromodem-button.service
+
+if ss -ltnH | awk '$4 == "127.0.0.1:2324" { found=1 } END { exit !found }'; then
+    pass "ChatGPT BBS luistert uitsluitend lokaal op poort 2324"
+else
+    fail "ChatGPT BBS luistert niet op 127.0.0.1:2324"
+fi
+
+if curl --fail --silent --max-time 5 -u retromodem:retromodem \
+    http://127.0.0.1/ >/dev/null; then
+    pass "webinterface antwoordt lokaal met de standaardlogin"
+else
+    fail "webinterface antwoordt niet met de standaardlogin"
+fi
+
+if [ "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)" = 1 ]; then
+    pass "IPv4-forwarding staat aan"
+else
+    fail "IPv4-forwarding staat uit"
+fi
+
+if nft list table ip retromodem_nat >/dev/null 2>&1; then
+    pass "NAT-tabel is geladen"
+else
+    fail "NAT-tabel ontbreekt"
+fi
+
+if lsusb -d 0df7:0620 2>/dev/null | grep -q .; then
+    pass "Mobile Action MA-620 aangesloten"
+    if systemctl is-active --quiet retromodem-irda.service; then
+        pass "IrDA-dienst actief"
+    else
+        warn "MA-620 gevonden, maar IrDA-dienst is niet actief"
+    fi
+else
+    warn "geen MA-620 aangesloten; fysieke IrDA-test overgeslagen"
+fi
+
+if lsusb -d 067b:2303 2>/dev/null | grep -q .; then
+    pass "Prolific USB-serieeladapter aangesloten"
+else
+    warn "geen Prolific-adapter aangesloten; seriële test overgeslagen"
+fi
+
+printf '\nResultaat: %s fout(en), %s waarschuwing(en).\n' "$failures" "$warnings"
+[ "$failures" -eq 0 ]

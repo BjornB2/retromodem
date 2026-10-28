@@ -1,0 +1,14 @@
+[Unit]
+Description=RetroModem Wi-Fi access-point fallback
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/retromodem/retromodem.env
+ExecStart=/usr/local/lib/retromodem/ap-fallback
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

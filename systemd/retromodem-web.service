@@ -1,0 +1,14 @@
+[Unit]
+Description=RetroModem configuration web interface
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/retromodem/retromodem.env
+ExecStart=/usr/bin/python3 /usr/local/lib/retromodem/web.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

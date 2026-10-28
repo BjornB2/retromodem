@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+# Always read the persisted choice.  apply-mode invokes this as a child process;
+# shell variables sourced by its parent are not exported automatically.
+if [ -r /etc/retromodem/retromodem.env ]; then
+    . /etc/retromodem/retromodem.env
+fi
+
+: "${RETROMODEM_LINE_MODE:=ppp}"
+: "${RETROMODEM_GPIO_LED_DIALUP:=23}"
+: "${RETROMODEM_GPIO_LED_PPP:=24}"
+
+/usr/bin/pinctrl set "$RETROMODEM_GPIO_LED_DIALUP" op dl
+/usr/bin/pinctrl set "$RETROMODEM_GPIO_LED_PPP" op dl
+case "$RETROMODEM_LINE_MODE" in
+    ppp) /usr/bin/pinctrl set "$RETROMODEM_GPIO_LED_PPP" op dh ;;
+    dialup) /usr/bin/pinctrl set "$RETROMODEM_GPIO_LED_DIALUP" op dh ;;
+    *) echo "RetroModem: onbekende lijnmodus: $RETROMODEM_LINE_MODE" >&2; exit 1 ;;
+esac
