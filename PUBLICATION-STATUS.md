@@ -43,6 +43,12 @@ search retry and the return to search after failed query/setup or disconnect.
 The three-second deadlines for an in-flight IAS query or setup are unchanged,
 as are discovery frequency, slots and hardware power-cycle timing. The extra
 timer patch is also included in the DKMS source hash.
+
+The full installer with both modem fixes and the shorter search waits was
+applied to the original Pi and rebooted successfully. The loaded driver version
+was verified. The owner subsequently confirmed that PPP-to-dial-up switching
+and AT response felt fast and accepted this for now. No exact post-update
+connection duration was measured; do not claim a numerical speedup.
 Installer C commands are checked for header resolution as part of the tests.
 
 Feature updates were applied on the original Pi through the guarded installer,
