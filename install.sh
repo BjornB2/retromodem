@@ -137,6 +137,7 @@ package_version=$(sh "$PROJECT_DIR/scripts/build-irda" "$work_dir/irda" "$kernel
 git clone --filter=blob:none "$TCPSER_REPOSITORY" "$work_dir/tcpser"
 git -C "$work_dir/tcpser" checkout --detach "$TCPSER_COMMIT"
 patch -d "$work_dir/tcpser" -p1 < "$PROJECT_DIR/patches/tcpser-initialize-termios.patch"
+patch -d "$work_dir/tcpser" -p1 < "$PROJECT_DIR/patches/tcpser-flowcontrol-speed.patch"
 make -C "$work_dir/tcpser"
 install -m 0755 "$work_dir/tcpser/tcpser" /usr/local/bin/tcpser
 
