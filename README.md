@@ -5,34 +5,59 @@
 > will follow after the acceptance tests pass. There is no public bootstrap
 > installation command or downloadable SD image yet.
 >
-> Release scope: MY018 is the preferred infrared build; MA-620 USB infrared and
-> Prolific USB-to-RS-232 are included alternatives. Other Raspberry Pi models
-> have not been tested. Some documentation below still describes older defaults
-> and is being updated. See [PUBLICATION-STATUS.md](PUBLICATION-STATUS.md).
+> MY018 is the preferred infrared build. MA-620 is the USB infrared fallback;
+> Prolific USB-to-RS-232 is the main connection for computers without infrared.
+> Other Raspberry Pi models have not been tested.
+> See [PUBLICATION-STATUS.md](PUBLICATION-STATUS.md) for remaining preparation.
 
 **Network bridge and virtual modem for retro computers and handhelds**
 
 RetroModem turns a Raspberry Pi into a standalone internet bridge and Hayes
-modem for vintage handhelds and computers. Devices can connect through a
-supported IrDA/IrCOMM adapter or a USB-to-serial adapter. PPP traffic is routed
+modem for vintage handhelds and computers. The preferred infrared build uses a
+Ming Yuan MY018 module connected to the Pi's GPIO/UART. Computers without
+infrared connect through a Prolific USB-to-RS-232 adapter and the appropriate
+serial cable. A Mobile Action MA-620 USB adapter provides an infrared fallback.
+PPP traffic is routed
 through the Pi's Wi-Fi network; Hayes dialing can open internet PPP or a BBS.
 
 The project is hardware-independent. Adapter-specific details live in hardware
 profiles; the web interface, PPP service and network management remain shared.
 
-## Confirmed hardware
+## Connection options
+
+All three connection options belong to the same installation and release.
+
+| Connection | Intended use |
+| --- | --- |
+| **MY018 GPIO/UART infrared** | Preferred infrared build, with the documented selector wiring and transistor circuit |
+| **Prolific USB-to-RS-232** | Main wired connection for computers without infrared; cable/null-modem requirements depend on the computer |
+| **MA-620 USB infrared** | Fallback when the MY018 build is not used |
+
+An RS-232 adapter is electrically different from a USB-TTL cable. Use the
+correct adapter and pinout for the target computer.
+
+## Tested setup
 
 - Raspberry Pi 3 Model B Rev 1.2
-- Mobile Action MA-620 (`0df7:0620`), using `pl2303`, `irtty-sir` and
-  `ma600-sir`
-- Psion 5mx and Palm IIIc direct PPP over IrCOMM, stable at 9600 bit/s
-- Palm Beam (IrOBEX) sending of PRC/PDB files
+- MY018 with the modified A/B/C selector wiring and 2N3904 power-control circuit
+- MY018 direct PPP at 57600 bit/s with Psion 5mx and Palm IIIc
+- MY018 Palm Beam (IrOBEX) sending to Palm at 57600 bit/s
+- Prolific USB-to-RS-232 for wired PPP and Hayes/BBS connections
+- MA-620 infrared fallback (`0df7:0620`) at 9600 bit/s
+
+See the [MY018 wiring and setup guide](docs/MY018-SETUP.md) before connecting
+the module. These results apply to the existing working setup; reproducing it
+from a clean SD card is the next acceptance step.
 
 ## Status
 
 The verified internet route is working end to end:
 
-`Psion 5mx -> IrDA -> MA-620 -> PPP -> Raspberry Pi -> Wi-Fi -> internet`
+`Psion 5mx / Palm IIIc -> IrDA -> MY018 -> Raspberry Pi -> Wi-Fi -> internet`
+
+For computers without an infrared port:
+
+`Retro computer -> RS-232 cable -> Prolific USB adapter -> Raspberry Pi -> internet / BBS`
 
 The web interface, access-point fallback and selectable PPP/Hayes backends are
 operational. Generic serial file transfer uses X/Y/ZMODEM. Native device
@@ -59,7 +84,15 @@ modules, installeert de PPP-server en zet IPv4-routing met nftables aan.
 sudo ./install.sh
 ```
 
-Sluit de MA-620 aan en controleer de installatie met:
+Gebruik bij voorkeur de MY018-opbouw uit de
+[aansluit- en configuratiehandleiding](docs/MY018-SETUP.md). Kies in de
+webinterface de MY018 en pas de daarin beschreven instellingen voor de
+bedrading toe. De huidige ontwikkelinstaller bevat nog de oude adapterdefault;
+automatische MY018-configuratie wordt voor de eerste release voorbereid.
+Gebruik voor computers zonder infrarood de Prolific RS-232-route. MA-620 is
+alleen de alternatieve USB-infraroodroute.
+
+Controleer daarna de installatie met:
 
 ```sh
 sudo retromodem-diagnose
