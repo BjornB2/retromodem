@@ -24,11 +24,12 @@ Imager user. It downloads the pinned candidate and asks for the documented
 MY018 wiring confirmation before installation:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/a54a0555cb705774a07b9409e1c8ed87c8702d1b/bootstrap.sh | sh -s -- --ref a54a0555cb705774a07b9409e1c8ed87c8702d1b --adapter my018
+curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/f332397ad3445528b915a1d1f516f054f4982ab5/bootstrap.sh | sh -s -- --ref f332397ad3445528b915a1d1f516f054f4982ab5
 ```
 
-For the main RS-232 route, replace `--adapter my018` with `--adapter serial`.
-For the MA-620 infrared fallback use `--adapter ma620`.
+The installer includes all three connection options and asks which one should be
+active first; MY018 is the suggested choice. To preselect the main RS-232 route,
+append `--adapter serial`; for the MA-620 infrared fallback append `--adapter ma620`.
 
 After installation, continue at **Reboot and verify** below. The following
 authentication procedure is only needed if the repository is made private again.

@@ -22,8 +22,10 @@ The publication installer has offline tests for adapter selection, boot changes,
 configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
-All 115 Python unit tests pass on the development computer; installer,
+All 120 Python unit tests pass on the development computer; installer,
 bootstrap and verifier shell syntax checks also pass.
+The DKMS inventory now follows target-kernel capabilities; unsupported ISA/PCI
+drivers are not required on the Pi. Full clean-SD acceptance remains pending.
 
 ## Outstanding before release
 
