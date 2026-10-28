@@ -61,7 +61,7 @@ def plan(root, adapter=None, confirmed=False):
                    "RETROMODEM_TTY": "/dev/serial0", "RETROMODEM_DONGLE": "",
                    "RETROMODEM_MY018_POWER_CYCLE": "1",
                    "RETROMODEM_IRDA_BITRATE": existing.get("RETROMODEM_MY018_BITRATE", "57600"),
-                   "RETROMODEM_IRDA_DIALUP_BITRATE": existing.get("RETROMODEM_MY018_DIALUP_BITRATE", "57600")}
+                   "RETROMODEM_IRDA_DIALUP_BITRATE": existing.get("RETROMODEM_MY018_DIALUP_BITRATE", "115200")}
         # Preserve speeds for an existing active MY018 profile.
         if existing.get("RETROMODEM_ADAPTER") == CHOICES[adapter]:
             for key in ("RETROMODEM_IRDA_BITRATE", "RETROMODEM_IRDA_DIALUP_BITRATE"):
@@ -76,7 +76,7 @@ def plan(root, adapter=None, confirmed=False):
         values["RETROMODEM_IRDA_BITRATE"] = existing.get("RETROMODEM_MA620_BITRATE",
             existing.get("RETROMODEM_IRDA_BITRATE", "9600") if existing.get("RETROMODEM_ADAPTER") == CHOICES[adapter] else "9600")
         values["RETROMODEM_IRDA_DIALUP_BITRATE"] = existing.get("RETROMODEM_MA620_DIALUP_BITRATE",
-            existing.get("RETROMODEM_IRDA_DIALUP_BITRATE", "57600") if existing.get("RETROMODEM_ADAPTER") == CHOICES[adapter] else "57600")
+            existing.get("RETROMODEM_IRDA_DIALUP_BITRATE", "115200") if existing.get("RETROMODEM_ADAPTER") == CHOICES[adapter] else "115200")
         values["RETROMODEM_MA620_BITRATE"] = values["RETROMODEM_IRDA_BITRATE"]
         values["RETROMODEM_MA620_DIALUP_BITRATE"] = values["RETROMODEM_IRDA_DIALUP_BITRATE"]
     elif adapter == "serial":

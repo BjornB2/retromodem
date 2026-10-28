@@ -35,6 +35,21 @@ if (!checkRateLimit()) {
     exit; // checkRateLimit() heeft al error response gestuurd
 }
 
+require_once __DIR__ . '/lib/PagePaginator.php';
+$pagePaginator = new RetroWebPagePaginator(CACHE_DIR . '/pages');
+// Snapshot navigation is local and must not fetch the original site again.
+// Handle it before requiring an origin URL or loading the content extractor.
+if (isset($_GET['document'])) {
+    $document = is_string($_GET['document']) ? $_GET['document'] : '';
+    $part = isset($_GET['part']) ? (is_string($_GET['part']) ? $_GET['part'] : '') : '1';
+    $selectedPage = $pagePaginator->read($document, $part);
+    sendHttp10Response($selectedPage['status']);
+    header('Content-Type: text/html; charset=iso-8859-1');
+    setHttp10Headers(strlen($selectedPage['html']));
+    echo $selectedPage['html'];
+    exit;
+}
+
 try {
     require_once __DIR__ . '/vendor/autoload.php';
 } catch (Throwable $e) {
@@ -973,18 +988,19 @@ if (!empty($colors['link'])) {
     $bodyAttrs .= ' link="' . htmlspecialchars($colors['link']) . '"';
 }
 
-// Build final HTML
-sendHttp10Response(200);
-$htmlOutput = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 2.0//EN\">\n";
-$htmlOutput .= "<html>\n<head>\n";
-// Title is al geconverteerd naar HTML entities, gebruik direct (geen htmlspecialchars nodig)
-$htmlOutput .= "<title>" . $title . "</title>\n";
-$htmlOutput .= "</head>\n<body" . $bodyAttrs . ">\n";
-$htmlOutput .= renderNavigation($imageMode);
-$htmlOutput .= "<h1>" . $title . "</h1>\n";
-$htmlOutput .= $content;
-$htmlOutput .= "</body>\n</html>\n";
+// Split only after extraction, cleanup, link and image rewriting. The paginator
+// budgets the actual ISO-8859-1 output including both navigation bars.
+try {
+    $htmlOutput = $pagePaginator->first($content, $title, renderNavigation($imageMode), $bodyAttrs, $baseUrl);
+    sendHttp10Response(200);
+} catch (RuntimeException $error) {
+    sendHttp10Response(503, 'Service Unavailable');
+    $htmlOutput = '<html><head><title>RetroWEB</title></head><body><h1>Page temporarily unavailable</h1>'
+        . '<p>The page could not be divided for this browser. Please try again later.</p></body></html>';
+    error_log('RetroWEB pagination: ' . $error->getMessage());
+}
 
 // Output (geen cache)
+header('Content-Type: text/html; charset=iso-8859-1');
 setHttp10Headers(strlen($htmlOutput));
 echo $htmlOutput;

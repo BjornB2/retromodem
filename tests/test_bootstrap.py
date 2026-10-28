@@ -33,7 +33,11 @@ args = sys.argv[1:]
 open(os.environ['MOCK_CURL_RECORD'], 'w').write(json.dumps({
     'args': args, 'config': config,
     'token_in_environment': 'RETROMODEM_GITHUB_TOKEN' in os.environ}))
-shutil.copyfile(os.environ['FIXTURE_ARCHIVE'], args[args.index('--output') + 1])
+destination = args[args.index('--output') + 1]
+if args[-1].endswith('/commits/main'):
+    open(destination, 'w').write(json.dumps({'sha': 'a' * 40}))
+else:
+    shutil.copyfile(os.environ['FIXTURE_ARCHIVE'], destination)
 ''')
         curl.chmod(0o755)
 
@@ -61,6 +65,15 @@ shutil.copyfile(os.environ['FIXTURE_ARCHIVE'], args[args.index('--output') + 1])
         self.assertEqual((destination / '.retromodem-source-commit').read_text(), REVISION + '\n')
         again = self.invoke('--ref', REVISION, '--download-only', str(destination))
         self.assertNotEqual(again.returncode, 0)
+
+    def test_default_resolves_main_once_then_downloads_immutable_commit(self):
+        import json
+        destination = self.root / 'default-source'
+        result = self.invoke('--download-only', str(destination))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((destination / '.retromodem-source-commit').read_text(), REVISION + '\n')
+        record = json.loads((self.root / 'curl-record').read_text())
+        self.assertTrue(record['args'][-1].endswith('/tarball/' + REVISION))
 
     def test_token_uses_stdin_not_arguments_or_environment(self):
         import json

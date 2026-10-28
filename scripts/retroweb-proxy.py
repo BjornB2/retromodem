@@ -35,6 +35,52 @@ NON_DOCUMENT_SUFFIXES = {
     ".bmp", ".css", ".gif", ".ico", ".jpeg", ".jpg", ".js", ".pdf",
     ".png", ".svg", ".tif", ".tiff", ".webp", ".zip",
 }
+PAGINATION_PATH = '/__retroweb/page'
+
+
+def pagination_parameters(query: str) -> dict[str, str]:
+    values = urllib.parse.parse_qs(query, keep_blank_values=True)
+    if set(values) != {'document', 'part'} or any(len(items) != 1 for items in values.values()):
+        raise ValueError('Invalid page reference')
+    token, part = values['document'][0], values['part'][0]
+    if not re.fullmatch(r'[a-f0-9]{64}', token) or not re.fullmatch(r'(?:[1-9][0-9]{0,5}|all)', part):
+        raise ValueError('Invalid page reference')
+    return {'document': token, 'part': part}
+
+
+def rewrite_retroweb_html(data: bytes) -> bytes:
+    text = data.decode('iso-8859-1', 'replace')
+    text = re.sub(r'<p>\s*<a href="http://127\.0\.0\.1:8090/index\.php.*?</p>\s*<hr>\s*', '', text, count=1, flags=re.S)
+    pattern = re.compile(r'http://127\.0\.0\.1:8090/(?:proxy\.php|image_cruncher\.php)\?[^"\' <>]+')
+
+    def browser_link(match: re.Match[str]) -> str:
+        address = urllib.parse.urlsplit(html.unescape(match.group(0)))
+        query = urllib.parse.parse_qs(address.query, keep_blank_values=True)
+        if 'document' in query:
+            try:
+                params = pagination_parameters(address.query)
+            except ValueError:
+                return '#invalid-page-reference'
+            result = 'http://search.retromodem' + PAGINATION_PATH + '?' + urllib.parse.urlencode(params)
+            if address.fragment:
+                result += '#' + address.fragment
+        elif len(query.get('url', [])) == 1:
+            result = browser_url(query['url'][0])
+        else:
+            return match.group(0)
+        return html.escape(result, quote=True)
+
+    return pattern.sub(browser_link, text).encode('iso-8859-1', 'replace')
+
+
+def fetch_retroweb_part(params: dict[str, str]) -> tuple[bytes, str]:
+    endpoint = 'http://127.0.0.1:8090/proxy.php?' + urllib.parse.urlencode(params)
+    with urllib.request.urlopen(endpoint, timeout=30) as response:
+        data = response.read(MAX_DOCUMENT + 1)
+        if len(data) > MAX_DOCUMENT:
+            raise ValueError('processed response too large')
+        content_type = response.headers.get('Content-Type', 'text/html; charset=iso-8859-1')
+    return rewrite_retroweb_html(data), content_type
 
 
 def settings() -> dict[str, str]:
@@ -140,14 +186,7 @@ def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
         if len(data) > MAX_DOCUMENT:
             raise ValueError("processed response too large")
     if content_type.startswith("text/html"):
-        text = data.decode("iso-8859-1", "replace")
-        text = re.sub(r'<p>\s*<a href="http://127\.0\.0\.1:8090/index\.php.*?</p>\s*<hr>\s*', '', text, count=1, flags=re.S)
-        pattern = re.compile(r'http://127\.0\.0\.1:8090/(?:proxy\.php|image_cruncher\.php)\?url=([^"\' <]+)')
-        def original_link(match: re.Match[str]) -> str:
-            encoded = re.split(r'(?:&|&amp;)img=', match.group(1), maxsplit=1)[0]
-            return browser_url(urllib.parse.unquote(html.unescape(encoded)))
-        text = pattern.sub(original_link, text)
-        data = text.encode("iso-8859-1", "replace")
+        data = rewrite_retroweb_html(data)
     return data, content_type
 
 
@@ -221,7 +260,9 @@ class Handler(BaseHTTPRequestHandler):
             response = connection.getresponse()
             self.send_response(response.status)
             self.send_header('Content-Type', 'text/html; charset=iso-8859-1')
-            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
             self.send_header('Connection', 'close')
             self.end_headers()
             self.close_connection = True
@@ -251,6 +292,20 @@ class Handler(BaseHTTPRequestHandler):
                 self.relay_chat(original)
                 return
             if host in LOCAL_HOSTS and (parsed.port in {None, 8080}):
+                if parsed.path == PAGINATION_PATH:
+                    try:
+                        params = pagination_parameters(parsed.query)
+                    except ValueError:
+                        self.send_error(400, 'Invalid page reference')
+                        return
+                    try:
+                        data, content_type = fetch_retroweb_part(params)
+                        self.reply(data, content_type)
+                    except urllib.error.HTTPError as error:
+                        status = error.code if error.code in {400, 404, 410} else 502
+                        self.reply(b'<html><body><h1>Page unavailable</h1><p>This page reference is invalid or expired. Open the original page again.</p></body></html>',
+                                   'text/html; charset=iso-8859-1', status)
+                    return
                 query = urllib.parse.parse_qs(parsed.query).get("q", [""])[0].strip()[:500]
                 self.reply(search_page(query), "text/html; charset=iso-8859-1")
                 return

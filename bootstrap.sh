@@ -4,12 +4,14 @@ set -eu
 
 usage() {
     cat <<'EOF'
-Usage: sh bootstrap.sh --ref COMMIT [options]
+Usage: sh bootstrap.sh [options]
 
-  --ref COMMIT                 Required full 40-character Git commit SHA
+  --ref COMMIT                 Optional full commit SHA (default: resolve current main)
   --adapter my018|ma620|serial  Installer choice (default: interactive, MY018 first)
   --my018-wiring-confirmed     Confirm the documented modified MY018 circuit
   --non-interactive            Do not ask installer questions
+  --features-only              Update existing feature files, not OS/drivers/config
+  --features-check             Check feature update without installed-file changes
   --token-file FILE            Owner-only GitHub token file for the private repo
   --download-only DIRECTORY    Download and validate sources; do not install
   --help                      Show this help without network or system changes
@@ -24,6 +26,7 @@ ref=
 adapter=
 wiring=0
 noninteractive=0
+features=
 token_file=
 download_only=
 while [ "$#" -gt 0 ]; do
@@ -41,11 +44,14 @@ while [ "$#" -gt 0 ]; do
             shift 2 ;;
         --my018-wiring-confirmed) wiring=1; shift ;;
         --non-interactive) noninteractive=1; shift ;;
+        --features-only|--features-check) features=$1; shift ;;
         *) die "Unknown option: $1" ;;
     esac
 done
-[ "${#ref}" -eq 40 ] || die '--ref must be a full 40-character commit SHA'
-case "$ref" in *[!0-9a-fA-F]*) die '--ref must contain only hexadecimal characters' ;; esac
+if [ -n "$ref" ]; then
+    [ "${#ref}" -eq 40 ] || die '--ref must be a full 40-character commit SHA'
+    case "$ref" in *[!0-9a-fA-F]*) die '--ref must contain only hexadecimal characters' ;; esac
+fi
 case "$adapter" in ''|my018|ma620|serial) ;; *) die 'Adapter must be my018, ma620 or serial' ;; esac
 
 command -v curl >/dev/null 2>&1 || die 'curl is required'
@@ -85,14 +91,27 @@ case "$token" in *[!A-Za-z0-9_]*) die 'Invalid GitHub token format' ;; esac
 # Do not export the token to curl or the eventual installer. Feed curl config
 # through stdin, so the header is not exposed in process arguments or a file.
 unset RETROMODEM_GITHUB_TOKEN GH_TOKEN GITHUB_TOKEN
-url="https://api.github.com/repos/BjornB2/retromodem/tarball/$ref"
+download() {
+    {
+        printf 'header = "Accept: application/vnd.github+json"\n'
+        if [ -n "$token" ]; then printf 'header = "Authorization: Bearer %s"\n' "$token"; fi
+    } | curl -q --config - --fail --silent --show-error --location \
+        --proto '=https' --proto-redir '=https' --connect-timeout 20 --max-time 300 \
+        --output "$2" "https://api.github.com/repos/BjornB2/retromodem/$1"
+}
+if [ -z "$ref" ]; then
+    download commits/main "$work_dir/revision.json" || die 'Cannot resolve current version. Check network/private repository access.'
+    ref=$(python3 - "$work_dir/revision.json" <<'PY'
+import json, re, sys
+value = json.load(open(sys.argv[1])).get('sha', '')
+if not re.fullmatch('[0-9a-f]{40}', value):
+    sys.exit('GitHub did not return a valid source commit')
+print(value)
+PY
+    ) || die 'Cannot determine source version'
+fi
 printf 'Downloading RetroModem commit %s\n' "$ref"
-if ! {
-    printf 'header = "Accept: application/vnd.github+json"\n'
-    if [ -n "$token" ]; then printf 'header = "Authorization: Bearer %s"\n' "$token"; fi
-} | curl -q --config - --fail --silent --show-error --location \
-    --proto '=https' --proto-redir '=https' --connect-timeout 20 --max-time 300 \
-    --output "$work_dir/source.tar.gz" "$url"; then
+if ! download "tarball/$ref" "$work_dir/source.tar.gz"; then
     unset token
     die 'Download failed. For the private repository, check token access to BjornB2/retromodem.'
 fi
@@ -165,6 +184,7 @@ set --
 [ -z "$adapter" ] || set -- "$@" --adapter "$adapter"
 [ "$wiring" -eq 0 ] || set -- "$@" --my018-wiring-confirmed
 [ "$noninteractive" -eq 0 ] || set -- "$@" --non-interactive
+[ -z "$features" ] || set -- "$@" "$features"
 if [ "$(id -u)" -eq 0 ]; then
     sh "$work_dir/source/install.sh" "$@"
 else

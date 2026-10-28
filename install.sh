@@ -7,11 +7,14 @@ PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 adapter=
 wiring_confirmed=0
 non_interactive=0
+features_only=0
+features_check=0
 admin_user=${SUDO_USER:-}
 usage() {
     echo 'Usage: sudo sh install.sh [--adapter my018|ma620|serial] [--my018-wiring-confirmed] [--non-interactive] [--admin-user USER]'
     echo 'Default for new installations: MY018 (documented A/B/C + 2N3904 wiring required).'
     echo 'Existing installations retain their selected adapter unless --adapter is given.'
+    echo 'Feature update only: --features-only (apply) or --features-check (no changes).'
 }
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -23,10 +26,24 @@ while [ "$#" -gt 0 ]; do
             shift 2 ;;
         --my018-wiring-confirmed) wiring_confirmed=1; shift ;;
         --non-interactive) non_interactive=1; shift ;;
+        --features-only) features_only=1; shift ;;
+        --features-check) features_check=1; shift ;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
 done
 case "$adapter" in ''|my018|ma620|serial) ;; *) usage >&2; exit 2 ;; esac
+
+if [ "$features_only" = 1 ] || [ "$features_check" = 1 ]; then
+    [ "$features_only$features_check" != 11 ] || { usage >&2; exit 2; }
+    [ -z "$adapter" ] && [ "$wiring_confirmed" = 0 ] || { echo 'Feature updates cannot change adapter settings.' >&2; exit 2; }
+    if [ "$features_check" = 1 ]; then
+        exec python3 "$PROJECT_DIR/scripts/update-features.py" --check
+    fi
+    [ "$(id -u)" = 0 ] || { echo 'Feature update requires sudo.' >&2; exit 1; }
+    exec 9>/run/lock/retromodem-install.lock
+    flock -n 9 || { echo 'Another RetroModem installation is running.' >&2; exit 1; }
+    exec python3 "$PROJECT_DIR/scripts/update-features.py" --apply
+fi
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "Start dit script als root: sudo ./install.sh" >&2
@@ -298,7 +315,7 @@ if [ "$reboot_required" = 1 ] || [ -d /sys/module/irda ]; then
     # the installed DKMS modules and the configured UART/power defaults together.
     install -d /var/lib/retromodem
     cat /proc/sys/kernel/random/boot_id > /var/lib/retromodem/reboot-required
-    echo 'RetroModem installed. Reboot required before modem testing: sudo reboot'
+    reboot_required=1
 elif systemctl restart retromodem-mode.service; then
     systemctl restart retromodem-button.service
     echo "RetroModem is geïnstalleerd en gestart."
@@ -307,6 +324,4 @@ else
     echo "Sluit de adapter aan en voer uit: sudo systemctl restart retromodem-mode" >&2
 fi
 
-echo "Diagnose: sudo retromodem-diagnose"
-echo "Installatie controleren: sudo retromodem-verify"
-echo "SSH administrator remains: $admin_user (your existing password/key)."
+sh "$PROJECT_DIR/scripts/install-summary" "$reboot_required" "$admin_user"

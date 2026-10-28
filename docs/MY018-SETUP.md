@@ -57,6 +57,11 @@ RETROMODEM_MY018_BITRATE=57600
 RETROMODEM_IRDA_BITRATE=57600
 ```
 
+De virtuele Hayes/Comms-poort krijgt bij een nieuwe installatie standaard
+`RETROMODEM_IRDA_DIALUP_BITRATE=115200` en
+`RETROMODEM_MY018_DIALUP_BITRATE=115200`. Deze virtuele snelheid staat los van
+de fysieke infraroodlimiet van 57600. Een update behoudt bestaande snelheidskeuzes.
+
 De publieke testinstaller doet dit bij `--adapter my018` na bevestiging van de
 bedrading. Hij stelt tevens `enable_uart=1` en `dtoverlay=disable-bt` in, schakelt
 `hciuart` en de UART-loginconsole uit en bewaart de oorspronkelijke bootbestanden

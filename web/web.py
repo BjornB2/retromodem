@@ -99,7 +99,7 @@ def ir_adapter_settings(config: dict[str, str], language: str) -> str:
         prefix = item["prefix"]
         current = key == active
         physical = config.get(f"RETROMODEM_{prefix}_BITRATE", config.get("RETROMODEM_IRDA_BITRATE", "9600") if current else "9600")
-        virtual = config.get(f"RETROMODEM_{prefix}_DIALUP_BITRATE", config.get("RETROMODEM_IRDA_DIALUP_BITRATE", "57600") if current else "57600")
+        virtual = config.get(f"RETROMODEM_{prefix}_DIALUP_BITRATE", config.get("RETROMODEM_IRDA_DIALUP_BITRATE", "115200") if current else "115200")
         my018 = key == "ming-yuan-my018"
         controlled = my018_power_enabled(config)
         if my018:
@@ -376,7 +376,7 @@ def transfer_estimate(size: int, protocol: str, config: dict[str, str]) -> str:
     if transport == "irda":
         configured = int(config.get("RETROMODEM_IRDA_BITRATE", "9600"))
         # This MA-620 specimen is only physically verified at 9600 bit/s;
-        # the virtual 57600-baud IrCOMM setting does not raise air throughput.
+        # the virtual 115200-baud IrCOMM setting does not raise air throughput.
         bitrate = min(configured, 9600) if ir_adapter_id(config) == "mobile-action-ma620" else configured
         medium = "IR"
     else:
@@ -982,9 +982,9 @@ class Handler(BaseHTTPRequestHandler):
             transport = config.get("RETROMODEM_TRANSPORT", "irda")
             line_mode = config.get("RETROMODEM_LINE_MODE", "ppp")
             irda_bitrate = config.get("RETROMODEM_IRDA_BITRATE", config.get("RETROMODEM_BITRATE", "9600"))
-            irda_dialup_bitrate = config.get("RETROMODEM_IRDA_DIALUP_BITRATE", "57600")
+            irda_dialup_bitrate = config.get("RETROMODEM_IRDA_DIALUP_BITRATE", "115200")
             serial_bitrate = config.get("RETROMODEM_SERIAL_BITRATE", "115200")
-            serial_dialup_bitrate = config.get("RETROMODEM_SERIAL_DIALUP_BITRATE", config.get("RETROMODEM_DIALUP_BITRATE", "57600"))
+            serial_dialup_bitrate = config.get("RETROMODEM_SERIAL_DIALUP_BITRATE", config.get("RETROMODEM_DIALUP_BITRATE", "115200"))
             body = f"""<div class="page-heading"><h1>{tr(language,'Verbinding','Connection')}</h1><p>{tr(language,'Kies hoe je retroapparaat wordt aangesloten en wat RetroModem voor het apparaat moet doen.','Choose how your retro device connects and what RetroModem should provide.')}</p></div><section class="card"><h2>{tr(language,'Actieve verbinding kiezen','Choose active connection')}</h2>
 <form method="post" action="/modem/settings"><input type="hidden" name="csrf" value="{{{{csrf}}}}">
 <label>{tr(language,'Hoe wil je aansluiten?','How do you want to connect?')}</label><select id="adapter-select" name="transport"><option value="irda" {'selected' if transport == 'irda' else ''}>{tr(language,'Infrarood','Infrared')} </option><option value="serial" {'selected' if transport == 'serial' else ''}>USB-serieel · Prolific PL2303</option></select>
@@ -1111,8 +1111,8 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
 <ul class="compact"><li>{tr(language,'Dienst: <strong>Direct</strong>','Service: <strong>Direct</strong>')}</li><li>{tr(language,'Handmatig aanmelden: uit','Manual login: off')}</li><li>{tr(language,'Gebruikersnaam: <code>user</code>; wachtwoord leeg','Username: <code>user</code>; password blank')}</li><li>{tr(language,'IP-adres: ophalen van server','IP address: obtain from server')}</li><li>{tr(language,'DNS-adressen: ophalen van server','DNS addresses: obtain from server')}</li><li>{tr(language,'Geavanceerd: alleen platte tekst accepteren','Advanced: only accept plain text')}</li></ul></li>
 <li><strong>{tr(language,'Leg de apparaten tegenover elkaar','Align the devices')}</strong><br>{tr(language,'Richt de IR-poort aan de linkerzijkant van de Psion op de infraroodadapter. Begin op ongeveer 10–30 cm afstand en zorg dat er niets tussen zit.','Point the IR port on the left side of the Psion toward the infrared adapter. Start at roughly 10–30 cm with a clear line of sight.')}</li>
 <li><strong>{tr(language,'Maak verbinding','Connect')}</strong><br>{tr(language,'Open Opera of Web en bezoek eerst een gewone HTTP-site, bijvoorbeeld <code>http://retroweb.bjrno.com</code>. Kies de zojuist gemaakte internetdienst wanneer daarom wordt gevraagd. Het lampje op de dongle hoort tijdens verkeer te knipperen.','Open Opera or Web and first visit a plain HTTP site such as <code>http://retroweb.bjrno.com</code>. Select the internet service you just created when prompted. The dongle LED should blink while traffic is flowing.')}</li>
-</ol><h3>{tr(language,'Inbelinternet via 5559000','Dial-up internet through 5559000')}</h3><p>{tr(language,'Kies in RetroModem <strong>Hayes-dial-up / BBS</strong>. Maak op de Psion een inbelinternetdienst met het infraroodmodem en nummer <code>5559000</code>. De fysieke MA-620-link blijft 9600 bit/s; de nagebootste Comms/modempoort gebruikt 57600.','Select <strong>Hayes dial-up / BBS</strong> in RetroModem. Create a Psion dial-up internet service using the infrared modem and number <code>5559000</code>. The physical MA-620 link remains 9600 bps; the emulated Comms/modem port uses 57600.')}</p>
-<h3>{tr(language,'BBS bellen met Comms','Dial a BBS with Comms')}</h3><ol class="steps"><li>{tr(language,'Open Comms met infrarood en 57600 baud. Remote Link moet uit staan.','Open Comms using infrared and 57600 baud. Remote Link must be disabled.')}</li><li>{tr(language,'Ga naar <strong>Extra → Vertaalcodes</strong> en zet <strong>Lokale echo</strong> uit. Anders verschijnen tekens dubbel zodra de BBS ze terugstuurt.','Open <strong>Tools → Translation codes</strong> and disable <strong>Local echo</strong>. Otherwise characters appear twice when the BBS echoes them.')}</li><li>{tr(language,'Geef na openen zo nodig eerst <code>AT</code> plus Enter en bel daarna bijvoorbeeld <code>ATDT5551008</code>.','After opening, enter <code>AT</code> plus Enter if needed, then dial for example <code>ATDT5551008</code>.')}</li></ol></section>
+</ol><h3>{tr(language,'Inbelinternet via 5559000','Dial-up internet through 5559000')}</h3><p>{tr(language,'Kies in RetroModem <strong>Hayes-dial-up / BBS</strong>. Maak op de Psion een inbelinternetdienst met het infraroodmodem en nummer <code>5559000</code>. De fysieke MA-620-link blijft 9600 bit/s; de nagebootste Comms/modempoort gebruikt standaard 115200.','Select <strong>Hayes dial-up / BBS</strong> in RetroModem. Create a Psion dial-up internet service using the infrared modem and number <code>5559000</code>. The physical MA-620 link remains 9600 bps; the emulated Comms/modem port defaults to 115200.')}</p>
+<h3>{tr(language,'BBS bellen met Comms','Dial a BBS with Comms')}</h3><ol class="steps"><li>{tr(language,'Open Comms met infrarood en de ingestelde virtuele poortsnelheid (standaard 115200 baud). Remote Link moet uit staan.','Open Comms using infrared and the configured virtual port speed (default 115200 baud). Remote Link must be disabled.')}</li><li>{tr(language,'Ga naar <strong>Extra → Vertaalcodes</strong> en zet <strong>Lokale echo</strong> uit. Anders verschijnen tekens dubbel zodra de BBS ze terugstuurt.','Open <strong>Tools → Translation codes</strong> and disable <strong>Local echo</strong>. Otherwise characters appear twice when the BBS echoes them.')}</li><li>{tr(language,'Geef na openen zo nodig eerst <code>AT</code> plus Enter en bel daarna bijvoorbeeld <code>ATDT5551008</code>.','After opening, enter <code>AT</code> plus Enter if needed, then dial for example <code>ATDT5551008</code>.')}</li></ol></section>
 <section class="card"><h2>{tr(language,'Problemen oplossen','Troubleshooting')}</h2><ul>
 <li>{tr(language,'Opera vraagt om locatie- of modemgegevens: voer stap 2 uit en controleer of de internetdienst het juiste modem gebruikt.','Opera asks for location or modem data: perform step 2 and check that the internet service uses the correct modem.')}</li>
 <li>{tr(language,'De dongle knippert kort en stopt: controleer Remote Link, 9600 bit/s en de IR-uitlijning.','The dongle flashes briefly and stops: check Remote Link, 9600 bit/s and IR alignment.')}</li>
@@ -1361,7 +1361,7 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             for key, item in IR_ADAPTERS.items():
                 prefix = item["prefix"]
                 current = key == ir_adapter_id(config)
-                for suffix, active_key, fallback in (("BITRATE", "RETROMODEM_IRDA_BITRATE", "9600"), ("DIALUP_BITRATE", "RETROMODEM_IRDA_DIALUP_BITRATE", "57600")):
+                for suffix, active_key, fallback in (("BITRATE", "RETROMODEM_IRDA_BITRATE", "9600"), ("DIALUP_BITRATE", "RETROMODEM_IRDA_DIALUP_BITRATE", "115200")):
                     field = f"{prefix.lower()}_{suffix.lower()}"
                     value = form.get(field, config.get(f"RETROMODEM_{prefix}_{suffix}", config.get(active_key, fallback) if current else fallback))
                     if value not in ALLOWED_BITRATES or (key == "ming-yuan-my018" and suffix == "BITRATE" and value != "9600" and not my018_power_enabled(config)):

@@ -45,6 +45,13 @@ terminal zo nodig eerst `AT`; bel daarna bijvoorbeeld met `ATDT5551000`.
 Windows XP-inbelinternet via het door Windows aangemaakte infraroodmodem en
 nummer `5559000` is fysiek getest.
 
+Nieuwe installaties gebruiken standaard **115200 bit/s** voor de virtuele
+Hayes/Comms-poort. Dit verhoogt de fysieke MY018-linksnelheid niet: die blijft
+voor de voorkeursopbouw maximaal **57600 bit/s**. Stel de terminal in op de
+virtuele poortsnelheid die op de Modem-pagina staat; bestaande zelf gekozen
+instellingen blijven bij een update behouden. Voor RS-232 moet de seriële
+poortsnelheid aan beide kanten gelijk zijn.
+
 ## Palm: handmatige IP- en DNS-instellingen
 
 Werkt automatische toewijzing op de Palm niet, open dan **Prefs → Network →

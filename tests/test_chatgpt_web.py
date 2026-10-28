@@ -16,13 +16,14 @@ class Handler:
     def __init__(self, fields=None):
         self.wfile = io.BytesIO()
         self.rfile = io.BytesIO()
+        self.response_headers = {}
         if fields:
             self.command = 'POST'
             body = urllib.parse.urlencode(fields).encode('ascii')
             self.rfile = io.BytesIO(body)
             self.headers = {'Content-Length': str(len(body))}
     def send_response(self, status): self.status = status
-    def send_header(self, *args): pass
+    def send_header(self, name, value): self.response_headers[name] = value
     def end_headers(self): pass
     def send_error(self, status, *args): self.status = status
 
@@ -36,6 +37,53 @@ class ChatWebTests(unittest.TestCase):
         self.language_patch = patch.object(chatgpt_web.local_ui, 'language', return_value='nl')
         self.language_patch.start()
         self.addCleanup(self.language_patch.stop)
+        self.connected_patch = patch.object(chatgpt_web, 'connected', return_value=True)
+        self.connected_patch.start()
+        self.addCleanup(self.connected_patch.stop)
+
+    def test_disconnected_get_and_stale_post_show_setup_without_conversation(self):
+        self.connected_patch.stop()
+        with patch.object(chatgpt_web, 'backend') as backend, patch.object(chatgpt_web.chat_history, 'update') as history:
+            backend.return_value.openai_auth.connection_status.return_value = {'connected': False}
+            for fields in (None, {'session': 'old-session', 'turn': 'old-turn', 'message': 'must not send'}):
+                handler = Handler(fields)
+                chatgpt_web.serve(handler)
+                body = handler.wfile.getvalue()
+                self.assertEqual(handler.status, 200)
+                self.assertIn(b'ChatGPT is nog niet verbonden', body)
+                self.assertIn(b'http://retromodem.local/settings', body)
+                self.assertIn(b'Continue with ChatGPT', body)
+                self.assertNotIn(b'<form', body)
+                self.assertNotIn(b'must not send', body)
+                self.assertNotIn(b'old-session', body)
+                self.assertEqual(chatgpt_web._sessions, {})
+                self.assertIn('no-store', handler.response_headers['Cache-Control'])
+                self.assertEqual(handler.response_headers['Pragma'], 'no-cache')
+                self.assertEqual(handler.response_headers['Expires'], '0')
+            history.assert_not_called()
+            backend.return_value.choose_model.assert_not_called()
+            backend.return_value.stream_answer.assert_not_called()
+            backend.return_value.agent_answer.assert_not_called()
+
+    def test_disconnected_message_follows_language(self):
+        with patch.object(chatgpt_web, 'connected', return_value=False), patch.object(chatgpt_web.local_ui, 'language', return_value='en'):
+            handler = Handler()
+            chatgpt_web.serve(handler)
+            self.assertIn(b'ChatGPT is not connected yet', handler.wfile.getvalue())
+            self.assertIn(b'laptop or phone', handler.wfile.getvalue())
+            self.assertNotIn(b'<form', handler.wfile.getvalue())
+
+    def test_fresh_get_is_empty_and_cache_disabled_despite_an_old_session(self):
+        chatgpt_web._sessions['old'] = {'history': [{'role': 'assistant', 'content': 'previous private conversation'}],
+                                      'time': chatgpt_web.time.monotonic(), 'busy': False}
+        handler = Handler()
+        chatgpt_web.serve(handler)
+        self.assertNotIn(b'previous private conversation', handler.wfile.getvalue())
+        self.assertIn(b'<form', handler.wfile.getvalue())
+        self.assertIn(b'<meta http-equiv="Pragma" content="no-cache">', handler.wfile.getvalue())
+        self.assertIn('no-store', handler.response_headers['Cache-Control'])
+        self.assertIn('no-cache', handler.response_headers['Cache-Control'])
+        self.assertEqual(handler.response_headers['Expires'], '0')
 
     def test_form_stream_escaping_history_and_duplicate_post(self):
         first = Handler()

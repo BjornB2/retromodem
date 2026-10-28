@@ -1,6 +1,6 @@
 # Clean-SD installation test
 
-This is the test procedure for `BjornB2/retromodem`, temporarily public for testing.
+This is the test procedure for `BjornB2/retromodem`, currently private.
 Use a clean second SD card in the Pi 3B. Keep the working SD card as your
 reference. The installer is prepared for Raspberry Pi OS Legacy Bookworm
 32-bit Lite; physical clean-install acceptance is still required.
@@ -10,21 +10,21 @@ reference. The installer is prepared for Raspberry Pi OS Legacy Bookworm
 1. Flash **Raspberry Pi OS Legacy Bookworm (32-bit) Lite** with Raspberry Pi Imager.
 2. Set your own SSH username, password/key, Wi-Fi and locale in Imager.
 3. Boot the Pi and connect over SSH using that account.
-4. Use the pinned candidate below, or select a full 40-character commit SHA.
-   Use the same commit for both the bootstrap and its source download. Record
-   that SHA in the test report; do not use a moving branch such as `main`.
+4. The bootstrap resolves `main` once to a full commit SHA, then downloads that
+   immutable revision. Record the displayed SHA in the test report. You can
+   still explicitly select a full SHA with `--ref` for repeat tests.
 
-## Single-command installation (no GitHub login)
+## Single-command installation (when the repository is public)
 
 > **Test version:** clean-SD acceptance is in progress. Keep the working card
 > available. No stable release date is guaranteed.
 
 For the preferred MY018 build, paste this into the SSH session as your own
-Imager user. It downloads the pinned candidate and asks for the documented
+Imager user. It resolves the current candidate and asks for the documented
 MY018 wiring confirmation before installation:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/dd6e8f198498da720103b904898967b40caf53a5/bootstrap.sh | sh -s -- --ref dd6e8f198498da720103b904898967b40caf53a5
+curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/main/bootstrap.sh | sh
 ```
 
 The installer includes all three connection options and asks which one should be
@@ -32,7 +32,9 @@ active first; MY018 is the suggested choice. To preselect the main RS-232 route,
 append `--adapter serial`; for the MA-620 infrared fallback append `--adapter ma620`.
 
 After installation, continue at **Reboot and verify** below. The following
-authentication procedure is only needed if the repository is made private again.
+authentication procedure is required while the repository is private. The
+anonymous command above does not work in that state; do not change visibility
+without the owner's permission.
 
 ## Download when the repository is private
 

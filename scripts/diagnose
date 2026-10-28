@@ -1,6 +1,14 @@
 #!/bin/sh
 set -u
 
+# Alternate config path is useful for non-hardware diagnostic regression tests.
+config_file=${RETROMODEM_CONFIG:-/etc/retromodem/retromodem.env}
+if [ -r "$config_file" ]; then
+    . "$config_file"
+fi
+
+usb_present() { lsusb -d "$1" 2>/dev/null | grep -q .; }
+
 say_status() {
     label=$1
     shift
@@ -33,25 +41,44 @@ if command -v vcgencmd >/dev/null 2>&1; then
     esac
 fi
 
-say_status 'MA-620 USB-adapter gevonden' sh -c 'lsusb -d 0df7:0620 | grep -q .'
-say_status 'IrDA-kernelmodule beschikbaar' /sbin/modinfo irda
-say_status 'IrCOMM-apparaat aanwezig' test -c /dev/ircomm0
-say_status 'IPv4-forwarding ingeschakeld' sh -c 'test "$(cat /proc/sys/net/ipv4/ip_forward)" = 1'
-say_status 'NAT-regel geladen' /usr/sbin/nft list table ip retromodem_nat
-say_status 'IrDA-service actief' /usr/bin/systemctl is-active --quiet retromodem-irda.service
-say_status 'ChatGPT BBS-service actief' /usr/bin/systemctl is-active --quiet retromodem-chatgpt.service
-if [ -r /etc/retromodem/retromodem.env ]; then
-    . /etc/retromodem/retromodem.env
-    case ${RETROMODEM_LINE_MODE:-ppp} in
-        ppp) selected_service=retromodem-ppp.service ;;
-        dialup) selected_service=retromodem-tcpser.service ;;
-        *) selected_service=onbekend ;;
+printf 'Gekozen route: %s over %s\n' "${RETROMODEM_LINE_MODE:-ppp}" "${RETROMODEM_TRANSPORT:-irda}"
+if [ "${RETROMODEM_TRANSPORT:-irda}" = serial ]; then
+    say_status 'Gekozen Prolific RS-232-adapter gevonden' usb_present "${RETROMODEM_SERIAL_USB_ID:-067b:2303}"
+    printf '[INFO] IrDA en de MA-620-fallback zijn niet vereist voor de seriële route.\n'
+else
+    case ${RETROMODEM_ADAPTER:-ming-yuan-my018} in
+        ming-yuan-my018)
+            printf '[INFO] MY018 via GPIO/UART is de gekozen infraroodopbouw.\n'
+            say_status 'MY018 gebruikt de PL011-UART' sh -c '[ "$(readlink -f /dev/serial0)" = /dev/ttyAMA0 ]'
+            if [ "${RETROMODEM_MY018_POWER_CYCLE:-0}" = 1 ]; then
+                say_status 'MY018 voedingsschakeling actief' sh -c '[ "$(cat /sys/module/irtty_sir/parameters/my018_power_cycle 2>/dev/null)" = Y ]'
+            fi
+            if usb_present 0df7:0620; then
+                printf '[INFO] MA-620 aangesloten als beschikbare infraroodfallback.\n'
+            else
+                printf '[INFO] MA-620-fallback niet aangesloten; niet vereist voor MY018.\n'
+            fi
+            ;;
+        mobile-action-ma620)
+            say_status 'Gekozen MA-620 infraroodfallback gevonden' usb_present 0df7:0620
+            ;;
+        *) printf '[FOUT] Onbekende infraroodadapter: %s\n' "$RETROMODEM_ADAPTER" ;;
     esac
-    printf 'Gekozen route: %s over %s\n' "${RETROMODEM_LINE_MODE:-onbekend}" "${RETROMODEM_TRANSPORT:-onbekend}"
-    [ "$selected_service" = onbekend ] || say_status "Gekozen dienst actief ($selected_service)" /usr/bin/systemctl is-active --quiet "$selected_service"
+    say_status 'IrDA-kernelmodule beschikbaar' modinfo irda
+    say_status 'IrCOMM-apparaat aanwezig' test -c /dev/ircomm0
+    say_status 'IrDA-service actief' systemctl is-active --quiet retromodem-irda.service
 fi
+say_status 'IPv4-forwarding ingeschakeld' sh -c 'test "$(cat /proc/sys/net/ipv4/ip_forward)" = 1'
+say_status 'NAT-regel geladen' nft list table ip retromodem_nat
+say_status 'ChatGPT BBS-service actief' systemctl is-active --quiet retromodem-chatgpt.service
+case ${RETROMODEM_LINE_MODE:-ppp} in
+    ppp) selected_service=retromodem-ppp.service ;;
+    dialup) selected_service=retromodem-tcpser.service ;;
+    *) selected_service=onbekend ;;
+esac
+[ "$selected_service" = onbekend ] || say_status "Gekozen dienst actief ($selected_service)" systemctl is-active --quiet "$selected_service"
 
 printf '\nInterfaces:\n'
-/usr/sbin/ip -brief address show 2>/dev/null || true
+ip -brief address show 2>/dev/null || true
 printf '\nRecente servicemeldingen:\n'
-/usr/bin/journalctl -u retromodem-irda.service -u retromodem-ppp.service -n 20 --no-pager 2>/dev/null || true
+journalctl -u retromodem-irda.service -u retromodem-ppp.service -n 20 --no-pager 2>/dev/null || true

@@ -28,12 +28,12 @@ def selected_device() -> tuple[str, str, bool]:
     if transport == "irda":
         speed = os.environ.get("RETROMODEM_IRDA_BITRATE", "9600")
         if os.environ.get("RETROMODEM_LINE_MODE") == "dialup":
-            speed = os.environ.get("RETROMODEM_IRDA_DIALUP_BITRATE", "57600")
+            speed = os.environ.get("RETROMODEM_IRDA_DIALUP_BITRATE", "115200")
         return "/dev/ircomm0", speed, False
     if transport == "serial":
         speed = os.environ.get("RETROMODEM_SERIAL_BITRATE", "115200")
         if os.environ.get("RETROMODEM_LINE_MODE") == "dialup":
-            speed = os.environ.get("RETROMODEM_SERIAL_DIALUP_BITRATE", "57600")
+            speed = os.environ.get("RETROMODEM_SERIAL_DIALUP_BITRATE", "115200")
         return serial_device(os.environ.get("RETROMODEM_SERIAL_USB_ID", "067b:2303")), speed, True
     raise SystemExit(f"Onbekend transport: {transport}")
 

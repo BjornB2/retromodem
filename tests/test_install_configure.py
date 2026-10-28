@@ -43,6 +43,8 @@ class InstallationConfigurationTests(unittest.TestCase):
         self.assertEqual(values["RETROMODEM_MY018_POWER_CYCLE"], "1")
         self.assertEqual(values["RETROMODEM_IRDA_BITRATE"], "57600")
         self.assertEqual(values["RETROMODEM_MY018_BITRATE"], "57600")
+        self.assertEqual(values["RETROMODEM_IRDA_DIALUP_BITRATE"], "115200")
+        self.assertEqual(values["RETROMODEM_MY018_DIALUP_BITRATE"], "115200")
         self.assertEqual(self.config.stat().st_mode & 0o777, 0o600)
         boot = (self.boot / "retromodem-my018.txt").read_text()
         self.assertIn("dtoverlay=disable-bt", boot)
@@ -62,6 +64,8 @@ class InstallationConfigurationTests(unittest.TestCase):
                 self.assertFalse(configure.apply_plan(root, adapter))
                 values = configure.read_config(root / "etc/retromodem/retromodem.env")
                 self.assertEqual(values["RETROMODEM_MY018_POWER_CYCLE"], "0")
+                self.assertEqual(values["RETROMODEM_IRDA_DIALUP_BITRATE"], "115200")
+                self.assertEqual(values["RETROMODEM_SERIAL_DIALUP_BITRATE"], "115200")
                 self.assertFalse((root / "boot").exists())
                 if adapter == "ma620":
                     self.assertEqual(values["RETROMODEM_IRDA_BITRATE"], "9600")
@@ -70,6 +74,16 @@ class InstallationConfigurationTests(unittest.TestCase):
                 else:
                     self.assertEqual(values["RETROMODEM_TRANSPORT"], "serial")
                     self.assertEqual(values["RETROMODEM_SERIAL_USB_ID"], "067b:2303")
+
+    def test_existing_my018_and_serial_virtual_rates_survive_update(self):
+        self.write_config({"RETROMODEM_ADAPTER": "ming-yuan-my018", "RETROMODEM_TRANSPORT": "irda",
+                           "RETROMODEM_MY018_POWER_CYCLE": "1", "RETROMODEM_IRDA_BITRATE": "57600",
+                           "RETROMODEM_IRDA_DIALUP_BITRATE": "38400", "RETROMODEM_SERIAL_DIALUP_BITRATE": "19200"})
+        configure.apply_plan(self.root)
+        after = configure.read_config(self.config)
+        self.assertEqual(after["RETROMODEM_IRDA_DIALUP_BITRATE"], "38400")
+        self.assertEqual(after["RETROMODEM_MY018_DIALUP_BITRATE"], "38400")
+        self.assertEqual(after["RETROMODEM_SERIAL_DIALUP_BITRATE"], "19200")
 
     def test_reinstall_preserves_custom_settings_and_adapter(self):
         values = {"RETROMODEM_ADAPTER": "mobile-action-ma620", "RETROMODEM_TRANSPORT": "irda",

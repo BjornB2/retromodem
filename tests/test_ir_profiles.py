@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import re
 import unittest
 from unittest.mock import Mock, patch
 
@@ -9,6 +10,18 @@ spec.loader.exec_module(web)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_new_virtual_profile_defaults_are_115200(self):
+        rendered = web.ir_adapter_settings({}, 'nl')
+        for prefix in ('my018', 'ma620'):
+            select = re.search(r'<select name="' + prefix + r'_dialup_bitrate">(.*?)</select>', rendered)
+            self.assertIsNotNone(select)
+            self.assertIn('<option value="115200" selected>', select[1])
+
+    def test_explicit_virtual_profile_rate_stays_selected(self):
+        rendered = web.ir_adapter_settings({'RETROMODEM_MY018_DIALUP_BITRATE': '38400'}, 'nl')
+        select = re.search(r'<select name="my018_dialup_bitrate">(.*?)</select>', rendered)
+        self.assertIn('<option value="38400" selected>', select[1])
+
     def submit(self, selected, rate='9600', power=False):
         config = {'RETROMODEM_ADAPTER': 'ming-yuan-my018', 'RETROMODEM_IRDA_BITRATE': '9600', 'RETROMODEM_IRDA_DIALUP_BITRATE': '57600'}
         if power:

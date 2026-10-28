@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+reboot_required=${1:?reboot flag required}
+admin_user=${2:?administrator required}
+printf '\nSSH: gebruik je bestaande account %s met je eigen wachtwoord/key.\n' "$admin_user"
+case "$reboot_required" in
+    1)
+        printf '\n============================================================\n'
+        printf '  INSTALLATIE VOLTOOID — HERSTART NU DE RASPBERRY PI\n'
+        printf '============================================================\n\n'
+        printf 'Voer eerst uit:\n\n    sudo reboot\n\n'
+        printf 'Log NA DE HERSTART opnieuw in. Controleer pas daarna:\n'
+        ;;
+    0) printf '\nInstallatiecontrole:\n' ;;
+    *) echo 'Invalid reboot flag' >&2; exit 2 ;;
+esac
+printf '\n    sudo retromodem-diagnose\n    sudo retromodem-verify\n'

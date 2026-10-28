@@ -2,8 +2,8 @@
 
 > **Test version — not yet released.** The installer and SD image are being
 > prepared for clean-install testing on a Raspberry Pi 3B. A stable release
-> will follow after the acceptance tests pass. This repository is temporarily
-> public for installation testing; there is no downloadable SD image yet.
+> will follow after the acceptance tests pass. This repository is currently
+> private; there is no downloadable SD image yet.
 >
 > MY018 is the preferred infrared build. MA-620 is the USB infrared fallback;
 > Prolific USB-to-RS-232 is the main connection for computers without infrared.
@@ -35,6 +35,13 @@ All three connection options belong to the same installation and release.
 
 An RS-232 adapter is electrically different from a USB-TTL cable. Use the
 correct adapter and pinout for the target computer.
+
+## Prototype enclosure
+
+The [enclosure files and limitations](hardware/enclosure/README.md) include a
+STEP model and printable bottom/lid STL files. The fit is tight, and space for
+the MY018 IR board is not yet incorporated. Battery holder, USB-C charger and
+step-up module specifications will be added later.
 
 ## Tested setup
 

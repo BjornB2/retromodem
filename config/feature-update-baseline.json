@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "files": {
+    "web/chatgpt_web.py": ["9163d5a0668781cf484b0040ccda5a36bbc33c8615bfeed299025760ff95ea48"],
+    "scripts/retroweb-proxy.py": ["8eab0afc0738759789d714c2572211ea7da63a1f0638f634a3bb843714e578a8"],
+    "proxy/retroweb/proxy.php": ["f12f0d97d67654cbff1a99a9ec5349f218de02e1ed578f688085f322d3ad3e37"],
+    "proxy/retroweb/config.php": ["6cbbc55dde6fc2650c43425a619146808bdb1ed679716e4af7e57b9f32e79f04"],
+    "scripts/diagnose": ["e48e96e2e4ffc0e762e187496a5663641cf06770c9cb117aa599abcc833ea4a2"]
+  }
+}

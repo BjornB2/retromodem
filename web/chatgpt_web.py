@@ -61,11 +61,51 @@ def form(sid, turn, draft='', language='nl'):
             '<input type="submit" value="%s"></form>') % (sid, turn, escape(draft, quote=True), local_ui.tr(language, 'Versturen', 'Send'))
 
 
+def connected():
+    return bool(backend().openai_auth.connection_status().get('connected'))
+
+
+def begin_response(handler):
+    handler.send_response(200)
+    handler.send_header('Content-Type', 'text/html; charset=iso-8859-1')
+    handler.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+    handler.send_header('Pragma', 'no-cache')
+    handler.send_header('Expires', '0')
+    handler.send_header('Connection', 'close')
+    handler.end_headers()
+    handler.close_connection = True
+
+
+def page_start():
+    return ('<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN"><html><head>'
+            '<title>ChatGPT - RetroModem</title>'
+            '<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">'
+            '<meta http-equiv="Pragma" content="no-cache">'
+            '<meta http-equiv="Expires" content="0"></head><body>')
+
+
 def serve(handler):
     language = local_ui.language()
     t = lambda nl, en: local_ui.tr(language, nl, en)
     if handler.client_address[0] not in {'127.0.0.1', '192.168.77.2'}:
         handler.send_error(403, t('ChatGPT is alleen beschikbaar via de modemverbinding', 'ChatGPT is only available through the modem connection'))
+        return
+    if not connected():
+        # Do not create/recover a conversation or render earlier messages while
+        # this appliance has no linked account. A stale POST must not infer.
+        begin_response(handler)
+        try:
+            write(handler, page_start() + '<h1>ChatGPT</h1><p><b>' +
+                  t('ChatGPT is nog niet verbonden.', 'ChatGPT is not connected yet.') + '</b></p><p>' +
+                  t('Open de RetroModem-beheerinterface op je laptop of telefoon. Ga naar Instellingen en kies Continue with ChatGPT om je eigen account te verbinden.',
+                    'Open the RetroModem administration interface on your laptop or phone. Go to Settings and choose Continue with ChatGPT to connect your own account.') +
+                  '</p><p><a href="http://retromodem.local/settings">' +
+                  t('RetroModem-instellingen', 'RetroModem settings') + '</a></p><p>' +
+                  t('Kom na het aanmelden terug naar deze pagina en laad haar opnieuw.',
+                    'After signing in, return to this page and reload it.') +
+                  '</p><p><a href="/">' + t('Opnieuw controleren', 'Check again') + '</a></p></body></html>')
+        except (BrokenPipeError, ConnectionResetError):
+            pass
         return
     post = handler.command == 'POST'
     fields = {}
@@ -114,14 +154,9 @@ def serve(handler):
         if resumed:
             history = session['job']['history']
             message = session['job']['message']
-    handler.send_response(200)
-    handler.send_header('Content-Type', 'text/html; charset=iso-8859-1')
-    handler.send_header('Cache-Control', 'no-store')
-    handler.send_header('Connection', 'close')
-    handler.end_headers()
-    handler.close_connection = True
+    begin_response(handler)
     try:
-        write(handler, '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN"><html><head><title>ChatGPT - RetroModem</title></head><body><b>ChatGPT</b> | <a href="/?new=1">' + t('Nieuw gesprek', 'New conversation') + '</a>')
+        write(handler, page_start() + '<b>ChatGPT</b> | <a href="/?new=1">' + t('Nieuw gesprek', 'New conversation') + '</a>')
         write(handler, form(sid, session['turn'], message if recovered else '', language))
         if valid or resumed:
             write(handler, '<p><b>ChatGPT:</b><br>')
