@@ -46,6 +46,10 @@ class FeatureUpdateTests(unittest.TestCase):
         self.sentinel.parent.mkdir(parents=True, exist_ok=True)
         self.sentinel.write_bytes(b'KEEP_PRIVATE=secret\n')
         self.restarts = []
+        dns = self.root / 'etc/dnsmasq.d/retromodem.conf'
+        dns.parent.mkdir(parents=True)
+        dns.write_text(''.join('address=/' + host + '/192.168.77.1\n' for host in
+                              ('wifi.retromodem', 'start.retromodem', 'setup.retromodem')))
 
     def run_update(self, **kwargs):
         options = dict(validator=lambda *_: None, is_active=lambda _: True,
@@ -72,7 +76,7 @@ class FeatureUpdateTests(unittest.TestCase):
 
     def test_wifi_first_install_requires_dns_route_before_feature_update(self):
         dns = self.root / 'etc/dnsmasq.d/retromodem.conf'
-        dns.parent.mkdir(parents=True)
+        dns.parent.mkdir(parents=True, exist_ok=True)
         dns.write_text('address=/search.retromodem/192.168.77.1\n')
         with self.assertRaisesRegex(ValueError, 'full installer'):
             self.run_update(apply=True)

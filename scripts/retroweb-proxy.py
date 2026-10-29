@@ -547,6 +547,9 @@ class Handler(BaseHTTPRequestHandler):
             original = requested_url(self)
             parsed = urllib.parse.urlsplit(original)
             host = parsed.hostname or ""
+            if host in {'start.retromodem', 'setup.retromodem'}:
+                self.relay_local(original, host)
+                return
             if host == 'wifi.retromodem':
                 self.relay_local(original, 'wifi.retromodem')
                 return

@@ -12,6 +12,11 @@
 
 **Network bridge and virtual modem for retro computers and handhelds**
 
+On your connected retro browser, open **http://start.retromodem/** for Search,
+ChatGPT and Settings. **http://setup.retromodem/** lists local configuration
+pages, including **http://wifi.retromodem/** for Wi-Fi setup from the retro
+device itself. See the [quickstart](docs/QUICKSTART.md).
+
 RetroModem turns a Raspberry Pi into a standalone internet bridge and Hayes
 modem for vintage handhelds and computers. The preferred infrared build uses a
 Ming Yuan MY018 module connected to the Pi's GPIO/UART. Computers without

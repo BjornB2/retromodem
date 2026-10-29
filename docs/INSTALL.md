@@ -7,6 +7,12 @@ reference. The installer is prepared for Raspberry Pi OS Legacy Bookworm
 
 ## Prepare the Pi
 
+After installation and reboot, open `http://start.retromodem/` from the connected
+retro browser. Search and ChatGPT are at the top; Settings links to
+`http://setup.retromodem/`. Wi-Fi can be configured from the retro device at
+`http://wifi.retromodem/`, without internet access. Use RetroModem DNS
+`192.168.77.1` over direct PPP or dial-up PPP (`5559000`).
+
 1. Flash **Raspberry Pi OS Legacy Bookworm (32-bit) Lite** with Raspberry Pi Imager.
 2. Set your own SSH username, password/key, Wi-Fi and locale in Imager.
 3. Boot the Pi and connect over SSH using that account.

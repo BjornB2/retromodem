@@ -1,5 +1,8 @@
 # Wifi instellen vanaf het retroapparaat
 
+Je kunt deze pagina ook bereiken via `http://start.retromodem/` →
+**Instellingen** (`http://setup.retromodem/`) → **Wi-Fi**.
+
 Open **http://wifi.retromodem/** via de lokale PPP-verbinding met RetroModem.
 Internet is daarvoor niet nodig. Dit werkt zowel zonder browserproxy als via
 de ingebouwde handmatige of automatische proxy.

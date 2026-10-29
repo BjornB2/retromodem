@@ -85,6 +85,11 @@ def plan(root, source=PROJECT):
     if conflicts:
         raise ValueError('Feature-update conflicts; nothing changed: ' + ', '.join(conflicts))
     dns = guarded_path(root, 'etc/dnsmasq.d/retromodem.conf')
+    if any(change['source'] == 'web/web.py' for change in changes):
+        aliases = dns.read_text().splitlines() if dns.exists() else []
+        if any('address=/' + host + '/192.168.77.1' not in aliases
+               for host in ('start.retromodem', 'setup.retromodem')):
+            raise ValueError('Local start/setup pages require the full installer once for DNS; nothing changed.')
     if any(change['source'].startswith('web/wifi_') for change in changes) and dns.exists():
         if 'address=/wifi.retromodem/192.168.77.1' not in dns.read_text().splitlines():
             raise ValueError('Wi-Fi setup requires the full installer once to install its local DNS route; nothing changed.')

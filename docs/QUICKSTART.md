@@ -1,5 +1,22 @@
 # RetroModem quickstart
 
+## Lokale pagina's op je retroapparaat
+
+Open `http://start.retromodem/` na het verbinden via PPP (direct of via
+inbellen op `5559000`). Bovenaan staan Zoeken en ChatGPT met hun functie.
+De link **Instellingen** opent `http://setup.retromodem/`; daar vind je de
+beschikbare instellingen voor je retroapparaat. Beide pagina's werken zonder
+JavaScript en volgen de ingestelde taal.
+
+Wi-Fi kun je ook vanaf het aangesloten apparaat instellen via
+`http://wifi.retromodem/`: bekijk je huidige verbinding, scan netwerken en kies
+een netwerk met wachtwoord. Internet is hiervoor niet nodig. Gebruik RetroModem
+als DNS-server (`192.168.77.1`), ook bij dial-up internet. De lokale pagina's
+werken zonder browserproxy en via de ingebouwde proxy. Voor ChatGPT moet je
+eerst je account koppelen in de beheerinterface; zoeken en chat vereisen internet.
+
+
+
 ## Standaardgegevens
 
 | Functie | Adres of login |

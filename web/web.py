@@ -716,6 +716,36 @@ def wifi_modules():
 class Handler(BaseHTTPRequestHandler):
     server_version = "RetroModem/0.1"
 
+    def serve_retro_home(self, host: str) -> None:
+        language = self.config().get('RETROMODEM_LANGUAGE', 'nl')
+        t = lambda nl, en: tr(language, nl, en)
+        if host == 'setup.retromodem':
+            title = t('Instellingen', 'Settings')
+            body = ('<p><a href="http://wifi.retromodem/">Wi-Fi</a><br>' +
+                    t('Bekijk de verbinding, zoek netwerken en verbind met Wi-Fi.',
+                      'View the connection, scan networks and connect to Wi-Fi.') + '</p>' +
+                    '<p>' + t('Meer instellingen voor dit apparaat volgen later.',
+                               'More settings for this device will follow.') + '</p>')
+        else:
+            title = 'RetroModem'
+            body = ('<p><a href="http://search.retromodem/">' + t('Zoeken', 'Search') + '</a><br>' +
+                    t('Zoek op internet en open resultaten via de webproxy.',
+                      'Search the internet and open results through the web proxy.') + '</p>' +
+                    '<p><a href="http://chatgpt.retromodem/">ChatGPT</a><br>' +
+                    t('Chat met ChatGPT. Koppel eerst je account via de beheerinterface.',
+                      'Chat with ChatGPT. Connect your account through the administration interface first.') + '</p>' +
+                    '<p><a href="http://setup.retromodem/">' + t('Instellingen', 'Settings') + '</a><br>' +
+                    t('Stel RetroModem in vanaf dit apparaat.', 'Configure RetroModem from this device.') + '</p>')
+        body += '<p><a href="http://start.retromodem/">' + t('Startpagina', 'Home') + '</a></p>' if host == 'setup.retromodem' else ''
+        content = ('<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN"><html><head><title>' +
+                   title + '</title></head><body><h1>' + title + '</h1>' + body + '</body></html>').encode('iso-8859-1', 'xmlcharrefreplace')
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=iso-8859-1')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Content-Length', str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
     def config(self) -> dict[str, str]:
         return load_config()
 
@@ -815,6 +845,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         config = self.config()
         host = getattr(self, "headers", {}).get("Host", "").split(":", 1)[0].lower().rstrip(".")
+        if host in {'start.retromodem', 'setup.retromodem'}:
+            self.serve_retro_home(host)
+            return
         if host == 'wifi.retromodem':
             self.serve_retro_wifi()
             return
@@ -1058,6 +1091,7 @@ class Handler(BaseHTTPRequestHandler):
 <small class="helper">{tr(language,'De lijst wordt opnieuw gescand wanneer je deze pagina opent.','The list is rescanned whenever you open this page.')}</small>
 <label for="password">{tr(language,'Wachtwoord','Password')}</label><input id="password" name="password" type="password" autocomplete="current-password">
 <button class="primary" type="submit">{tr(language,'Met dit netwerk verbinden','Connect to this network')}</button></form></section>"""
+            body += '<section class="card"><p>' + tr(language, 'Wi-Fi instellen vanaf je aangesloten retroapparaat kan ook via', 'You can also configure Wi-Fi from your connected retro device at') + ' <a href="http://wifi.retromodem/">wifi.retromodem</a>. ' + tr(language, 'Alle lokale functies vind je op', 'Find all local features at') + ' <a href="http://start.retromodem/">start.retromodem</a>.</p></section>'
             self.send_page("Wi-Fi", body, config)
         elif path == "/transfer":
             try:
