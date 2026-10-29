@@ -53,6 +53,12 @@ command such as `ATDT5551000`. New installations use 115200 bit/s for the
 virtual Hayes/Comms port. This does not increase the physical MY018 link above
 its tested maximum of 57600 bit/s.
 
+The phone book translates these virtual telephone numbers into Telnet BBS
+hostnames and ports. The retro computer can keep using its original modem and
+terminal workflow even though the remote BBS no longer has a physical dial-up
+line. No PSTN call is made: RetroModem answers locally and opens the matching
+Telnet connection over the internet.
+
 ## Palm addressing fallback
 
 If automatic addressing fails, open **Prefs → Network → Details**, disable

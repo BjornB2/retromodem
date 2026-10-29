@@ -34,6 +34,16 @@ Action MA-620 remains available as a USB infrared fallback.
 - Palm IrOBEX sending and experimental Psion EikonIr support;
 - a mode/shutdown button and status LEDs for headless use.
 
+### A phone book for the post-dial-up internet
+
+Most surviving BBS systems are now offered through Telnet rather than a real
+telephone line. RetroModem's phone book maps each BBS hostname and TCP port to
+a virtual telephone number. A vintage computer can therefore use its original
+terminal software and issue a familiar command such as `ATDT5551000`.
+RetroModem answers the virtual call and translates it into the corresponding
+Telnet connection, allowing the old device to genuinely dial into a BBS again
+without a landline, modem bank or public telephone network.
+
 ![ChatGPT running on a Psion 5mx through RetroModem](docs/retromodem-psion-chatgpt.png)
 
 *The lightweight ChatGPT interface running on a Psion 5mx over infrared.*
