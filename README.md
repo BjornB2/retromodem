@@ -44,12 +44,84 @@ All three connection options belong to the same installation and release.
 An RS-232 adapter is electrically different from a USB-TTL cable. Use the
 correct adapter and pinout for the target computer.
 
-## Prototype enclosure
+## MY018 prototype wiring
 
-The [enclosure files and limitations](hardware/enclosure/README.md) include a
-STEP model and printable bottom/lid STL files. The fit is tight, and space for
-the MY018 IR board is not yet incorporated. Battery holder, USB-C charger and
-step-up module specifications will be added later.
+This assembly overview shows the Raspberry Pi 3B, MY018, two status LEDs, mode
+button and the battery/charging/step-up power chain. It is intended as a
+practical wiring aid rather than a formal electronic schematic. Follow the
+pin table and notes below as well: resistor values and the internal MY018
+modification are not all legible in the drawing itself.
+
+![RetroModem prototype wiring overview](docs/retromodem-prototype-wiring.png)
+
+The MY018 in this drawing is a stand-in because the exact module is not
+available in the drawing tool. Its four side connections are, from top to
+bottom, **GND, RXD, TXD and VCC**; the three selector pads are **A, B and C**.
+
+| Part or connection | Physical Pi pin | Function / BCM |
+| --- | ---: | --- |
+| MY018 VCC | 1 | 3.3 V |
+| MY018 TXD | 8 | BCM14 / Pi TX; the tested board uses host-perspective labels, so do not cross TXD and RXD |
+| MY018 RXD | 10 | BCM15 / Pi RX |
+| MY018 A centre pad | 11 | BCM17, through 1 kΩ |
+| MY018 B centre pad | 13 | BCM27, through 1 kΩ |
+| MY018 C centre pad | 15 | BCM22, through 1 kΩ |
+| 2N3904 base | 22 | BCM25, through 1 kΩ |
+| 2N3904 emitter | 6 | Pi GND |
+| 2N3904 collector | — | MY018 board GND |
+| Dial-up/status LED | 16 | BCM23, through 330 Ω; cathode to GND pin 14 |
+| PPP/status LED | 18 | BCM24, through 330 Ω; cathode to GND pin 20 |
+| Mode/shutdown button | 36 | BCM16; other side to GND pin 34 |
+| Raspberry Pi power | 2 and 9 | 5 V and GND from the adjusted MT3608 output |
+
+The assembly drawing is not a substitute for the modification instructions.
+In particular:
+
+- remove the original A/B/C solder bridges;
+- connect each A/B/C centre pad to its GPIO through its own 1 kΩ resistor;
+- add a separate 10 kΩ pull-down from each centre pad to **board GND**;
+- switch board GND through the documented 2N3904 circuit; do not add another
+  direct board-GND-to-Pi-GND connection;
+- adjust the MT3608 output to **5.0 V and verify it with a multimeter before
+  connecting the Raspberry Pi**.
+
+The exact physical pin numbers, transistor orientation and tested limitations
+are in the [MY018 wiring and setup guide](docs/MY018-SETUP.md). Disconnect USB
+and the battery before changing the wiring. This battery-powered arrangement
+is the current prototype, not a certified power-supply design.
+
+### Power boards used in the prototype
+
+![TP4056 charger/protection board and MT3608 step-up converter used in the prototype](docs/power-boards-tp4056-mt3608.jpeg)
+
+The upper board is the adjustable **MT3608 step-up converter**. Its input comes
+from the TP4056 output; adjust its output to a measured **5.0 V before** it is
+connected to physical Pi pins 2 and 9. The lower board is the USB-C **TP4056
+charger/protection board** used with the single 18650 cell. The cell connects
+to B+ and B− and the protected OUT+ and OUT− feed the MT3608. Board variants
+exist, so always follow the markings printed on the actual board rather than
+its position in this photograph.
+
+### MY018 infrared board
+
+![Front and back of the Ming Yuan MY018 infrared board](docs/my018-module-product-photo.jpg)
+
+This product photograph shows the front and back of the MY018 module family.
+The rear silkscreen identifies VCC, TXD, RXD and GND and the front shows the
+A/B/C solder bridges. Compare the markings with your own module before making
+changes. For this build the three original bridges are removed; each centre pad
+gets its own GPIO connection and 10 kΩ pull-down as described above. Image
+source: [MY018 product listing](https://www.ebay.com/itm/306204181304).
+
+## Prototype enclosure files
+
+The repository includes printable
+[bottom and lid STL files](hardware/enclosure/README.md). Treat them as a rough
+prototype or starting point: they were made around the current hand-built
+assembly, the fit is tight, and the MY018 board has no proper dedicated mount.
+Component placement and hot-glue-assisted mounting are still somewhat
+improvised. Check clearances and modify the models for your own parts before
+printing; the enclosure is not part of the tested installation path.
 
 ## Tested setup
 
@@ -61,8 +133,9 @@ step-up module specifications will be added later.
 - MA-620 infrared fallback (`0df7:0620`) at 9600 bit/s
 
 See the [MY018 wiring and setup guide](docs/MY018-SETUP.md) before connecting
-the module. These results apply to the existing working setup; reproducing it
-from a clean SD card is the next acceptance step.
+the module. These results apply to the existing working setup. The remaining
+major publication check is reproducing the installation from a clean SD card
+and then repeating the physical connection tests.
 
 ## Status
 
