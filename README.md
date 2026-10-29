@@ -7,10 +7,9 @@ vintage computers and handhelds.**
 > needs final acceptance on a clean second SD card. Raspberry Pi 3 Model B is
 > the only Pi model tested so far.
 
-![RetroModem in its closed enclosure next to a Psion 5mx](docs/retromodem-hero.jpg)
+![Infrared RetroModem in its closed enclosure next to a Palm IIIc](docs/retromodem-hero.png)
 
-*The original wired RetroModem prototype with a Psion 5mx. Photo from
-[Björns Blog](https://www.bjornsblog.nl/general/how-to-connect-your-psion-to-the-internet-in-2024/).*
+*The current infrared RetroModem prototype with a Palm IIIc.*
 
 RetroModem gives devices such as a Psion 5mx, Palm IIIc, Windows 98/XP PC and
 classic Macintosh a route to the internet without requiring another computer
@@ -34,6 +33,10 @@ Action MA-620 remains available as a USB infrared fallback.
 - X/Y/ZMODEM terminal file transfer;
 - Palm IrOBEX sending and experimental Psion EikonIr support;
 - a mode/shutdown button and status LEDs for headless use.
+
+![ChatGPT running on a Psion 5mx through RetroModem](docs/retromodem-psion-chatgpt.png)
+
+*The lightweight ChatGPT interface running on a Psion 5mx over infrared.*
 
 Once connected, the retro device can open:
 
