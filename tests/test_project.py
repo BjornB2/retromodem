@@ -204,7 +204,7 @@ class InstallationTests(unittest.TestCase):
     def test_quickstart_contains_every_access_route(self):
         guide = (ROOT / "docs/QUICKSTART.md").read_text(encoding="utf-8")
         self.assertIn('`http://10.42.0.1`', guide)
-        self.assertIn('ssh JOUW_GEBRUIKERSNAAM@retromodem.local', guide)
+        self.assertIn('ssh YOUR_USERNAME@retromodem.local', guide)
         self.assertIn('Raspberry Pi Imager', guide)
         self.assertIn('`retromodem` / `retromodem`', guide)
 

@@ -556,7 +556,8 @@ def chatgpt_settings_card(language: str, config: dict[str, str]) -> str:
     conversation = conversation.replace('Voor wijzigende acties vraagt de terminal eerst ja/nee.', 'Voor wijzigende acties vraagt de terminal of webpagina eerst ja/nee.').replace('The terminal asks yes/no before mutating actions.', 'The terminal or web page asks yes/no before mutating actions.')
     conversation = conversation.replace('netwerktools voor DNS, ping, poorttests, HTTP/API en SSH.', 'netwerktools voor het vinden van apparaten, lokale poortscans, DNS, ping, traceroute, HTTP/API en SSH.').replace('network tools for DNS, ping, port checks, HTTP/API and SSH.', 'network tools for device discovery, local port scans, DNS, ping, traceroute, HTTP/API and SSH.')
     web_help = web_help.replace('Gesprekken blijven maximaal een uur in het geheugen; een herstart wist ze.', 'Of een gesprek bij opnieuw openen wordt hervat, stel je hieronder in.').replace('Conversations remain in memory for up to one hour; restarting clears them.', 'The option below controls whether reopening resumes the conversation.')
-    return f"""<section class="card" id="chatgpt"><h2>ChatGPT · web en BBS 5559999</h2>{action}<p>{web_help}</p>{conversation}</section>"""
+    heading = tr(language, "ChatGPT · web en BBS 5559999", "ChatGPT · web and BBS 5559999")
+    return f"""<section class="card" id="chatgpt"><h2>{heading}</h2>{action}<p>{web_help}</p>{conversation}</section>"""
 
 
 def phonebook_page(language: str) -> str:

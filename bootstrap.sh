@@ -12,12 +12,8 @@ Usage: sh bootstrap.sh [options]
   --non-interactive            Do not ask installer questions
   --features-only              Update existing feature files, not OS/drivers/config
   --features-check             Check feature update without installed-file changes
-  --token-file FILE            Owner-only GitHub token file for the private repo
   --download-only DIRECTORY    Download and validate sources; do not install
   --help                      Show this help without network or system changes
-
-Private access: alternatively set RETROMODEM_GITHUB_TOKEN before running.
-Tokens are used only for downloading and are not passed to the installer.
 EOF
 }
 
@@ -27,18 +23,16 @@ adapter=
 wiring=0
 noninteractive=0
 features=
-token_file=
 download_only=
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --help|-h) usage; exit 0 ;;
-        --ref|--adapter|--token-file|--download-only)
+        --ref|--adapter|--download-only)
             option=$1
             [ "$#" -ge 2 ] || die "$option requires a value"
             case "$option" in
                 --ref) ref=$2 ;;
                 --adapter) adapter=$2 ;;
-                --token-file) token_file=$2 ;;
                 --download-only) download_only=$2 ;;
             esac
             shift 2 ;;
@@ -68,39 +62,16 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 
-unset token
-token=${RETROMODEM_GITHUB_TOKEN:-}
-if [ -n "$token_file" ]; then
-    [ -z "$token" ] || die 'Use either --token-file or RETROMODEM_GITHUB_TOKEN, not both'
-    token=$(python3 - "$token_file" <<'PY'
-import os
-from pathlib import Path
-import stat
-import sys
-
-path = Path(sys.argv[1])
-info = path.lstat()
-if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
-    sys.exit('Token file must be a regular file owned by you with permissions 0600 or 0400')
-print(path.read_text().strip())
-PY
-    ) || die 'Unable to read the token file'
-fi
-if [ -n "$token_file" ] && [ -z "$token" ]; then die 'Token file is empty'; fi
-case "$token" in *[!A-Za-z0-9_]*) die 'Invalid GitHub token format' ;; esac
-# Do not export the token to curl or the eventual installer. Feed curl config
-# through stdin, so the header is not exposed in process arguments or a file.
-unset RETROMODEM_GITHUB_TOKEN GH_TOKEN GITHUB_TOKEN
+# Do not pass unrelated GitHub credentials to curl or the installer.
+unset RETROMODEM_GITHUB_TOKEN GH_TOKEN GITHUB_TOKEN token
 download() {
-    {
-        printf 'header = "Accept: application/vnd.github+json"\n'
-        if [ -n "$token" ]; then printf 'header = "Authorization: Bearer %s"\n' "$token"; fi
-    } | curl -q --config - --fail --silent --show-error --location \
+    printf 'header = "Accept: application/vnd.github+json"\n' | \
+      curl -q --config - --fail --silent --show-error --location \
         --proto '=https' --proto-redir '=https' --connect-timeout 20 --max-time 300 \
         --output "$2" "https://api.github.com/repos/BjornB2/retromodem/$1"
 }
 if [ -z "$ref" ]; then
-    download commits/main "$work_dir/revision.json" || die 'Cannot resolve current version. Check network/private repository access.'
+    download commits/main "$work_dir/revision.json" || die 'Cannot resolve the current version. Check network access.'
     ref=$(python3 - "$work_dir/revision.json" <<'PY'
 import json, re, sys
 value = json.load(open(sys.argv[1])).get('sha', '')
@@ -112,10 +83,8 @@ PY
 fi
 printf 'Downloading RetroModem commit %s\n' "$ref"
 if ! download "tarball/$ref" "$work_dir/source.tar.gz"; then
-    unset token
-    die 'Download failed. For the private repository, check token access to BjornB2/retromodem.'
+    die 'Download failed. Check network access and the selected commit.'
 fi
-unset token
 
 # Never extract arbitrary archive paths or links. GitHub source archives have
 # one top-level directory, which is removed here. No tar extraction subprocess

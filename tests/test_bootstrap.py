@@ -75,18 +75,6 @@ else:
         record = json.loads((self.root / 'curl-record').read_text())
         self.assertTrue(record['args'][-1].endswith('/tarball/' + REVISION))
 
-    def test_token_uses_stdin_not_arguments_or_environment(self):
-        import json
-        token = 'github_pat_' + 'x' * 60
-        self.env['RETROMODEM_GITHUB_TOKEN'] = token
-        result = self.invoke('--ref', REVISION, '--download-only', str(self.root / 'source'))
-        self.assertEqual(result.returncode, 0, result.stderr)
-        record = json.loads((self.root / 'curl-record').read_text())
-        self.assertIn(token, record['config'])
-        self.assertNotIn(token, ' '.join(record['args']))
-        self.assertFalse(record['token_in_environment'])
-        self.assertNotIn(token, result.stdout + result.stderr)
-
     def test_rejects_unsafe_tar_paths_and_links(self):
         for index, name in enumerate(('../escape', '/absolute', 'repo/../../escape')):
             self.archive_members([('repo/install.sh', b'exit 98'), (name, b'bad')])
@@ -99,15 +87,6 @@ else:
             archive.addfile(member)
         self.assertNotEqual(self.invoke('--ref', REVISION, '--download-only',
                                         str(self.root / 'linked')).returncode, 0)
-
-    def test_token_file_must_be_private(self):
-        token_file = self.root / 'token'
-        token_file.write_text('github_pat_' + 'x' * 60)
-        token_file.chmod(0o644)
-        result = self.invoke('--ref', REVISION, '--token-file', str(token_file),
-                             '--download-only', str(self.root / 'source'))
-        self.assertNotEqual(result.returncode, 0)
-        self.assertFalse((self.root / 'curl-record').exists())
 
     def test_installer_receives_choices_without_download_credentials(self):
         import json
