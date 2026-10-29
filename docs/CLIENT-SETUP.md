@@ -31,6 +31,15 @@ internet or a BBS instead, select RetroModem's dial-up mode and use a terminal
 application such as Hermes. Dial internet PPP with `ATDT5559000`, a configured
 BBS with its phone-book number, or the ChatGPT BBS with `ATDT5559999`.
 
+### File transfer with Comms
+
+The Psion's built-in **Comms** application works well with **YMODEM** for file
+transfer, and has been physically verified in both directions on a Psion 5mx.
+Open Comms on the Psion, select YMODEM for sending or receiving, and choose the
+same direction and protocol on RetroModem's **File transfer** page. Prepare the
+receiving side first, then start the sending side. YMODEM preserves the original
+file name.
+
 ## Palm OS
 
 Open **Prefs → Connection**, create a connection and configure it as follows:

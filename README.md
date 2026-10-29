@@ -30,7 +30,8 @@ Action MA-620 remains available as a USB infrared fallback.
 - Search and simplified modern web pages on legacy browsers;
 - built-in RetroWEB proxy with image conversion, resizing and pagination;
 - Wi-Fi setup directly from the connected retro device;
-- X/Y/ZMODEM terminal file transfer;
+- X/Y/ZMODEM terminal file transfer, including verified YMODEM transfers with
+  the built-in **Comms** application on a Psion 5mx;
 - Palm IrOBEX sending and experimental Psion EikonIr support;
 - a mode/shutdown button and status LEDs for headless use.
 
