@@ -3,9 +3,9 @@
 **A Raspberry Pi internet bridge, virtual modem and modern-web gateway for
 vintage computers and handhelds.**
 
-> **Pre-release.** The existing prototype works, but the public installer still
-> needs final acceptance on a clean second SD card. Raspberry Pi 3 Model B is
-> the only Pi model tested so far.
+> **First public release.** The installer has completed a clean-SD installation
+> and `retromodem-verify` reported zero errors. Raspberry Pi 3 Model B is the
+> supported Pi model for this release.
 
 ![Infrared RetroModem in its closed enclosure next to a Palm IIIc](docs/retromodem-hero.png)
 
@@ -108,9 +108,8 @@ correct adapter and cable for the target computer.
 - Windows 98 dial-up BBS;
 - Prolific USB-to-RS-232 for wired PPP and Hayes/BBS.
 
-The remaining publication check is a complete clean-SD installation followed
-by repetition of the physical connection tests. See the
-[protocol evidence and support matrix](docs/PROTOCOL-AUDIT.md) for known limits.
+See the [protocol evidence and support matrix](docs/PROTOCOL-AUDIT.md) for
+implementation details and known limits.
 
 ## Documentation
 
@@ -118,7 +117,7 @@ by repetition of the physical connection tests. See the
 - [MY018 modification, speed control and limitations](docs/MY018-SETUP.md)
 - [Install RetroModem](docs/INSTALL.md)
 - [Configure a Psion 5mx or Palm](docs/CLIENT-SETUP.md)
-- [Clean-install acceptance checklist](docs/CLEAN-INSTALL-ACCEPTANCE.md)
+- [Clean-install verification](docs/CLEAN-INSTALL-ACCEPTANCE.md)
 - [Quick reference](docs/QUICKSTART.md)
 - [Printable one-page quick reference (PDF)](docs/RetroModem-Quick-Reference.pdf)
 
@@ -127,7 +126,8 @@ by repetition of the physical connection tests. See the
 The web interface, access-point fallback, PPP and Hayes backends, phone book,
 ChatGPT BBS and RetroWEB integration are operational. The installer pins its
 external sources and preserves the SSH account created in Raspberry Pi Imager.
-No downloadable SD-card image is provided yet.
+Installation uses Raspberry Pi OS rather than a downloadable prebuilt SD-card
+image.
 
 The printable [enclosure files](hardware/enclosure/README.md) are included as a
 rough prototype. Space is provided for the MY018, but the dimensions are not

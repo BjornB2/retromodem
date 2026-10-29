@@ -780,7 +780,7 @@ def proxy_module():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "RetroModem/0.1"
+    server_version = "RetroModem/1.0"
 
     def serve_retro_home(self, host: str) -> None:
         language = self.config().get('RETROMODEM_LANGUAGE', 'en')

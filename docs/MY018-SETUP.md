@@ -79,8 +79,8 @@ The installer builds the modified `irtty-sir` source through DKMS and installs
 the helper. With this explicit opt-in it also installs the module option and
 adds `include retromodem-my018.txt` to the boot configuration. That file drives
 BCM25 high early in the boot process, connecting board GND through the
-transistor, while leaving A/B/C as inputs without internal pulls. The clean-SD
-boot and power-cycle test is still part of release acceptance.
+transistor, while leaving A/B/C as inputs without internal pulls. The boot and
+power-cycle configuration is checked by `retromodem-verify` after installation.
 
 For every new IrDA attachment, the preparation step resets the module to 9600
 bit/s. During a speed change, the driver releases UART and A/B/C, switches the

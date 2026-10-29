@@ -105,7 +105,7 @@ class InstallationTests(unittest.TestCase):
         self.assertIn("sudo retromodem-verify", plan)
         self.assertIn("Psion 5mx, direct PPP via IrDA", plan)
         self.assertIn("Palm IIIc, direct PPP via IrDA", plan)
-        self.assertIn("tweede uitvoering van de installer", plan)
+        self.assertIn("after running the installer again", plan)
 
     def test_external_sources_are_pinned_to_full_commits(self):
         installer = (ROOT / "install.sh").read_text(encoding="utf-8")

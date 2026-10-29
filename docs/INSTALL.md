@@ -1,8 +1,7 @@
-# Clean-SD installation test
+# Install RetroModem on a clean SD card
 
-Use a clean second SD card in the Pi 3B and keep the working SD card as your
-reference. The installer is prepared for Raspberry Pi OS Legacy Bookworm
-32-bit Lite; physical clean-install acceptance is still required.
+The supported base system is Raspberry Pi OS Legacy Bookworm 32-bit Lite on a
+Raspberry Pi 3 Model B.
 
 ## Prepare the Pi
 
@@ -21,11 +20,8 @@ retro browser. Search and ChatGPT are at the top; Settings links to
 
 ## Single-command installation
 
-> **Test version:** clean-SD acceptance is in progress. Keep the working card
-> available. No stable release date is guaranteed.
-
 For the preferred MY018 build, paste this into the SSH session as your own
-Imager user. It resolves the current candidate and asks for the documented
+Imager user. It resolves the current release and asks for the documented
 MY018 wiring confirmation before installation:
 
 ```sh
@@ -88,10 +84,10 @@ sudo retromodem-diagnose
 sudo retromodem-verify
 ```
 
-Record the selected adapter and source commit, then follow
-[CLEAN-INSTALL-ACCEPTANCE.md](CLEAN-INSTALL-ACCEPTANCE.md) for the physical tests.
-Installer and image acceptance are separate checks; no downloadable image is
-provided yet.
+The command must finish with zero errors. The selected adapter and source
+commit are included in the output. See
+[CLEAN-INSTALL-ACCEPTANCE.md](CLEAN-INSTALL-ACCEPTANCE.md) for additional
+verification and recovery checks.
 
 ## Download integrity
 
