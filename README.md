@@ -21,6 +21,21 @@ The preferred build uses a Ming Yuan MY018 infrared module on the Pi GPIO/UART.
 A Prolific USB-to-RS-232 adapter provides the main wired path, while a Mobile
 Action MA-620 remains available as a USB infrared fallback.
 
+## Install
+
+Flash **Raspberry Pi OS Legacy Bookworm (32-bit) Lite** with Raspberry Pi
+Imager, enable SSH and boot the Pi. Then run this command in its SSH session:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/BjornB2/retromodem/main/bootstrap.sh | sh
+```
+
+The guided installer asks which connection hardware to configure. Do not
+download the automatically generated GitHub source archives as an installation
+package; the bootstrap command above is the supported installation method. See
+the [complete installation guide](docs/INSTALL.md) before connecting or powering
+an MY018 module.
+
 ## What it can do
 
 - direct PPP over infrared or RS-232;
