@@ -13,39 +13,39 @@ warn() { printf 'WARN  %s\n' "$*"; warnings=$((warnings + 1)); }
 fail() { printf 'FAIL  %s\n' "$*"; failures=$((failures + 1)); }
 
 check_file() {
-    if [ -e "$1" ]; then pass "$1 aanwezig"; else fail "$1 ontbreekt"; fi
+    if [ -e "$1" ]; then pass "$1 present"; else fail "$1 missing"; fi
 }
 
 check_command() {
     if command -v "$1" >/dev/null 2>&1; then
-        pass "$1 beschikbaar"
+        pass "$1 available"
     else
-        fail "$1 niet beschikbaar"
+        fail "$1 unavailable"
     fi
 }
 
 check_enabled() {
     if systemctl is-enabled --quiet "$1"; then
-        pass "$1 ingeschakeld"
+        pass "$1 enabled"
     else
-        fail "$1 niet ingeschakeld"
+        fail "$1 not enabled"
     fi
 }
 
 check_active() {
     if systemctl is-active --quiet "$1"; then
-        pass "$1 actief"
+        pass "$1 active"
     else
-        fail "$1 niet actief"
+        fail "$1 not active"
     fi
 }
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Start deze controle als root: sudo retromodem-verify" >&2
+    echo "Run this check as root: sudo retromodem-verify" >&2
     exit 2
 fi
 
-printf 'RetroModem installatiecontrole\n'
+printf 'RetroModem installation check\n'
 printf '%s\n' '================================'
 
 for command in python3 pppd tcpser nft nmcli pinctrl irattach irobex_palm3 ircp \
@@ -63,19 +63,19 @@ except (OSError, ValueError, KeyError):
 PY
 )
 if [ -n "$admin_user" ] && [ "$admin_user" != root ] && id "$admin_user" >/dev/null 2>&1; then
-    pass "eigen SSH-beheerder $admin_user bestaat"
+    pass "configured SSH administrator $admin_user exists"
 else
-    fail "vastgelegde SSH-beheerder ontbreekt (install.json)"
+    fail "configured SSH administrator is missing (install.json)"
 fi
 
 if [ -r /etc/retromodem/retromodem.env ]; then
     . /etc/retromodem/retromodem.env
 else
-    fail "adapterconfiguratie ontbreekt"
+    fail "adapter configuration is missing"
 fi
 if [ -f /var/lib/retromodem/reboot-required ] &&
    [ "$(cat /var/lib/retromodem/reboot-required)" = "$(cat /proc/sys/kernel/random/boot_id)" ]; then
-    fail "herstart vereist voor de geïnstalleerde driver/UART: sudo reboot"
+    fail "reboot required for the installed driver/UART: sudo reboot"
 fi
 
 for path in \
@@ -98,16 +98,16 @@ if [ -s /etc/retromodem/phonebook.json ] && \
    grep -q '"5559000"' /etc/retromodem/phonebook.json && \
    grep -q '"5551000"' /etc/retromodem/phonebook.json && \
    grep -q '"5559999"' /etc/retromodem/phonebook.json; then
-    pass "standaard internet- en BBS-nummers aanwezig"
+    pass "default internet and BBS numbers present"
 else
-    fail "standaardtelefoonboek onvolledig"
+    fail "default phone book incomplete"
 fi
 
 if [ -s /usr/local/share/retromodem/install-manifest.sha256 ]; then
     if (cd / && sha256sum -c /usr/local/share/retromodem/install-manifest.sha256 >/dev/null); then
-        pass "alle door de installer beheerde bestanden komen overeen"
+        pass "all installer-managed files match"
     else
-        fail "een of meer beheerde bestanden wijken af van de installer"
+        fail "one or more managed files differ from the installer"
         (cd / && sha256sum -c /usr/local/share/retromodem/install-manifest.sha256) 2>&1 || true
     fi
 fi
@@ -126,9 +126,9 @@ check_active retromodem-chatgpt.service
 check_active retromodem-button.service
 
 if ss -ltnH | awk '$4 == "127.0.0.1:2324" { found=1 } END { exit !found }'; then
-    pass "ChatGPT BBS luistert uitsluitend lokaal op poort 2324"
+    pass "ChatGPT BBS listens locally only on port 2324"
 else
-    fail "ChatGPT BBS luistert niet op 127.0.0.1:2324"
+    fail "ChatGPT BBS is not listening on 127.0.0.1:2324"
 fi
 
 if python3 - <<'PY'
@@ -149,70 +149,70 @@ except Exception:
     raise SystemExit(1)
 PY
 then
-    pass "webinterface antwoordt lokaal met de ingestelde login"
+    pass "web interface responds locally with the configured login"
 else
-    fail "webinterface antwoordt niet met de ingestelde login"
+    fail "web interface does not respond with the configured login"
 fi
 
 if [ "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)" = 1 ]; then
-    pass "IPv4-forwarding staat aan"
+    pass "IPv4 forwarding is enabled"
 else
-    fail "IPv4-forwarding staat uit"
+    fail "IPv4 forwarding is disabled"
 fi
 
 if nft list table ip retromodem_nat >/dev/null 2>&1; then
-    pass "NAT-tabel is geladen"
+    pass "NAT table is loaded"
 else
-    fail "NAT-tabel ontbreekt"
+    fail "NAT table is missing"
 fi
 
 if [ "${RETROMODEM_TRANSPORT:-}" = serial ]; then
     if lsusb -d "${RETROMODEM_SERIAL_USB_ID:-067b:2303}" 2>/dev/null | grep -q .; then
-        pass "Prolific RS-232-adapter aangesloten (gekozen hoofdroute)"
+        pass "Prolific RS-232 adapter connected (selected main path)"
         check_active retromodem-mode.service
         case "${RETROMODEM_LINE_MODE:-ppp}" in
             ppp) check_active retromodem-ppp.service ;;
             dialup) check_active retromodem-tcpser.service ;;
         esac
     else
-        warn "gekozen Prolific-adapter niet aangesloten; fysieke seriële test overgeslagen"
+        warn "selected Prolific adapter not connected; physical serial test skipped"
     fi
 elif [ "${RETROMODEM_ADAPTER:-}" = ming-yuan-my018 ]; then
-    pass "MY018 is de gekozen infraroodopbouw"
+    pass "MY018 is the selected infrared setup"
     check_file /boot/firmware/retromodem-my018.txt
     check_file /etc/modprobe.d/retromodem-my018.conf
     if [ "$(readlink -f /dev/serial0 2>/dev/null || true)" = /dev/ttyAMA0 ] && [ -c /dev/serial0 ]; then
-        pass "MY018 gebruikt de PL011-UART (serial0 -> ttyAMA0)"
+        pass "MY018 uses the PL011 UART (serial0 -> ttyAMA0)"
     else
-        fail "MY018 UART-configuratie niet actief; herstart en controleer bootconfig"
+        fail "MY018 UART configuration is not active; reboot and check the boot configuration"
     fi
     if grep -qx 'include retromodem-my018.txt' /boot/firmware/config.txt &&
        grep -qx 'enable_uart=1' /boot/firmware/retromodem-my018.txt &&
        grep -qx 'dtoverlay=disable-bt' /boot/firmware/retromodem-my018.txt; then
-        pass "MY018 bootinclude met UART en Bluetooth-overlay aanwezig"
+        pass "MY018 boot include with UART and Bluetooth overlay present"
     else
-        fail "MY018 bootinclude onvolledig"
+        fail "MY018 boot include incomplete"
     fi
     if [ "${RETROMODEM_MY018_POWER_CYCLE:-0}" = 1 ] &&
        [ "$(cat /sys/module/irtty_sir/parameters/my018_power_cycle 2>/dev/null)" = Y ]; then
-        pass "MY018 voedingsschakeling actief in de driver"
+        pass "MY018 power switching active in the driver"
     else
-        fail "MY018 voedingsschakeling niet actief in de driver"
+        fail "MY018 power switching not active in the driver"
     fi
     check_active retromodem-irda.service
     check_active retromodem-mode.service
-    pass "MA-620 fallback niet vereist voor deze opbouw"
+    pass "MA-620 fallback not required for this setup"
 elif [ "${RETROMODEM_ADAPTER:-}" = mobile-action-ma620 ]; then
     if lsusb -d 0df7:0620 2>/dev/null | grep -q .; then
-        pass "gekozen MA-620 infraroodfallback aangesloten"
+        pass "selected MA-620 infrared fallback connected"
         check_active retromodem-irda.service
         check_active retromodem-mode.service
     else
-        warn "gekozen MA-620 fallback niet aangesloten; fysieke IrDA-test overgeslagen"
+        warn "selected MA-620 fallback not connected; physical IrDA test skipped"
     fi
 else
-    fail "onbekende adapter/transportconfiguratie"
+    fail "unknown adapter/transport configuration"
 fi
 
-printf '\nResultaat: %s fout(en), %s waarschuwing(en).\n' "$failures" "$warnings"
+printf '\nResult: %s failure(s), %s warning(s).\n' "$failures" "$warnings"
 [ "$failures" -eq 0 ]

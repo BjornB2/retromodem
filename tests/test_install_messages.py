@@ -16,10 +16,10 @@ class InstallSummaryTests(unittest.TestCase):
         result = self.summary('1')
         self.assertEqual(result.returncode, 0)
         text = result.stdout
-        self.assertIn('HERSTART NU', text)
-        self.assertLess(text.index('sudo reboot'), text.index('NA DE HERSTART'))
-        self.assertLess(text.index('NA DE HERSTART'), text.index('sudo retromodem-diagnose'))
-        self.assertLess(text.index('NA DE HERSTART'), text.index('sudo retromodem-verify'))
+        self.assertIn('REBOOT THE RASPBERRY PI NOW', text)
+        self.assertLess(text.index('sudo reboot'), text.index('AFTER THE REBOOT'))
+        self.assertLess(text.index('AFTER THE REBOOT'), text.index('sudo retromodem-diagnose'))
+        self.assertLess(text.index('AFTER THE REBOOT'), text.index('sudo retromodem-verify'))
         self.assertIn('own-user', text)
 
     def test_without_reboot_checks_are_immediate(self):
@@ -57,18 +57,18 @@ class DiagnosticAdapterTests(unittest.TestCase):
 
     def test_my018_does_not_require_ma620(self):
         text = self.diagnose('ming-yuan-my018', 'irda')
-        self.assertIn('[INFO] MA-620-fallback niet aangesloten; niet vereist voor MY018.', text)
-        self.assertNotIn('[FOUT] Gekozen MA-620', text)
-        self.assertIn('[OK]   MY018 gebruikt de PL011-UART', text)
+        self.assertIn('[INFO] MA-620 fallback not connected; it is not required for MY018.', text)
+        self.assertNotIn('[FAIL] Selected MA-620', text)
+        self.assertIn('[OK]   MY018 uses the PL011 UART', text)
 
     def test_selected_ma620_is_checked(self):
         missing = self.diagnose('mobile-action-ma620', 'irda')
-        self.assertIn('[FOUT] Gekozen MA-620 infraroodfallback gevonden', missing)
+        self.assertIn('[FAIL] Selected MA-620 infrared fallback found', missing)
         present = self.diagnose('mobile-action-ma620', 'irda', '0df7:0620')
-        self.assertIn('[OK]   Gekozen MA-620 infraroodfallback gevonden', present)
+        self.assertIn('[OK]   Selected MA-620 infrared fallback found', present)
 
     def test_serial_does_not_require_irda_or_ma620(self):
         text = self.diagnose('ming-yuan-my018', 'serial', '067b:2303')
-        self.assertIn('[OK]   Gekozen Prolific RS-232-adapter gevonden', text)
-        self.assertNotIn('IrDA-service actief', text)
-        self.assertNotIn('IrCOMM-apparaat aanwezig', text)
+        self.assertIn('[OK]   Selected Prolific RS-232 adapter found', text)
+        self.assertNotIn('IrDA service active', text)
+        self.assertNotIn('IrCOMM device present', text)

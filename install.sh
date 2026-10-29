@@ -46,7 +46,7 @@ if [ "$features_only" = 1 ] || [ "$features_check" = 1 ]; then
 fi
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Start dit script als root: sudo ./install.sh" >&2
+    echo "Run this script as root: sudo ./install.sh" >&2
     exit 1
 fi
 
@@ -84,15 +84,15 @@ flock -n 9 || { echo 'Another RetroModem installation is running.' >&2; exit 1; 
 
 if [ ! -r /etc/os-release ] || ! grep -q '^ID=raspbian' /etc/os-release || \
    ! grep -q '^VERSION_ID="\?12"\?$' /etc/os-release; then
-    echo "Deze installer vereist Raspberry Pi OS Legacy Bookworm (Debian 12), 32-bit." >&2
-    echo "Kies in Raspberry Pi Imager: Raspberry Pi OS (other) -> Legacy, 32-bit -> Lite." >&2
+    echo "This installer requires Raspberry Pi OS Legacy Bookworm (Debian 12), 32-bit." >&2
+    echo "In Raspberry Pi Imager select: Raspberry Pi OS (other) -> Legacy, 32-bit -> Lite." >&2
     exit 1
 fi
 
 case $(uname -m) in
     armv6l|armv7l) ;;
     *)
-        echo "Deze eerste installer ondersteunt alleen de 32-bit Raspberry Pi OS-kernel." >&2
+        echo "This initial installer supports only the 32-bit Raspberry Pi OS kernel." >&2
         exit 1
         ;;
 esac
@@ -332,10 +332,10 @@ if [ "$reboot_required" = 1 ] || [ -d /sys/module/irda ]; then
     reboot_required=1
 elif systemctl restart retromodem-mode.service; then
     systemctl restart retromodem-button.service
-    echo "RetroModem is geïnstalleerd en gestart."
+    echo "RetroModem has been installed and started."
 else
-    echo "RetroModem is geïnstalleerd, maar de gekozen adapter is nog niet beschikbaar." >&2
-    echo "Sluit de adapter aan en voer uit: sudo systemctl restart retromodem-mode" >&2
+    echo "RetroModem has been installed, but the selected adapter is not available yet." >&2
+    echo "Connect the adapter and run: sudo systemctl restart retromodem-mode" >&2
 fi
 
 sh "$PROJECT_DIR/scripts/install-summary" "$reboot_required" "$admin_user"

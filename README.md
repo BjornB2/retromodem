@@ -118,17 +118,21 @@ source: [MY018 product listing](https://www.ebay.com/itm/306204181304).
 The repository includes printable
 [bottom and lid STL files](hardware/enclosure/README.md). Treat them as a rough
 prototype or starting point: they were made around the current hand-built
-assembly, the fit is tight, and the MY018 board has no proper dedicated mount.
-Component placement and hot-glue-assisted mounting are still somewhat
-improvised. Check clearances and modify the models for your own parts before
-printing; the enclosure is not part of the tested installation path.
+assembly and the fit is tight. Space is provided for the MY018 board, but its
+dimensions are not quite right; hot glue is the pragmatic mounting solution.
+Check clearances and modify the models for your own parts before printing; the
+enclosure is not part of the tested installation path.
 
 ## Tested setup
 
 - Raspberry Pi 3 Model B Rev 1.2
 - MY018 with the modified A/B/C selector wiring and 2N3904 power-control circuit
-- MY018 direct PPP at 57600 bit/s with Psion 5mx and Palm IIIc
+- Psion 5mx direct PPP over infrared at 57600 bit/s
+- Psion 5mx Hayes dial-up/BBS sessions
+- Palm IIIc direct PPP over infrared at 57600 bit/s
 - MY018 Palm Beam (IrOBEX) sending to Palm at 57600 bit/s
+- Windows XP dial-up internet (`5559000`) and BBS over infrared
+- Windows 98 dial-up BBS session
 - Prolific USB-to-RS-232 for wired PPP and Hayes/BBS connections
 - MA-620 infrared fallback (`0df7:0620`) at 9600 bit/s
 
@@ -163,74 +167,70 @@ conversation for every call, and can use OpenAI web search. OAuth credentials
 are stored locally with owner-only permissions; the BBS has no local system
 tools or device-control permissions.
 
-## Eerste installatie (in ontwikkeling)
+## Initial installation (in development)
 
-Volg de [schone-SD-installatiehandleiding](docs/INSTALL.md) voor het installatiecommando
-met de private GitHub-downloadroute en de adapterkeuze. Het bootstrap-script haalt één exact
-vastgelegde commit op. Je bestaande SSH-account uit Raspberry Pi Imager blijft
-behouden; er wordt geen extra account met een vast SSH-wachtwoord aangemaakt.
+Follow the [clean-SD installation guide](docs/INSTALL.md) for the installation
+command, GitHub download route and adapter selection. The bootstrap script
+fetches one exact pinned commit. It preserves the SSH account created through
+Raspberry Pi Imager and does not create another account with a fixed password.
 
-De installer is bedoeld voor een schone **Raspberry Pi OS Legacy Bookworm
-(32-bit) Lite**-installatie. Kies in Raspberry Pi Imager niet de gewone
-32-bit image: die gebruikt inmiddels een nieuwere Debian-versie. De installer
-stopt bewust wanneer het systeem niet Debian 12/Bookworm is. Hij bouwt de uit
-de Linux-kernel verwijderde IrDA-stack als DKMS-
-modules, installeert de PPP-server en zet IPv4-routing met nftables aan.
+The installer is intended for a clean **Raspberry Pi OS Legacy Bookworm
+(32-bit) Lite** installation. Do not select the regular 32-bit image in
+Raspberry Pi Imager: that image now uses a newer Debian release. The installer
+deliberately stops unless the system is Debian 12/Bookworm. It builds the IrDA
+stack removed from the Linux kernel as DKMS modules, installs the PPP server
+and enables IPv4 routing through nftables.
 
 ```sh
 sudo sh install.sh
 ```
 
-Gebruik bij voorkeur de MY018-opbouw uit de
-[aansluit- en configuratiehandleiding](docs/MY018-SETUP.md). Kies in de
-installer de MY018 en bevestig de gedocumenteerde bedrading. De installer stelt
-57k6 in, configureert de PL011-UART en schakelt daarvoor Bluetooth en de seriële
-console uit. Herstart daarna de Pi voordat je de modemverbinding test.
-Gebruik voor computers zonder infrarood de Prolific RS-232-route. MA-620 is
-alleen de alternatieve USB-infraroodroute.
+Prefer the MY018 build documented in the
+[wiring and configuration guide](docs/MY018-SETUP.md). Select MY018 in the
+installer and confirm the documented wiring. The installer selects 57.6 kbit/s,
+configures the PL011 UART and disables Bluetooth and the serial login console.
+Reboot the Pi before testing the modem connection. Use the Prolific RS-232 path
+for computers without infrared; MA-620 is the alternative USB infrared path.
 
-Controleer daarna de installatie met:
+Verify the installation with:
 
 ```sh
 sudo retromodem-diagnose
 sudo retromodem-verify
 ```
 
-`retromodem-verify` controleert afhankelijkheden, geïnstalleerde bestanden,
-checksums, services, webinterface, routing en het standaardtelefoonboek. Een
-installatie geldt pas als reproduceerbaar nadat ook de fysieke tests uit
-[docs/CLEAN-INSTALL-ACCEPTANCE.md](docs/CLEAN-INSTALL-ACCEPTANCE.md) op een
-schone tweede SD-kaart zijn uitgevoerd.
+`retromodem-verify` checks dependencies, installed files, checksums, services,
+the web interface, routing and the default phone book. An installation is not
+considered reproducible until the physical tests in
+[docs/CLEAN-INSTALL-ACCEPTANCE.md](docs/CLEAN-INSTALL-ACCEPTANCE.md) have also
+passed on a clean second SD card.
 
-De upstream IrDA-bron staat vast op commit
-`6c7ef8c17360dfe049e6315e9291583a6dcaf52a` van
-[`cschramm/irda`](https://github.com/cschramm/irda). Zo kan een update eerst
-apart op compatibiliteit worden getest voordat de werkende driver vervangen
-wordt.
+The upstream IrDA source is pinned to commit
+`6c7ef8c17360dfe049e6315e9291583a6dcaf52a` from
+[`cschramm/irda`](https://github.com/cschramm/irda). This allows compatibility
+testing before a working driver is replaced by an update.
 
-Na installatie is de webinterface bereikbaar op `http://retromodem.local`. De
-gebruikersnaam en het standaardwachtwoord zijn beide `retromodem`. Als geen
-opgeslagen wifi-netwerk beschikbaar is, maakt de Pi na ongeveer tien
-seconden accesspoint `retromodem` met wachtwoord `12345678`. Een mislukte
-wifi-koppeling schakelt automatisch terug naar dat accesspoint.
-Deze logins gelden voor de webinterface; SSH gebruikt je eigen Imager-account.
+After installation the web interface is available at
+`http://retromodem.local`. Both the username and default password are
+`retromodem`. If no saved Wi-Fi network is available, the Pi creates access
+point `retromodem` with password `12345678` after about ten seconds. A failed
+Wi-Fi connection automatically falls back to that access point. These
+credentials apply to the web interface; SSH uses your own Imager account.
 
-De front-leds geven naast de gekozen modemstand ook de netwerk- en
-voedingsstatus aan: de gekozen P- of D-led knippert bij een moduswissel ten
-minste drie seconden en zo nodig langer tijdens het starten, en
-brandt continu zodra de modem gereed is,
-beide leds knipperen langzaam tijdens het zoeken naar wifi, en P/D knipperen
-om en om in hotspotmodus. Twee korte gelijktijdige flitsen met een pauze
-waarschuwen voor actuele onderspanning; de rode PWR-led van de Raspberry Pi
-kan daarbij eveneens uitgaan of knipperen.
+In addition to the selected modem mode, the front LEDs indicate network and
+power state. The selected P or D LED flashes for at least three seconds during
+a mode change, and longer if necessary while starting, then remains on when the
+modem is ready. Both LEDs flash slowly while searching for Wi-Fi; P and D flash
+alternately in hotspot mode. Two short simultaneous flashes followed by a
+pause warn of current undervoltage; the Raspberry Pi red PWR LED may also go
+out or flash.
 
-De huidige webinterface bevat statusinformatie, wifi-configuratie, modem- en
-adapterinstellingen, een telefoonboek, handleidingen en bestandsoverdracht.
-Alleen routes die in de compatibiliteitsmatrix als geverifieerd staan mogen als
-stabiel worden beschouwd.
+The current web interface includes status information, Wi-Fi configuration,
+modem and adapter settings, a phone book, guides and file transfer. Only paths
+marked as verified in the compatibility matrix should be treated as stable.
 
-Zie [docs/QUICKSTART.md](docs/QUICKSTART.md) voor alle standaardadressen,
-wifi-gegevens en logins op één pagina.
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for all default addresses, Wi-Fi
+details and logins on one page.
 
 ## License
 

@@ -2,16 +2,16 @@
 set -eu
 reboot_required=${1:?reboot flag required}
 admin_user=${2:?administrator required}
-printf '\nSSH: gebruik je bestaande account %s met je eigen wachtwoord/key.\n' "$admin_user"
+printf '\nSSH: use your existing account %s with your own password/key.\n' "$admin_user"
 case "$reboot_required" in
     1)
         printf '\n============================================================\n'
-        printf '  INSTALLATIE VOLTOOID — HERSTART NU DE RASPBERRY PI\n'
+        printf '  INSTALLATION COMPLETE — REBOOT THE RASPBERRY PI NOW\n'
         printf '============================================================\n\n'
-        printf 'Voer eerst uit:\n\n    sudo reboot\n\n'
-        printf 'Log NA DE HERSTART opnieuw in. Controleer pas daarna:\n'
+        printf 'Run this first:\n\n    sudo reboot\n\n'
+        printf 'Log in again AFTER THE REBOOT. Only then run:\n'
         ;;
-    0) printf '\nInstallatiecontrole:\n' ;;
+    0) printf '\nInstallation check:\n' ;;
     *) echo 'Invalid reboot flag' >&2; exit 2 ;;
 esac
 printf '\n    sudo retromodem-diagnose\n    sudo retromodem-verify\n'

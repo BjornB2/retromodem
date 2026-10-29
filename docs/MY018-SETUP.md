@@ -1,105 +1,112 @@
-# MY018: automatische linksnelheid met transistorschakeling
+# MY018: automatic link speed with transistor switching
 
-Deze optie is uitsluitend voor de aangepaste en geteste Pi 3/MY018-opstelling.
-Een ongewijzigde module blijft op 9600 met de soldeerbruggen A0/B0/C0.
-Een algemene IrDA-snelheidslimiet van 57k6 bestaat niet; de bevindingen hieronder
-gelden voor onze combinatie van module, aansturing, voeding en retroapparaten.
+This option is intended only for the modified and tested Raspberry Pi 3/MY018
+setup. An unmodified module remains at 9600 bit/s with solder bridges A0/B0/C0.
+There is no general 57.6 kbit/s IrDA limit; the findings below apply to this
+specific combination of module, control circuit, power supply and retro
+devices.
 
-## Bewezen resultaten
+## Verified results
 
-| Maximum | Bevinding |
+| Maximum | Result |
 | --- | --- |
-| 9600 | Werkende basis voor PPP en Palm Beam |
-| 19200 | Beam gestart; volledige overdracht niet geverifieerd |
-| 38400 | Nog niet getest |
-| 57600 | PPP met Palm IIIc/OS 4.1 en Psion 5mx; volledige Beam naar Palm |
-| 115200 | Experimenteel; Palm Beam kon niet verbinden, Psion PPP niet bevestigd |
+| 9600 | Working baseline for PPP and Palm Beam |
+| 19200 | Beam started; a complete transfer has not been verified |
+| 38400 | Not tested yet |
+| 57600 | PPP with Palm IIIc/OS 4.1 and Psion 5mx; complete Beam transfer to Palm |
+| 115200 | Experimental; Palm Beam could not connect and Psion PPP has not been confirmed |
 
-MochaTelnet (79.026 bytes) is op 57k6 volledig overgedragen in 23,910 seconden:
-3,305 kB/s of 26,44 kbit/s nuttige bestandsdata, inclusief verbinden. Dit is geen
-meting van de optische baudrate en geen uitgebreide stabiliteitscertificering.
-Ontvangen vanaf Palm op 57k6 en EPOC/X/YMODEM op de nieuwe module zijn niet opnieuw
-geverifieerd. De algemene handleidingen behouden daarvoor hun eerdere beperkingen.
+MochaTelnet (79,026 bytes) was transferred completely at 57.6 kbit/s in
+23.910 seconds: 3.305 kB/s or 26.44 kbit/s of useful file data, including
+connection setup. This is not a measurement of the optical baud rate or an
+extensive stability certification. Receiving from a Palm at 57.6 kbit/s and
+EPOC/X/YMODEM on the new module have not been reverified. The limitations in
+the general documentation therefore still apply.
 
-## Aansluitingen (fysiek pinnummer versus BCM)
+## Connections: physical pin number versus BCM
 
-Voeding volledig los, inclusief accu, tijdens aanpassen. Pin 4 van het IC wordt
-niet gebruikt. IC-identiteit en schema van MY018 zijn niet bevestigd.
+Disconnect all power, including the battery, before modifying the hardware.
+Pin 4 of the IC is not used. The MY018 IC identity and internal schematic have
+not been confirmed.
 
-| Functie | Fysieke Pi-pin | BCM / details |
+| Function | Physical Pi pin | BCM / details |
 | --- | --- | --- |
-| Board VCC | 1 | vaste 3,3 V; nooit rechtstreeks uit een GPIO voeden |
-| Board TXD | 8 | BCM14 / Pi TX; op dit board host-perspectief, niet kruisen |
+| Board VCC | 1 | fixed 3.3 V; never power it directly from a GPIO |
+| Board TXD | 8 | BCM14 / Pi TX; this board uses host-perspective labels, so do not cross TXD and RXD |
 | Board RXD | 10 | BCM15 / Pi RX |
-| A middenpad | 11 | BCM17, via 1 kΩ |
-| B middenpad | 13 | BCM27, via 1 kΩ |
-| C middenpad | 15 | BCM22, via 1 kΩ |
-| 2N3904 basis | 22 | BCM25, via 1 kΩ; oude R6/resetdraad verwijderen |
-| 2N3904 emitter | 6 | echte Pi-GND |
-| 2N3904 collector | — | board-GND, zonder andere rechtstreekse Pi-GND-verbinding |
+| A centre pad | 11 | BCM17, through 1 kΩ |
+| B centre pad | 13 | BCM27, through 1 kΩ |
+| C centre pad | 15 | BCM22, through 1 kΩ |
+| 2N3904 base | 22 | BCM25, through 1 kΩ; remove the old R6/reset wire |
+| 2N3904 emitter | 6 | actual Pi GND |
+| 2N3904 collector | — | board GND, with no other direct board-GND-to-Pi-GND connection |
 
-Met de platte tekstkant van deze 2N3904 naar je toe en pootjes omlaag:
-links emitter, midden basis, rechts collector. Elk A/B/C-middenpad heeft een eigen
-10 kΩ-pulldown naar **board-GND**. Verwijder eerst de A/B/C-soldeerbruggen. De
-middenpads blijven onderling gescheiden. Houd rekening met LED-gronden op fysieke
-14 en 20 en de knop op fysieke 36 / BCM16. Een HDMI-afscherming is niet onze
-meetreferentie. De transistor heeft geen bewezen stroommarge onder alle
-zendomstandigheden; onvoldoende voeding kan de betrouwbaarheid beïnvloeden.
+With the flat labelled side of this 2N3904 facing you and the leads pointing
+down, the pins are emitter, base and collector from left to right. Give each
+A/B/C centre pad its own 10 kΩ pull-down to **board GND**. Remove the A/B/C
+solder bridges first and keep the three centre pads electrically separate.
+The LEDs use ground on physical pins 14 and 20; the button uses physical pin 36
+/ BCM16. Do not use an HDMI shield as the measurement reference. The transistor
+does not have a proven current margin under every transmit condition; an
+inadequate supply may affect reliability.
 
 ## Software
 
-Gebruik de meegeleverde driverbron en helper. Zet alleen voor deze bedrading in
-`/etc/retromodem/retromodem.env`:
+Use the included driver source and helper. Set the following values in
+`/etc/retromodem/retromodem.env` only for this exact wiring:
 
-```
+```text
 RETROMODEM_MY018_POWER_CYCLE=1
 RETROMODEM_MY018_BITRATE=57600
 RETROMODEM_IRDA_BITRATE=57600
 ```
 
-De virtuele Hayes/Comms-poort krijgt bij een nieuwe installatie standaard
-`RETROMODEM_IRDA_DIALUP_BITRATE=115200` en
-`RETROMODEM_MY018_DIALUP_BITRATE=115200`. Deze virtuele snelheid staat los van
-de fysieke infraroodlimiet van 57600. Een update behoudt bestaande snelheidskeuzes.
+On a new installation, the virtual Hayes/Comms port defaults to
+`RETROMODEM_IRDA_DIALUP_BITRATE=115200` and
+`RETROMODEM_MY018_DIALUP_BITRATE=115200`. This virtual speed is independent of
+the 57.6 kbit/s physical infrared limit. Updates preserve existing speed
+selections.
 
-De publieke testinstaller doet dit bij `--adapter my018` na bevestiging van de
-bedrading. Hij stelt tevens `enable_uart=1` en `dtoverlay=disable-bt` in, schakelt
-`hciuart` en de UART-loginconsole uit en bewaart de oorspronkelijke bootbestanden
-als `.pre-retromodem`. Bluetooth is daardoor niet beschikbaar bij deze opbouw.
-Een herstart is vereist voordat de PL011-UART als `/dev/serial0` gebruikt wordt.
-Zie [INSTALL.md](INSTALL.md) voor de volledige schone-SD-procedure.
+The public test installer applies these settings for `--adapter my018` after
+the wiring has been confirmed. It also sets `enable_uart=1` and
+`dtoverlay=disable-bt`, disables `hciuart` and the UART login console, and saves
+the original boot files with a `.pre-retromodem` suffix. Bluetooth is therefore
+unavailable in this configuration. A reboot is required before the PL011 UART
+can be used as `/dev/serial0`. See [INSTALL.md](INSTALL.md) for the complete
+clean-SD procedure.
 
-De installer neemt de gewijzigde irtty-sir-bron mee in DKMS en installeert de
-helper. Bij deze expliciete opt-in wordt ook de modprobe-optie geïnstalleerd en
-de bootconfig uitgebreid met `include retromodem-my018.txt`. Die bootconfig zet
-BCM25 vroeg hoog, zodat de transistor board-GND verbindt, en laat A/B/C als
-ingangen zonder interne pulls. De boot-/power-cycle-test van de publieke
-installer op een schone SD-kaart hoort bij de releaseacceptatie.
+The installer builds the modified `irtty-sir` source through DKMS and installs
+the helper. With this explicit opt-in it also installs the module option and
+adds `include retromodem-my018.txt` to the boot configuration. That file drives
+BCM25 high early in the boot process, connecting board GND through the
+transistor, while leaving A/B/C as inputs without internal pulls. The clean-SD
+boot and power-cycle test is still part of release acceptance.
 
-Bij iedere nieuwe IrDA-attachment reset de voorbereiding de module naar 9600.
-Bij een snelheidswissel geeft de driver eerst UART en A/B/C vrij, schakelt de
-transistor uit, wacht 100 ms, zet alleen de gewenste hoge bits, schakelt in,
-wacht 50 ms en herstelt de UART. Lage bits worden door de board-pulldowns bepaald:
-GPIO-uitgangen laag zouden bij afgeschakelde massa een alternatieve stroomroute
-kunnen vormen. De uitvoering gebeurt in de slaapbare IrDA-thread, vóór de
-UART-termioswisseling. Dit is experimentele laagzijdige voeding, geen generieke
-oplossing voor willekeurige andere boards of GPIO-toewijzingen.
+For every new IrDA attachment, the preparation step resets the module to 9600
+bit/s. During a speed change, the driver releases UART and A/B/C, switches the
+transistor off, waits 100 ms, drives only the required high bits, switches the
+module on, waits 50 ms and restores the UART. Board-referenced pull-downs define
+the low bits: driving GPIO outputs low while board ground is disconnected could
+create an alternative current path. This runs in the sleepable IrDA thread
+before the UART termios change. It is an experimental low-side switching design,
+not a generic solution for other boards or GPIO assignments.
 
-## Gebruik
+## Use
 
-Kies bij Modem de MY018 en het gewenste maximum. De instelling wordt per adapter
-bewaard; opslaan verbreekt de huidige verbinding. Nieuwe ontdekking begint op
-9600; de verbinding onderhandelt daarna tot het ingestelde maximum. De
-verbinding-/modempoortsnelheid van het retroapparaat is niet op zichzelf bewijs
-van de fysieke snelheid. Beam gebruikt niet noodzakelijk het PPP-profiel.
-Start met 57k6 of herstel 9600 bij problemen. Remote Link op de Psion blijft uit.
+Select MY018 and the desired maximum on the Modem page. The setting is stored
+per adapter; saving it disconnects the current session. New discovery starts
+at 9600 bit/s and the connection then negotiates up to the configured maximum.
+The connection or modem-port speed displayed by the retro device does not by
+itself prove the physical link speed. Beam does not necessarily use the PPP
+profile. Start at 57.6 kbit/s, or return to 9600 if problems occur. Keep Remote
+Link disabled on the Psion.
 
-De bestaande MY018-opstelling werkt; de publieke installer wordt nog op een
-schone SD-kaart geaccepteerd, inclusief herstart. Bewaar toegang tot de SD-kaart.
-Na een kernelupdate moet de driver opnieuw compatibel gebouwd en geverifieerd worden.
+The existing MY018 setup works. The public installer still needs clean-SD
+acceptance including the reboot test. Keep access to the SD card: after a kernel
+update, the driver must be rebuilt and checked for compatibility.
 
-Bronnen voor het ontwerp (niet voor bevestiging van het MY018-IC):
+Design references (not confirmation of the MY018 IC):
 
-- [Microchip AN756: BAUD-pinnen worden bij reset ingelezen](https://www.microchip.com/content/dam/mchp/documents/APID/ApplicationNotes/ApplicationNotes/00756a.pdf)
-- [Raspberry Pi boot-GPIO-configuratie](https://www.raspberrypi.com/documentation/computers/config_txt.html#gpio-control)
-- [2N3904 datasheet](https://www.onsemi.com/pdf/datasheet/2n3904-d.pdf)
+- [Microchip AN756: BAUD pins are sampled at reset](https://www.microchip.com/content/dam/mchp/documents/APID/ApplicationNotes/ApplicationNotes/00756a.pdf)
+- [Raspberry Pi boot GPIO configuration](https://www.raspberrypi.com/documentation/computers/config_txt.html#gpio-control)
+- [2N3904 data sheet](https://www.onsemi.com/pdf/datasheet/2n3904-d.pdf)

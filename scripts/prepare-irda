@@ -15,7 +15,7 @@ if [ "${RETROMODEM_ADAPTER:-}" = ming-yuan-my018 ] &&
     /usr/bin/pinctrl set 25 op dh
     /usr/sbin/modprobe irtty-sir my018_power_cycle=1
     [ "$(/usr/bin/cat /sys/module/irtty_sir/parameters/my018_power_cycle 2>/dev/null)" = Y ] || {
-        echo "MY018: driver met voedingsschakeling ontbreekt; herstel de driver voor hogere snelheden" >&2
+        echo "MY018: the power-switching driver is missing; repair the driver before using higher speeds" >&2
         exit 1
     }
 fi
@@ -47,7 +47,7 @@ if [ "$RETROMODEM_TTY" = auto ]; then
     done
 
     [ -n "$RETROMODEM_TTY" ] || {
-        echo "RetroModem: adapter $RETROMODEM_USB_ID is niet aangesloten" >&2
+        echo "RetroModem: adapter $RETROMODEM_USB_ID is not connected" >&2
         exit 1
     }
 fi

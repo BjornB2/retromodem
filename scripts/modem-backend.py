@@ -20,7 +20,7 @@ def serial_device(usb_id: str) -> str:
         properties = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
         if properties.get("ID_VENDOR_ID", "").lower() == vendor and properties.get("ID_MODEL_ID", "").lower() == product:
             return str(device)
-    raise SystemExit(f"Adapter {usb_id} is niet aangesloten")
+    raise SystemExit(f"Adapter {usb_id} is not connected")
 
 
 def selected_device() -> tuple[str, str, bool]:
