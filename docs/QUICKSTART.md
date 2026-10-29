@@ -1,5 +1,8 @@
 # RetroModem quick reference
 
+For an offline or printed summary, download the
+[one-page quick reference (PDF)](RetroModem-Quick-Reference.pdf).
+
 ## Default access details
 
 | Function | Address or login |

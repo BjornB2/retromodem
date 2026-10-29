@@ -114,6 +114,7 @@ by repetition of the physical connection tests. See the
 - [Configure a Psion 5mx or Palm](docs/CLIENT-SETUP.md)
 - [Clean-install acceptance checklist](docs/CLEAN-INSTALL-ACCEPTANCE.md)
 - [Quick reference](docs/QUICKSTART.md)
+- [Printable one-page quick reference (PDF)](docs/RetroModem-Quick-Reference.pdf)
 
 ## Project status
 
