@@ -16,11 +16,16 @@ zonder browserproxy of via de ingebouwde proxy. Gebruik DNS `192.168.77.1`.
 - **Afbeeldingsformaat:** kies een apparaatpreset, of **Huidig / aangepast** met
   breedte en hoogte van 16–4096 pixels. Presets worden bij opslaan toegepast;
   JavaScript is niet nodig. De ingevulde afmetingen gelden alleen bij Aangepast.
+- **Webverkeer:** nieuwe installaties sturen al het HTTP-verkeer automatisch
+  over RetroWEB, zonder proxyinstelling in de browser. Kies handmatig wanneer
+  alleen browsers met HTTP-proxy `192.168.77.1`, poort `8080`, RetroWEB moeten
+  gebruiken.
 
 Kies **Opslaan** en open de oorspronkelijke website opnieuw voor nieuwe delen en
 afbeeldingsformaten. Deze instellingen zijn gedeeld met de beheerinterface en
-gelden ook voor andere clients. Er worden geen services herstart. Routering,
-uitzonderingen, wifi en modeminstellingen worden hier niet gewijzigd.
+gelden ook voor andere clients. Een gewijzigde routeringsstand wordt direct
+toegepast; bij een fout wordt de vorige stand hersteld. Uitzonderingen, wifi en
+modeminstellingen worden hier niet gewijzigd.
 
 De pagina gebruikt eenvoudige HTML zonder cookies, CSS of JavaScript en volgt
 de taalkeuze. Alleen de lokale retro-PPP-peer of een gebruiker met beheerderslogin
@@ -44,10 +49,15 @@ the built-in proxy also relays them.
 - **Image size:** choose a device preset or **Current / custom**, with width and
   height between 16 and 4096 pixels. Presets are applied on save, without
   JavaScript. Entered dimensions apply only when Custom is selected.
+- **Web traffic:** fresh installations automatically send all HTTP traffic
+  through RetroWEB, with no browser proxy configuration. Select manual mode to
+  use RetroWEB only in browsers configured for HTTP proxy `192.168.77.1`, port
+  `8080`.
 
 Choose **Save**, then reopen the original website for new parts and image sizes.
-These settings are shared with administration and other clients. No services
-are restarted. Routing, exceptions, Wi-Fi and modem settings are unchanged.
+These settings are shared with administration and other clients. Routing changes
+are applied immediately and roll back on failure. Exceptions, Wi-Fi and modem
+settings remain unchanged.
 
 The page follows the language setting and uses simple HTML without cookies,
 CSS or JavaScript. Changes require the local retro PPP peer or administrator

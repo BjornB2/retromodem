@@ -14,7 +14,7 @@ PAGE_SIZES = ('12000', '18000', *(str(n * 1000) for n in range(25, 201, 25)),
               *(str(n * 1000) for n in range(250, 2001, 250)), '0')
 PRESETS = {'600x180': 'Psion 5mx', '144x120': 'Palm classic',
            '288x256': 'Palm HiRes', '288x400': 'Palm T3', '512x342': 'Macintosh Plus'}
-FIELDS = {'session', 'csrf', 'page_size', 'image_start', 'image_preset', 'image_width', 'image_height'}
+FIELDS = {'session', 'csrf', 'mode', 'page_size', 'image_start', 'image_preset', 'image_width', 'image_height'}
 _sessions = {}
 _lock = threading.RLock()
 
@@ -46,6 +46,8 @@ def content_settings(page_size, image_start, width, height):
 def _changes(form):
     if set(form) != FIELDS:
         raise ValueError('Invalid fields')
+    if form['mode'] not in {'transparent', 'manual'}:
+        raise ValueError('Invalid proxy mode')
     preset = form['image_preset']
     if preset == 'custom':
         width, height = form['image_width'], form['image_height']
@@ -53,12 +55,13 @@ def _changes(form):
         width, height = preset.split('x')
     else:
         raise ValueError('Invalid preset')
-    return content_settings(form['page_size'], form['image_start'], width, height)
+    return {**content_settings(form['page_size'], form['image_start'], width, height),
+            'RETROMODEM_PROXY_MODE': form['mode']}
 
 
-def serve(handler, *, save):
+def serve(handler, *, save, apply_mode):
     config = handler.config()
-    t = lambda nl, en: ui.local_ui.tr(config.get('RETROMODEM_LANGUAGE', 'nl'), nl, en)
+    t = lambda nl, en: ui.local_ui.tr(config.get('RETROMODEM_LANGUAGE', 'en'), nl, en)
     title = t('Webproxy instellen', 'Web proxy settings')
     peer = ui._peer(handler, config)
     reply = lambda body, code=200: ui._reply(handler, title, body, code)
@@ -103,11 +106,20 @@ def serve(handler, *, save):
                                'Invalid settings. Width and height must be 16–4096 pixels.') + '</p>' + back, 400)
                 return
             del _sessions[form['session']]  # A repeated POST cannot save again.
+        old_mode = config.get('RETROMODEM_PROXY_MODE', 'transparent')
+        if old_mode not in {'transparent', 'manual'}:
+            old_mode = 'transparent'
         try:
             save(changes)
         except OSError:
             reply('<p>' + t('Opslaan is niet gelukt. Open de pagina opnieuw en probeer nogmaals.',
                            'Saving failed. Reopen the page and try again.') + '</p>' + back, 500)
+            return
+        if changes['RETROMODEM_PROXY_MODE'] != old_mode and not apply_mode():
+            save({'RETROMODEM_PROXY_MODE': old_mode})
+            apply_mode()
+            reply('<p>' + t('De proxystand kon niet worden toegepast; de vorige stand is hersteld.',
+                           'The proxy mode could not be applied; the previous mode was restored.') + '</p>' + back, 500)
             return
         config = handler.config()
         message = '<p><strong>' + t('Opgeslagen.', 'Saved.') + '</strong> ' + t(
@@ -127,10 +139,20 @@ def serve(handler, *, save):
         value = config.get('RETROMODEM_PROXY_IMAGE_' + key, config.get('RETROMODEM_68KPROXY_IMAGE_' + key, fallback))
         dimensions.append(value if re.fullmatch(r'[0-9]{1,4}', value) and 16 <= int(value) <= 4096 else fallback)
     width, height = dimensions
+    mode = config.get('RETROMODEM_PROXY_MODE', 'transparent')
+    if mode not in {'transparent', 'manual'}:
+        mode = 'transparent'
     def options(choices, selected):
         return ''.join('<option value="' + ui._escape(value, True) + '"' + (' selected' if value == selected else '') + '>' + ui._escape(label) + '</option>' for value, label in choices)
     page_options = [(value, t('Volledige pagina (kans op vol geheugen)', 'Entire page (may exhaust memory)') if value == '0' else str(int(value) // 1000) + ' kB') for value in PAGE_SIZES]
-    contents = ('<p>' + t('Geschatte paginagrootte per deel:', 'Estimated page size per part:') +
+    contents = ('<p>' + t('Webverkeer:', 'Web traffic:') + '<br><select name="mode">' +
+                options((('transparent', t('Stuur al het webverkeer automatisch over de proxy',
+                                           'Automatically send all web traffic through the proxy')),
+                         ('manual', t('Gebruik de proxy alleen wanneer deze in de browser is ingesteld',
+                                      'Use the proxy only when configured in the browser'))), mode) +
+                '</select></p><p>' + t('In de automatische stand hoeft de browser geen proxy-instelling te hebben. In de handmatige stand gebruik je HTTP-proxy 192.168.77.1, poort 8080.',
+                                      'Automatic mode needs no browser proxy setting. In manual mode use HTTP proxy 192.168.77.1, port 8080.') + '</p><p>' +
+                t('Geschatte paginagrootte per deel:', 'Estimated page size per part:') +
                 '<br><select name="page_size">' + options(page_options, page) + '</select></p><p>' +
                 t('Dit is HTML plus uitgepakte afbeeldingen na conversie, geen downloadgrootte of gegarandeerde geheugenlimiet. Bij afbeeldingen als links telt alleen HTML. 250 kB is de standaard voor nieuwe installaties.',
                   'This is HTML plus decoded images after conversion, not download size or a guaranteed memory limit. With images as links only HTML counts. 250 kB is the default for new installations.') + '</p><p>' +

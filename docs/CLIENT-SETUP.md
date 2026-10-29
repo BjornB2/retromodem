@@ -74,10 +74,11 @@ Once PPP is connected, open:
 - `http://start.retromodem/` — search, ChatGPT and links to settings;
 - `http://setup.retromodem/` — configuration pages for the retro client;
 - `http://wifi.retromodem/` — scan and configure Wi-Fi without another device;
-- `http://proxy.retromodem/` — page-size and image settings for RetroWEB.
+- `http://proxy.retromodem/` — proxy routing, page-size and image settings for RetroWEB.
 
 Modern HTTPS sites can be simplified by RetroModem's built-in RetroWEB proxy.
-In manual mode configure HTTP proxy `192.168.77.1`, port `8080`; automatic mode
+New installations automatically send HTTP traffic through RetroWEB. In manual
+mode configure HTTP proxy `192.168.77.1`, port `8080`; automatic mode
 does not require a browser proxy setting.
 
 Original configuration research:

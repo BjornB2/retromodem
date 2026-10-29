@@ -55,7 +55,7 @@ Once connected, the retro device can open:
 | `http://start.retromodem/` | Search, ChatGPT and settings links |
 | `http://setup.retromodem/` | Retro-client configuration |
 | `http://wifi.retromodem/` | Wi-Fi status, scanning and connection |
-| `http://proxy.retromodem/` | RetroWEB page and image settings |
+| `http://proxy.retromodem/` | Proxy routing, page and image settings |
 
 From a modern computer, tablet or phone on the same network, open
 `http://retromodem.local/` for the full administration interface. This interface

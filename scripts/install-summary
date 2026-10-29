@@ -15,3 +15,22 @@ case "$reboot_required" in
     *) echo 'Invalid reboot flag' >&2; exit 2 ;;
 esac
 printf '\n    sudo retromodem-diagnose\n    sudo retromodem-verify\n'
+
+addresses=$(/usr/bin/hostname -I 2>/dev/null || true)
+if [ -t 1 ]; then
+    accent='\033[1;36m'
+    reset='\033[0m'
+else
+    accent=''
+    reset=''
+fi
+printf '\n%bNEXT: open http://retromodem.local/ in a modern browser.%b\n' "$accent" "$reset"
+if [ -n "$addresses" ]; then
+    printf 'If the local name is not available yet, try one of these addresses:\n'
+    for address in $addresses; do
+        case "$address" in
+            *:*) ;;
+            *) printf '    http://%s/\n' "$address" ;;
+        esac
+    done
+fi

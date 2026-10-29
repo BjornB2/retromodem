@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
 [ -r /etc/retromodem/retromodem.env ] && . /etc/retromodem/retromodem.env
-mode=${RETROMODEM_PROXY_MODE:-${RETROMODEM_68KPROXY_MODE:-manual}}
+mode=${RETROMODEM_PROXY_MODE:-${RETROMODEM_68KPROXY_MODE:-transparent}}
 [ "$mode" = off ] && mode=manual
 [ "$mode" = transparent ] || [ "$mode" = manual ]

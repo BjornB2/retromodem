@@ -53,6 +53,14 @@ class InstallationTests(unittest.TestCase):
         self.assertIn("install.json", installer)
         self.assertIn("ssh.service", installer)
 
+    def test_fresh_install_defaults_and_completion_link_are_publication_ready(self):
+        defaults = (ROOT / "config/retromodem.env").read_text(encoding="utf-8")
+        summary = (ROOT / "scripts/install-summary").read_text(encoding="utf-8")
+        self.assertIn("RETROMODEM_PROXY_MODE=transparent", defaults)
+        self.assertIn("RETROMODEM_LANGUAGE=en", defaults)
+        self.assertIn("http://retromodem.local/", summary)
+        self.assertIn("/usr/bin/hostname -I", summary)
+
     def test_installer_rejects_non_bookworm_images(self):
         installer = (ROOT / "install.sh").read_text(encoding="utf-8")
         self.assertIn("VERSION_ID=", installer)

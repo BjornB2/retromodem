@@ -29,7 +29,7 @@ class PaginationSettingsTests(unittest.TestCase):
         handler.config = lambda: {}
         handler.require_auth = lambda _: True
         handler.valid_csrf = lambda _: True
-        handler.form = lambda: dict(mode='manual', image_mode='inline', exceptions='example.org',
+        handler.form = lambda: dict(mode='transparent', image_mode='inline', exceptions='example.org',
                                     image_width='144', image_height='120', page_size=size, page_images=images)
         handler.redirect = lambda path: setattr(handler, 'location', path)
         handler.send_error = lambda status, *_: setattr(handler, 'error', status)
@@ -61,7 +61,7 @@ class PaginationSettingsTests(unittest.TestCase):
             self.assertIn('Afbeeldingen bij starten', page)
             self.assertNotIn('In de tekst tonen', page)
             handler = self.handler('100000', 'arbitrary legacy value')
-            handler.form = lambda: dict(mode='manual', image_start=start, exceptions='example.org',
+            handler.form = lambda: dict(mode='transparent', image_start=start, exceptions='example.org',
                                         image_width='144', image_height='120', page_size='100000')
             with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
                 handler.do_POST()
@@ -72,6 +72,8 @@ class PaginationSettingsTests(unittest.TestCase):
     def test_mode_change_applies_only_firewall(self):
         handler = self.handler()
         handler.config = lambda: {'RETROMODEM_PROXY_MODE': 'transparent'}
+        original_form = handler.form
+        handler.form = lambda: {**original_form(), 'mode': 'manual'}
         with patch.object(web, 'save_config'), patch.object(web, 'run') as run:
             run.return_value.returncode = 0
             handler.do_POST()
@@ -89,6 +91,8 @@ class PaginationSettingsTests(unittest.TestCase):
     def test_mode_failure_restores_previous_mode_without_restart(self):
         handler = self.handler()
         handler.config = lambda: {'RETROMODEM_PROXY_MODE': 'transparent'}
+        original_form = handler.form
+        handler.form = lambda: {**original_form(), 'mode': 'manual'}
         with patch.object(web, 'save_config') as save, patch.object(web, 'run') as run:
             run.return_value.returncode = 1
             handler.do_POST()

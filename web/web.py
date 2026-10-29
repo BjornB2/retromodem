@@ -394,7 +394,7 @@ def transfer_estimate(size: int, protocol: str, config: dict[str, str]) -> str:
         medium = "IR"
     else:
         bitrate = int(config.get("RETROMODEM_SERIAL_BITRATE", "115200"))
-        medium = tr(config.get("RETROMODEM_LANGUAGE", "nl"), "USB-serieel", "USB serial")
+        medium = tr(config.get("RETROMODEM_LANGUAGE", "en"), "USB-serieel", "USB serial")
     efficiency = {"xmodem": 0.70, "ymodem": 0.78, "zmodem": 0.82,
                   "palm": 0.72, "epoc": 0.72, "windows": 0.72}.get(protocol, 0.75)
     seconds = max(1, int((size * 10 / max(1, bitrate) / efficiency) + (3 if transport == "irda" else 1) + 0.999))
@@ -496,7 +496,7 @@ def proxy_pagination_settings(page_size: str = "250000", page_images: str = "5")
 def proxy_settings_card(language: str, config: dict[str, str]) -> str:
     mode = config.get("RETROMODEM_PROXY_MODE", config.get("RETROMODEM_68KPROXY_MODE", ""))
     if mode not in {"transparent", "manual"}:
-        mode = "manual"
+        mode = "transparent"
     default_exceptions = "retroweb.bjrno.com,frogfind.com,theoldnet.com,68k.news"
     configured_exceptions = config.get("RETROMODEM_PROXY_EXCEPTIONS", config.get("RETROMODEM_68KPROXY_EXCEPTIONS", "")) or default_exceptions
     extra_exceptions = html.escape("\n".join(value for value in re.split(r"[\s,]+", configured_exceptions) if value))
@@ -533,7 +533,7 @@ def proxy_settings_card(language: str, config: dict[str, str]) -> str:
     advanced_controls = advanced_controls.replace('Images: Inline | As links', tr(language,'Afbeeldingen: Afbeeldingen laten zien | Als links','Images: Inline | As links'))
     advanced_controls = ('<p>' + tr(language, 'Deze weergave-instellingen zijn ook vanaf je retroapparaat beschikbaar op', 'These display settings are also available from your retro device at') + ' <a href="http://proxy.retromodem/">proxy.retromodem</a>.</p>' + advanced_controls)
     advanced_controls = (f'<div class="notice"><strong>{tr(language,"Zoeken:","Search:")}</strong> {tr(language,"open <code>http://search.retromodem</code>. Deze lokale pagina is alleen voor zoeken; resultaten openen als gewone websites via de proxy.","open <code>http://search.retromodem</code>. This local page is for search only; results open as ordinary websites through the proxy.")}</div>' + advanced_controls)
-    return f"""<section class="card" id="webproxy"><h2>{tr(language,'Ingebouwde webproxy','Built-in web proxy')}</h2><p>{tr(language,'Gebaseerd op','Based on')} <a href="http://retroweb.bjrno.com">RetroWEB</a>, {tr(language,'het open webproxyproject voor oude browsers. De proxy haalt moderne HTTPS-pagina’s op, vereenvoudigt ze en levert ze als gewone HTTP-pagina.','the web proxy project for old browsers. The proxy fetches modern HTTPS pages, simplifies them and serves them as ordinary HTTP pages.')}</p><form method="post" action="/settings/proxy"><input type="hidden" name="csrf" value="{{{{csrf}}}}"><label>{tr(language,'Proxystand','Proxy mode')}</label><select name="mode">{option('manual',tr(language,'Handmatig (standaard)','Manual (default)'))}{option('transparent',tr(language,'Automatisch','Automatic'))}</select><p class="helper"><strong>{tr(language,'Handmatig:','Manual:')}</strong> {tr(language,'stel in de browser HTTP-proxy <code>192.168.77.1</code>, poort <code>8080</code> in. Zonder browserinstelling gaat verkeer rechtstreeks.','configure HTTP proxy <code>192.168.77.1</code>, port <code>8080</code> in the browser. Without a browser setting, traffic remains direct.')}<br><strong>{tr(language,'Automatisch:','Automatic:')}</strong> {tr(language,'al het HTTP-webverkeer gaat vanzelf via de ingebouwde proxy.','all HTTP web traffic automatically uses the built-in proxy.')}</p>{pagination_controls}{advanced_controls}<div class="notice warning"><strong>{tr(language,'Niet voor gevoelige gegevens.','Not for sensitive data.')}</strong> {tr(language,'De proxy herschrijft inhoud en ondersteunt alleen GET-verzoeken; gebruik hem niet voor wachtwoorden, accounts of betalingen.','The proxy rewrites content and supports GET requests only; do not use it for passwords, accounts or payments.')}</div><button class="primary" type="submit">{tr(language,'Proxy-instellingen opslaan','Save proxy settings')}</button></form></section>"""
+    return f"""<section class="card" id="webproxy"><h2>{tr(language,'Ingebouwde webproxy','Built-in web proxy')}</h2><p>{tr(language,'Gebaseerd op','Based on')} <a href="http://retroweb.bjrno.com">RetroWEB</a>, {tr(language,'het open webproxyproject voor oude browsers. De proxy haalt moderne HTTPS-pagina’s op, vereenvoudigt ze en levert ze als gewone HTTP-pagina.','the web proxy project for old browsers. The proxy fetches modern HTTPS pages, simplifies them and serves them as ordinary HTTP pages.')}</p><form method="post" action="/settings/proxy"><input type="hidden" name="csrf" value="{{{{csrf}}}}"><label>{tr(language,'Webverkeer','Web traffic')}</label><select name="mode">{option('transparent',tr(language,'Stuur al het webverkeer automatisch over de proxy (standaard)','Automatically send all web traffic through the proxy (default)'))}{option('manual',tr(language,'Gebruik de proxy alleen wanneer deze in de browser is ingesteld','Use the proxy only when configured in the browser'))}</select><p class="helper"><strong>{tr(language,'Automatisch:','Automatic:')}</strong> {tr(language,'al het HTTP-webverkeer gaat vanzelf via de ingebouwde proxy; de browser heeft geen proxy-instelling nodig.','all HTTP web traffic automatically uses the built-in proxy; no browser proxy setting is needed.')}<br><strong>{tr(language,'Handmatig:','Manual:')}</strong> {tr(language,'stel in de browser HTTP-proxy <code>192.168.77.1</code>, poort <code>8080</code> in. Zonder browserinstelling gaat verkeer rechtstreeks.','configure HTTP proxy <code>192.168.77.1</code>, port <code>8080</code> in the browser. Without a browser setting, traffic remains direct.')}</p>{pagination_controls}{advanced_controls}<div class="notice warning"><strong>{tr(language,'Niet voor gevoelige gegevens.','Not for sensitive data.')}</strong> {tr(language,'De proxy herschrijft inhoud en ondersteunt alleen GET-verzoeken; gebruik hem niet voor wachtwoorden, accounts of betalingen.','The proxy rewrites content and supports GET requests only; do not use it for passwords, accounts or payments.')}</div><button class="primary" type="submit">{tr(language,'Proxy-instellingen opslaan','Save proxy settings')}</button></form></section>"""
 
 
 def chatgpt_settings_card(language: str, config: dict[str, str]) -> str:
@@ -681,8 +681,8 @@ def proxy_guide(language: str) -> str:
             t('Bovenaan een vereenvoudigde pagina kies je <strong>Afbeeldingen: Laten zien | Als links</strong>. Met links laad je afbeeldingen alleen wanneer je ze opent. In de beheerinterface kies je de startstand per sessie (laten zien, als links, of vorige sessie) en de afmetingen na conversie. De ingestelde paginagrootte is een schatting van HTML plus uitgepakte afbeeldingen na conversie, niet het aantal verzonden kilobytes. Met afbeeldingen als links telt alleen HTML voor de verdeling. Nieuwe installaties beginnen voorlopig op 250 kB; bestaande keuzes blijven behouden. Een kleiner budget is veiliger op apparaten met weinig geheugen. Er is geen vaste limiet van vijf afbeeldingen of vijf delen: grotere inhoud krijgt extra delen. Navigatie boven- en onderaan gaat naar het volgende deel.',
               'At the top of a simplified page choose <strong>Images: Inline | As links</strong>. Links load images only when you open them. Administration lets you choose the session starting mode (inline, links or previous session) and dimensions after conversion. The page-size setting estimates HTML plus decoded images after conversion, not transferred kilobytes. In image-link mode only HTML counts towards splitting. New installations currently start at 250 kB; existing choices are preserved. A smaller budget is safer on devices with little memory. There is no fixed limit of five images or five parts: larger content gets additional parts. Navigation at the top and bottom opens the next part.') + '</p>' +
             '<h3>' + t('Zoeken en uitzonderingen', 'Search and exceptions') + '</h3><p>' +
-            t('Gebruik <a href="http://search.retromodem/">search.retromodem</a> voor zoekresultaten met samenvattingen waar de zoekprovider die levert. Verdere resultaten zijn afhankelijk van de provider. Uitgezonderde domeinen worden niet vereenvoudigd. Stel paginagrootte en afbeeldingen in via <a href="http://proxy.retromodem/">proxy.retromodem</a>, ook bereikbaar via setup.retromodem. Routering en uitzonderingen blijven in de beheerinterface.',
-              'Use <a href="http://search.retromodem/">search.retromodem</a> for results with summaries where supplied by the search provider. Further results depend on the provider. Excluded domains are not simplified. Configure page size and images at <a href="http://proxy.retromodem/">proxy.retromodem</a>, also linked from setup.retromodem. Routing and exceptions remain in administration.') + '</p><p class="notice warning">' +
+            t('Gebruik <a href="http://search.retromodem/">search.retromodem</a> voor zoekresultaten met samenvattingen waar de zoekprovider die levert. Verdere resultaten zijn afhankelijk van de provider. Uitgezonderde domeinen worden niet vereenvoudigd. Stel routering, paginagrootte en afbeeldingen in via <a href="http://proxy.retromodem/">proxy.retromodem</a>, ook bereikbaar via setup.retromodem. Uitzonderingen blijven in de beheerinterface.',
+              'Use <a href="http://search.retromodem/">search.retromodem</a> for results with summaries where supplied by the search provider. Further results depend on the provider. Excluded domains are not simplified. Configure routing, page size and images at <a href="http://proxy.retromodem/">proxy.retromodem</a>, also linked from setup.retromodem. Exceptions remain in administration.') + '</p><p class="notice warning">' +
             t('Gebruik de webproxy niet voor wachtwoorden, accounts of betalingen. Hij herschrijft pagina’s en is geen volledige moderne browser. JavaScript-sites en bronblokkades kunnen onbruikbare inhoud of een fout opleveren. De lokale wifi- en chatpagina’s hebben hun eigen formulierafhandeling; dat maakt externe inlogformulieren niet geschikt.',
               'Do not use the web proxy for passwords, accounts or payments. It rewrites pages and is not a full modern browser. JavaScript sites and source restrictions may produce unusable content or errors. Local Wi-Fi and chat pages have their own form handling; this does not make external login forms suitable.') + '</p>')
 
@@ -783,7 +783,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "RetroModem/0.1"
 
     def serve_retro_home(self, host: str) -> None:
-        language = self.config().get('RETROMODEM_LANGUAGE', 'nl')
+        language = self.config().get('RETROMODEM_LANGUAGE', 'en')
         t = lambda nl, en: tr(language, nl, en)
         if host == 'setup.retromodem':
             title = t('Instellingen', 'Settings')
@@ -824,7 +824,11 @@ class Handler(BaseHTTPRequestHandler):
                        diagnostic=network.record_event)
 
     def serve_retro_proxy(self) -> None:
-        proxy_module().serve(self, save=save_config)
+        proxy_module().serve(
+            self,
+            save=save_config,
+            apply_mode=lambda: run('/usr/local/lib/retromodem/proxy-firewall', 'apply').returncode == 0,
+        )
 
     def authenticated(self, config: dict[str, str]) -> bool:
         header = self.headers.get("Authorization", "")
@@ -859,7 +863,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def send_page(self, title: str, body: str, config: dict[str, str], *, refresh: int | None = None) -> None:
         token = self.csrf()
-        language = config.get("RETROMODEM_LANGUAGE", "nl")
+        language = config.get("RETROMODEM_LANGUAGE", "en")
         content = page(title, body.replace("{{csrf}}", html.escape(token)), language, token, refresh)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -956,11 +960,11 @@ class Handler(BaseHTTPRequestHandler):
             except urllib.error.HTTPError as error:
                 self.send_error(error.code if error.code in {400, 403, 404, 410, 413} else HTTPStatus.BAD_GATEWAY)
             except (OSError, urllib.error.URLError, ValueError):
-                self.send_error(HTTPStatus.BAD_GATEWAY, tr(config.get('RETROMODEM_LANGUAGE', 'nl'), 'Zoekpagina niet beschikbaar', 'Search page unavailable'))
+                self.send_error(HTTPStatus.BAD_GATEWAY, tr(config.get('RETROMODEM_LANGUAGE', 'en'), 'Zoekpagina niet beschikbaar', 'Search page unavailable'))
             return
         if not self.require_auth(config):
             return
-        language = config.get("RETROMODEM_LANGUAGE", "nl")
+        language = config.get("RETROMODEM_LANGUAGE", "en")
         path = urllib.parse.urlsplit(self.path).path
         if path == "/transfer/status":
             try:
@@ -1321,7 +1325,7 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             return
         if not self.require_auth(config):
             return
-        language = config.get("RETROMODEM_LANGUAGE", "nl")
+        language = config.get("RETROMODEM_LANGUAGE", "en")
         path = urllib.parse.urlsplit(self.path).path
         if path in {"/transfer/start", "/guides/upload"}:
             try:
@@ -1689,9 +1693,9 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
                          "RETROMODEM_PROXY_IMAGE_START": image_start,
                          "RETROMODEM_PROXY_IMAGE_WIDTH": str(image_width),
                          "RETROMODEM_PROXY_IMAGE_HEIGHT": str(image_height)})
-            old_mode = config.get("RETROMODEM_PROXY_MODE", config.get("RETROMODEM_68KPROXY_MODE", "manual"))
+            old_mode = config.get("RETROMODEM_PROXY_MODE", config.get("RETROMODEM_68KPROXY_MODE", "transparent"))
             if old_mode not in {"manual", "transparent"}:
-                old_mode = "manual"
+                old_mode = "transparent"
             # Content settings are read on each request. Only a routing-mode
             # change needs firewall work; never kill in-flight HTTP requests.
             if old_mode != mode:

@@ -13,15 +13,17 @@ class ProxyWebTests(unittest.TestCase):
     def setUp(self):
         page._sessions.clear()
         self.save = Mock()
+        self.apply_mode = Mock(return_value=True)
 
     def serve(self, handler):
-        page.serve(handler, save=self.save)
+        page.serve(handler, save=self.save, apply_mode=self.apply_mode)
         return handler
 
     def form(self, **values):
         self.serve(Handler())
         token = next(reversed(page._sessions))
-        return {'session': token, 'csrf': page._sessions[token]['csrf'], 'page_size': '250000',
+        return {'session': token, 'csrf': page._sessions[token]['csrf'], 'mode': 'transparent',
+                'page_size': '250000',
                 'image_start': 'remember', 'image_preset': 'custom',
                 'image_width': '200', 'image_height': '150', **values}
 
@@ -34,7 +36,10 @@ class ProxyWebTests(unittest.TestCase):
             self.assertIn(label, handler.text)
             self.assertIn('value="750000" selected', handler.text)
             self.assertIn('value="600"', handler.text)
-            for forbidden in ('<script', '<style', '<button', 'onchange=', 'name="mode"', 'name="exceptions"'):
+            self.assertIn('name="mode"', handler.text)
+            self.assertIn('Automatically send all web traffic through the proxy' if lang == 'en' else
+                          'Stuur al het webverkeer automatisch over de proxy', handler.text)
+            for forbidden in ('<script', '<style', '<button', 'onchange=', 'name="exceptions"'):
                 self.assertNotIn(forbidden, handler.text)
             self.assertIn('no-store', handler.response_headers['Cache-Control'])
             self.assertIn('setup.retromodem', handler.text)
@@ -47,13 +52,15 @@ class ProxyWebTests(unittest.TestCase):
         self.save.assert_called_once_with({'RETROMODEM_PROXY_PAGE_SIZE': '250000',
                                           'RETROMODEM_PROXY_IMAGE_START': 'remember',
                                           'RETROMODEM_PROXY_IMAGE_WIDTH': '600',
-                                          'RETROMODEM_PROXY_IMAGE_HEIGHT': '180'})
+                                          'RETROMODEM_PROXY_IMAGE_HEIGHT': '180',
+                                          'RETROMODEM_PROXY_MODE': 'transparent'})
+        self.apply_mode.assert_not_called()
         self.assertEqual(self.serve(Handler('POST', '/save', form=form)).code, 403)
         self.assertEqual(self.save.call_count, 1)
 
     def test_invalid_choices_and_unknown_fields_do_not_save(self):
         for invalid in ({'page_size': '12345'}, {'image_start': 'bad'}, {'image_width': '15'},
-                        {'image_height': '4097'}, {'image_preset': 'injected'}, {'mode': 'transparent'},
+                        {'image_height': '4097'}, {'image_preset': 'injected'}, {'mode': 'invalid'},
                         {'image_width': '<x>'}):
             handler = self.serve(Handler('POST', '/save', form=self.form(**invalid)))
             self.assertEqual(handler.code, 400)
@@ -86,8 +93,9 @@ class ProxyWebTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.object(web, 'CONFIG', Path(directory) / 'config.env'), patch.object(web, 'run') as run:
             web.save_config({'RETROMODEM_WEB_PASSWORD': 'private-value', 'RETROMODEM_PROXY_MODE': 'manual',
                              'RETROMODEM_PROXY_EXCEPTIONS': 'example.com'})
-            handler = Handler('POST', '/save', form=self.form())
-            page.serve(handler, save=web.save_config)
+            handler = Handler('POST', '/save', form=self.form(mode='manual'))
+            handler.settings['RETROMODEM_PROXY_MODE'] = 'manual'
+            page.serve(handler, save=web.save_config, apply_mode=lambda: True)
             result = web.load_config()
             self.assertEqual(result['RETROMODEM_WEB_PASSWORD'], 'private-value')
             self.assertEqual(result['RETROMODEM_PROXY_MODE'], 'manual')
@@ -96,6 +104,23 @@ class ProxyWebTests(unittest.TestCase):
             self.assertNotIn('private-value', handler.text)
             self.assertEqual(web.CONFIG.stat().st_mode & 0o777, 0o600)
             run.assert_not_called()
+
+    def test_mode_change_applies_firewall_and_failure_rolls_back(self):
+        handler = Handler('POST', '/save', form=self.form(mode='manual'))
+        handler.settings['RETROMODEM_PROXY_MODE'] = 'transparent'
+        self.serve(handler)
+        self.assertEqual(handler.code, 200)
+        self.apply_mode.assert_called_once_with()
+
+        self.save.reset_mock()
+        self.apply_mode.reset_mock()
+        self.apply_mode.side_effect = [False, True]
+        handler = Handler('POST', '/save', form=self.form(mode='manual'))
+        handler.settings['RETROMODEM_PROXY_MODE'] = 'transparent'
+        self.serve(handler)
+        self.assertEqual(handler.code, 500)
+        self.assertEqual(self.save.call_args_list[-1].args[0], {'RETROMODEM_PROXY_MODE': 'transparent'})
+        self.assertEqual(self.apply_mode.call_count, 2)
 
     def test_sessions_are_bounded(self):
         for _ in range(70):

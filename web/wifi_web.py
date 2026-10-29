@@ -135,7 +135,7 @@ def _body_form(handler):
 def serve(handler, *, status, scan, connect, diagnostic=None):
     """Callbacks receive config; connect starts asynchronously, never blocks for Wi-Fi."""
     config = handler.config()
-    tr = lambda nl, en: local_ui.tr(config.get('RETROMODEM_LANGUAGE', 'nl'), nl, en)
+    tr = lambda nl, en: local_ui.tr(config.get('RETROMODEM_LANGUAGE', 'en'), nl, en)
     title = tr('Wifi instellen', 'Wi-Fi setup')
     peer = _peer(handler, config)
     if peer is None:

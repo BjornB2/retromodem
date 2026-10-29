@@ -36,7 +36,7 @@ DNS `192.168.77.1` and open:
 | `http://start.retromodem/` | Search, ChatGPT and settings links |
 | `http://setup.retromodem/` | Client-side settings overview |
 | `http://wifi.retromodem/` | Wi-Fi configuration without another device |
-| `http://proxy.retromodem/` | Page size and image settings |
+| `http://proxy.retromodem/` | Proxy routing, page size and image settings |
 
 These pages work without JavaScript and do not require a browser proxy.
 
