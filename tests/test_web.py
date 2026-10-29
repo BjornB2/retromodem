@@ -9,6 +9,25 @@ from web import web
 
 
 class ConfigTests(unittest.TestCase):
+    def test_guides_have_current_shared_workflow_in_both_languages(self):
+        for language in ('nl', 'en'):
+            page = web.guides_page(language)
+            for host in ('start.retromodem', 'setup.retromodem', 'wifi.retromodem', 'search.retromodem', 'chatgpt.retromodem'):
+                self.assertIn(host, page)
+            overview = web.general_guide(language)
+            self.assertLess(overview.index('MY018'), overview.index('MA-620'))
+            self.assertIn('Prolific', overview)
+            self.assertIn('5559000', overview)
+            self.assertIn('115200', overview)
+            self.assertIn('57600', overview)
+            self.assertIn('192.168.77.1', overview)
+            self.assertEqual(page.count('class="form-section"><h3>' + ('Na het verbinden' if language == 'nl' else 'After connecting')), 7)
+            self.assertIn("addEventListener('hashchange'", page)
+        self.assertIn('uitgepakte afbeeldingen na conversie', web.proxy_guide('nl'))
+        self.assertIn('decoded images after conversion', web.proxy_guide('en'))
+        self.assertIn('250 kB', web.proxy_guide('en'))
+        self.assertNotIn('Mobile Action MA-620; physical link speed', web.guides_page('en'))
+
     def test_connection_mode_labels_keep_existing_two_backends(self):
         source = Path(web.__file__).read_text()
         self.assertIn("Direct internet (PPP)", source)

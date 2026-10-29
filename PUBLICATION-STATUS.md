@@ -23,7 +23,7 @@ The publication installer has offline tests for adapter selection, boot changes,
 configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
-All 301 Python unit tests pass on the development computer; installer,
+All 302 Python unit tests pass on the development computer; installer,
 bootstrap and verifier shell syntax checks also pass.
 Retro Wi-Fi setup at wifi.retromodem adds cookie-free localized HTML forms,
 current uplink/AP status, explicit scanning and asynchronous connection status.
