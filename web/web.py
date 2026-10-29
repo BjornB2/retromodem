@@ -704,11 +704,24 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
     return body
 
 
+def wifi_modules():
+    try:
+        import wifi_web
+        import wifi_network
+    except ModuleNotFoundError:
+        from web import wifi_web, wifi_network
+    return wifi_web, wifi_network
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "RetroModem/0.1"
 
     def config(self) -> dict[str, str]:
         return load_config()
+
+    def serve_retro_wifi(self) -> None:
+        frontend, network = wifi_modules()
+        frontend.serve(self, status=network.status, scan=network.scan, connect=network.connect)
 
     def authenticated(self, config: dict[str, str]) -> bool:
         header = self.headers.get("Authorization", "")
@@ -802,6 +815,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         config = self.config()
         host = getattr(self, "headers", {}).get("Host", "").split(":", 1)[0].lower().rstrip(".")
+        if host == 'wifi.retromodem':
+            self.serve_retro_wifi()
+            return
         if host == "chatgpt.retromodem":
             try:
                 import chatgpt_web
@@ -1180,6 +1196,9 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
 
     def do_POST(self) -> None:  # noqa: N802
         config = self.config()
+        if getattr(self, 'headers', {}).get('Host', '').split(':', 1)[0].lower().rstrip('.') == 'wifi.retromodem':
+            self.serve_retro_wifi()
+            return
         if getattr(self, 'headers', {}).get('Host', '').split(':', 1)[0].lower().rstrip('.') == 'chatgpt.retromodem':
             try:
                 import chatgpt_web
@@ -1470,15 +1489,15 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
                 run("/usr/bin/systemctl", "restart", "retromodem-tcpser.service")
             self.redirect("/phonebook")
         elif path == "/wifi/connect":
-            ssid = form.get("ssid", "").strip()
+            ssid = form.get("ssid", "")
             if not ssid or len(ssid.encode("utf-8")) > 32:
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige netwerknaam")
                 return
-            subprocess.Popen(
-                ["/usr/local/lib/retromodem/connect-wifi", ssid, form.get("password", "")],
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
+            try:
+                wifi_modules()[1].connect(config, ssid, form.get("password", ""))
+            except (ValueError, RuntimeError):
+                self.send_error(HTTPStatus.BAD_REQUEST, tr(language, 'Wifi-invoer ongeldig of er loopt al een verbindingspoging.', 'Invalid Wi-Fi input or a connection attempt is already running.'))
+                return
             body = f"""<div class="notice"><strong>{tr(language,'Bezig met verbinden…','Connecting…')}</strong><br>{tr(language,'Verbind je telefoon zo nodig met het gekozen netwerk en open daarna','If necessary, connect your device to the selected network and then open')} <code>http://retromodem.local</code>. {tr(language,'Bij een fout keert accesspoint retromodem automatisch terug.','If it fails, the retromodem access point will return automatically.')}</div>"""
             self.send_page("Wi-Fi", body, config)
         elif path == "/openai/start":
@@ -1593,10 +1612,14 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def log_message(self, fmt: str, *args: object) -> None:
+        if getattr(self, 'headers', {}).get('Host', '').split(':', 1)[0].lower().rstrip('.') == 'wifi.retromodem':
+            print(f"{self.address_string()} - Wi-Fi setup request", flush=True)
+            return
         print(f"{self.address_string()} - {fmt % args}", flush=True)
 
 
 if __name__ == "__main__":
+    wifi_modules()[1].recover()
     address = os.environ.get("RETROMODEM_WEB_ADDRESS", "0.0.0.0")
     port = int(os.environ.get("RETROMODEM_WEB_PORT", "80"))
     ThreadingHTTPServer((address, port), Handler).serve_forever()

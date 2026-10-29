@@ -73,6 +73,10 @@ Palm IrOBEX sending is verified, Windows IrOBEX remains untested, and HP raw HPS
 different backend. See `docs/PROTOCOL-AUDIT.md` for the evidence and support
 matrix.
 
+Retro-device Wi-Fi setup is available at **http://wifi.retromodem/** over PPP:
+current connection, explicit scan, network selection and password entry in small
+cookie-free HTML forms. See [retro Wi-Fi setup](docs/RETRO-WIFI.md).
+
 The optional ChatGPT BBS on `5559999` uses Sign in with ChatGPT, starts a fresh
 conversation for every call, and can use OpenAI web search. OAuth credentials
 are stored locally with owner-only permissions; the BBS has no local system

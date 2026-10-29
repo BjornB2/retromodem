@@ -2,8 +2,8 @@
 
 This is the preparation repository for the first RetroModem release.
 It is private again at the owner's request after successful update testing.
-It is not a stable release. Snapshot date: 2026-10-28.
-The development selection contains 115 source files,
+It is not a stable release. Snapshot date: 2026-10-29.
+The development selection contains 120 source files,
 plus repository metadata. The publication branch now also contains the
 bootstrap, adapter configuration helper and their tests.
 
@@ -23,8 +23,13 @@ The publication installer has offline tests for adapter selection, boot changes,
 configuration preservation and authenticated bootstrap downloads. Selected
 source files passed checksum and basic secret-pattern checks. These results do
 not establish clean-install, kernel-build or physical hardware acceptance.
-All 263 Python unit tests pass on the development computer; installer,
+All 299 Python unit tests pass on the development computer; installer,
 bootstrap and verifier shell syntax checks also pass.
+Retro Wi-Fi setup at wifi.retromodem adds cookie-free localized HTML forms,
+current uplink/AP status, explicit scanning and asynchronous connection status.
+It has PPP/admin peer gating, action-specific CSRF, serialized NetworkManager
+operations and root-only persistent profiles. Full installation is required
+once for the DNS alias. See docs/RETRO-WIFI.md for scope and acceptance limits.
 The DKMS inventory now follows target-kernel capabilities; unsupported ISA/PCI
 drivers are not required on the Pi. Full clean-SD acceptance remains pending.
 The modem discovery helper now uses the bundled legacy IrDA header directory.

@@ -17,6 +17,8 @@ PROJECT = Path(__file__).resolve().parents[1]
 FILES = {
     'web/web.py': ('usr/local/lib/retromodem/web.py', 0o644, 'retromodem-web.service', False),
     'web/chatgpt_web.py': ('usr/local/lib/retromodem/chatgpt_web.py', 0o644, 'retromodem-web.service', False),
+    'web/wifi_web.py': ('usr/local/lib/retromodem/wifi_web.py', 0o644, 'retromodem-web.service', True),
+    'web/wifi_network.py': ('usr/local/lib/retromodem/wifi_network.py', 0o644, 'retromodem-web.service', True),
     'scripts/retroweb-proxy.py': ('usr/local/lib/retromodem/retroweb-proxy.py', 0o755, 'retromodem-proxy.service', False),
     'proxy/retroweb/proxy.php': ('opt/retromodem/retroweb/proxy.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/config.php': ('opt/retromodem/retroweb/config.php', 0o644, 'retromodem-retroweb-core.service', False),
@@ -82,6 +84,10 @@ def plan(root, source=PROJECT):
                         'gid': stat.st_gid if stat else os.getgid(), 'service': service})
     if conflicts:
         raise ValueError('Feature-update conflicts; nothing changed: ' + ', '.join(conflicts))
+    dns = guarded_path(root, 'etc/dnsmasq.d/retromodem.conf')
+    if any(change['source'].startswith('web/wifi_') for change in changes) and dns.exists():
+        if 'address=/wifi.retromodem/192.168.77.1' not in dns.read_text().splitlines():
+            raise ValueError('Wi-Fi setup requires the full installer once to install its local DNS route; nothing changed.')
     return changes
 
 

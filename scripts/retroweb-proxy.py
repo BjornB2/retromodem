@@ -470,7 +470,7 @@ def search_page(query: str = "", language: str | None = None, page_token: str = 
             '<h1>' + title + '</h1><p>' + t('Zoek het web of voer een webadres in.', 'Search the web or enter a web address.') + '</p>'
             '<form method="get" action="/"><input type="text" name="q" size="40" value="%s"> '
             '<input type="submit" value="' + t('Zoeken / Openen', 'Search / Open') + '"></form>%s<hr><p>' + t('Powered by ', 'Powered by ') +
-            '<a href="http://retroweb.bjrno.com">RetroWEB</a> | <a href="http://chatgpt.retromodem/">ChatGPT</a><br>' +
+            '<a href="http://retroweb.bjrno.com">RetroWEB</a> | <a href="http://chatgpt.retromodem/">ChatGPT</a> | <a href="http://wifi.retromodem/">Wi-Fi</a><br>' +
             t('Zoeken via ', 'Search powered by ') + search_credit + '</p></body></html>') % (html.escape(query, quote=True), items)
     return page.encode("iso-8859-1", "xmlcharrefreplace")
 
@@ -483,23 +483,41 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(501, "Use an http:// URL; the proxy fetches HTTPS upstream")
 
     def relay_chat(self, original: str) -> None:
-        length = int(self.headers.get('Content-Length', '0'))
-        if not 0 <= length <= 16000:
+        self.relay_local(original, 'chatgpt.retromodem')
+
+    def relay_local(self, original: str, host: str) -> None:
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            self.send_error(400)
+            return
+        if self.headers.get('Transfer-Encoding'):
+            self.send_error(400)
+            return
+        if not 0 <= length <= (4096 if host == 'wifi.retromodem' else 16000):
             self.send_error(413)
             return
         connection = http.client.HTTPConnection('127.0.0.1', 80, timeout=200)
         try:
             parsed = urllib.parse.urlsplit(original)
             target = urllib.parse.urlunsplit(('', '', parsed.path or '/', parsed.query, ''))
+            headers = {'Host': host, 'Content-Type': self.headers.get('Content-Type', 'application/x-www-form-urlencoded')}
+            if host == 'wifi.retromodem':
+                headers['X-Retromodem-Client'] = self.client_address[0]
+                for name in ('Origin', 'Authorization'):
+                    if self.headers.get(name):
+                        headers[name] = self.headers[name]
             connection.request(self.command, target,
-                               body=self.rfile.read(length) if length else None,
-                               headers={'Host': 'chatgpt.retromodem', 'Content-Type': 'application/x-www-form-urlencoded'})
+                               body=self.rfile.read(length) if length else None, headers=headers)
             response = connection.getresponse()
             self.send_response(response.status)
             self.send_header('Content-Type', 'text/html; charset=iso-8859-1')
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')
+            self.send_header('Referrer-Policy', 'no-referrer')
+            if host == 'wifi.retromodem':
+                self.send_header('X-Frame-Options', 'DENY')
             self.send_header('Connection', 'close')
             self.end_headers()
             self.close_connection = True
@@ -514,7 +532,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         original = requested_url(self)
-        if urllib.parse.urlsplit(original).hostname == 'chatgpt.retromodem':
+        if urllib.parse.urlsplit(original).hostname == 'wifi.retromodem':
+            self.relay_local(original, 'wifi.retromodem')
+        elif urllib.parse.urlsplit(original).hostname == 'chatgpt.retromodem':
             self.relay_chat(original)
         else:
             self.send_error(405, 'POST is alleen beschikbaar voor ChatGPT')
@@ -527,6 +547,9 @@ class Handler(BaseHTTPRequestHandler):
             original = requested_url(self)
             parsed = urllib.parse.urlsplit(original)
             host = parsed.hostname or ""
+            if host == 'wifi.retromodem':
+                self.relay_local(original, 'wifi.retromodem')
+                return
             if host == 'chatgpt.retromodem':
                 self.relay_chat(original)
                 return
@@ -616,6 +639,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def log_message(self, pattern: str, *args: object) -> None:
+        try:
+            if urllib.parse.urlsplit(requested_url(self)).hostname == 'wifi.retromodem':
+                print("%s - Wi-Fi setup request" % self.client_address[0], flush=True)
+                return
+        except (AttributeError, ValueError):
+            pass
         print("%s - %s" % (self.client_address[0], pattern % args), flush=True)
 
 

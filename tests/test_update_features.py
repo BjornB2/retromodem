@@ -70,6 +70,14 @@ class FeatureUpdateTests(unittest.TestCase):
         self.assertEqual(self.restarts, [])
         self.assert_original()
 
+    def test_wifi_first_install_requires_dns_route_before_feature_update(self):
+        dns = self.root / 'etc/dnsmasq.d/retromodem.conf'
+        dns.parent.mkdir(parents=True)
+        dns.write_text('address=/search.retromodem/192.168.77.1\n')
+        with self.assertRaisesRegex(ValueError, 'full installer'):
+            self.run_update(apply=True)
+        self.assert_original()
+
     def test_apply_backs_up_everything_before_writing_and_preserves_config(self):
         def writer(*args):
             backups = list((self.root / 'var/lib/retromodem/update-backups').iterdir())
