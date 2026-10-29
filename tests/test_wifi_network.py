@@ -1,4 +1,5 @@
 import io
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -15,6 +16,42 @@ class WifiNetworkTests(unittest.TestCase):
     def setUp(self):
         wifi._operation = threading.Lock()
         wifi._set_job('')
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        diagnostic = patch.object(wifi, 'DIAGNOSTICS', Path(directory.name) / 'diagnostics.json')
+        diagnostic.start()
+        self.addCleanup(diagnostic.stop)
+
+    def test_diagnostics_are_bounded_private_and_do_not_store_ssid_or_errors(self):
+        for _ in range(70):
+            wifi.record_event({}, 'scan', code='empty', count=0, mode='hotspot', duration=1.25)
+        entries = json.loads(wifi.DIAGNOSTICS.read_text())
+        self.assertEqual(len(entries), 64)
+        self.assertEqual(entries[-1]['mode'], 'hotspot')
+        self.assertEqual(entries[-1]['code'], 'empty')
+        self.assertEqual(wifi.DIAGNOSTICS.stat().st_mode & 0o777, 0o600)
+        wifi.record_event({}, 'scan', code='secret-password', mode='private-ssid')
+        self.assertNotIn('secret-password', wifi.DIAGNOSTICS.read_text())
+        self.assertNotIn('private-ssid', wifi.DIAGNOSTICS.read_text())
+
+    def test_scan_timeout_is_classified_without_raw_exception(self):
+        with patch.object(wifi, '_actual', return_value={'state': 'hotspot'}), \
+                patch.object(wifi.subprocess, 'run', side_effect=subprocess.TimeoutExpired('secret', 20)):
+            with self.assertRaises(wifi.WifiError) as caught:
+                wifi.scan({})
+        self.assertEqual(caught.exception.code, 'timeout')
+        entries = json.loads(wifi.DIAGNOSTICS.read_text())
+        self.assertEqual(entries[-1]['code'], 'timeout')
+        self.assertEqual(entries[-1]['mode'], 'hotspot')
+        self.assertNotIn('secret', str(caught.exception))
+
+    def test_radio_rejection_is_classified_without_storing_stderr(self):
+        result = subprocess.CompletedProcess([], 1, '', 'Scanning not allowed: private-data')
+        with patch.object(wifi.subprocess, 'run', return_value=result):
+            with self.assertRaises(wifi.WifiError) as caught:
+                wifi._run('device', 'wifi', 'list')
+        self.assertEqual(caught.exception.code, 'not_allowed')
+        self.assertNotIn('private-data', str(caught.exception))
 
     def test_status_distinguishes_hotspot_from_client(self):
         for mode, expected in [('ap', 'hotspot'), ('infrastructure', 'connected')]:
@@ -32,7 +69,8 @@ class WifiNetworkTests(unittest.TestCase):
     def test_scan_unescapes_deduplicates_bounds_and_does_not_disconnect_ap(self):
         output = 'A\\:B:30:WPA2\nA\\:B:70:WPA2\nPath\\\\Name:50:--\nretromodem:99:WPA2\n'
         output += ''.join('Net%d:%d:WPA2\n' % (i, i % 101) for i in range(100))
-        with patch.object(wifi, '_run', return_value=output) as run:
+        with patch.object(wifi, '_run', return_value=output) as run, \
+                patch.object(wifi, '_actual', return_value={'state': 'hotspot'}):
             rows = wifi.scan({})
         self.assertEqual(len(rows), 64)
         self.assertIn(('A:B', 70, 'WPA2'), rows)

@@ -794,7 +794,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def serve_retro_wifi(self) -> None:
         frontend, network = wifi_modules()
-        frontend.serve(self, status=network.status, scan=network.scan, connect=network.connect)
+        frontend.serve(self, status=network.status, scan=network.scan, connect=network.connect,
+                       diagnostic=network.record_event)
 
     def authenticated(self, config: dict[str, str]) -> bool:
         header = self.headers.get("Authorization", "")

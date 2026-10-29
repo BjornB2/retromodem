@@ -22,6 +22,61 @@ PROFILES = Path('/etc/NetworkManager/system-connections')
 _operation = threading.Lock()
 _state_lock = threading.Lock()
 _job = {'state': '', 'message': ''}
+DIAGNOSTICS = Path('/var/lib/retromodem/wifi-diagnostics.json')
+_diagnostic_lock = threading.Lock()
+
+
+class WifiError(RuntimeError):
+    def __init__(self, code):
+        super().__init__('Wi-Fi operation failed')
+        self.code = code
+
+
+def record_event(config, event, *, code='', count=None, mode=None, duration=None):
+    """Bounded, persistent, root-only diagnostics: never SSIDs or raw errors."""
+    if event not in {'scan', 'form_expired'}:
+        return
+    if code not in {'', 'ok', 'empty', 'failed', 'timeout', 'not_allowed', 'unavailable', 'busy'}:
+        code = 'failed'
+    if mode is None:
+        try:
+            mode = _actual(_interface(config))['state']
+        except (ValueError, RuntimeError, OSError):
+            mode = 'unknown'
+    if mode not in {'hotspot', 'connected', 'connecting', 'disconnected'}:
+        mode = 'unknown'
+    item = {'utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            'uptime_s': int(time.monotonic()), 'event': event, 'mode': mode, 'code': code}
+    if isinstance(count, int):
+        item['count'] = max(0, min(count, 64))
+    if isinstance(duration, (int, float)):
+        item['duration_s'] = round(max(0, min(duration, 120)), 2)
+    temporary = None
+    try:
+        with _diagnostic_lock:
+            DIAGNOSTICS.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(str(DIAGNOSTICS) + '.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'a') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                entries = []
+                if DIAGNOSTICS.exists() and not DIAGNOSTICS.is_symlink() and DIAGNOSTICS.stat().st_size < 65536:
+                    try:
+                        entries = json.loads(DIAGNOSTICS.read_text())
+                    except (ValueError, OSError):
+                        pass
+                if not isinstance(entries, list):
+                    entries = []
+                with tempfile.NamedTemporaryFile(mode='w', dir=DIAGNOSTICS.parent,
+                                                 prefix='.wifi-diagnostics-', delete=False) as output:
+                    temporary = Path(output.name)
+                    os.fchmod(output.fileno(), 0o600)
+                    json.dump((entries + [item])[-64:], output)
+                os.replace(temporary, DIAGNOSTICS)
+    except OSError:
+        pass  # Diagnostics must never prevent scanning or recovery.
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def _interface(config):
@@ -37,10 +92,14 @@ def _run(*args, timeout=10, input=None):
         result = subprocess.run([NMCLI, *args], input=input, capture_output=True,
                                 text=True, timeout=timeout, check=False,
                                 env={**os.environ, 'LC_ALL': 'C'})
+    except subprocess.TimeoutExpired:
+        raise WifiError('timeout') from None
     except (OSError, subprocess.SubprocessError):
-        raise RuntimeError('Wi-Fi operation failed') from None
+        raise WifiError('unavailable') from None
     if result.returncode:
-        raise RuntimeError('Wi-Fi operation failed')
+        reason = (result.stderr or '').lower()
+        code = 'not_allowed' if 'not allowed' in reason else 'failed'
+        raise WifiError(code)
     return result.stdout
 
 
@@ -96,8 +155,10 @@ def _split_nmcli(line):
 
 def scan(config):
     interface = _interface(config)
+    started = time.monotonic()
     if not _operation.acquire(blocking=False):
-        raise RuntimeError('Wi-Fi connection is in progress')
+        record_event(config, 'scan', code='busy', duration=0)
+        raise WifiError('busy')
     try:
         output = _run('-t', '--escape', 'yes', '-f', 'SSID,SIGNAL,SECURITY',
                       'device', 'wifi', 'list', 'ifname', interface, '--rescan', 'yes', timeout=20)
@@ -117,8 +178,15 @@ def scan(config):
                 continue
             if ssid not in networks or signal > networks[ssid][0]:
                 networks[ssid] = (signal, security or 'open')
-        return sorted(((ssid, *values) for ssid, values in networks.items()),
+        rows = sorted(((ssid, *values) for ssid, values in networks.items()),
                       key=lambda row: (-row[1], row[0]))[:64]
+        record_event(config, 'scan', code='ok' if rows else 'empty', count=len(rows),
+                     duration=time.monotonic() - started)
+        return rows
+    except (RuntimeError, OSError, ValueError) as error:
+        record_event(config, 'scan', code=getattr(error, 'code', 'failed'),
+                     duration=time.monotonic() - started)
+        raise
     finally:
         _operation.release()
 

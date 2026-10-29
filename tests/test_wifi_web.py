@@ -177,6 +177,7 @@ class WifiWebTests(unittest.TestCase):
         error = self.serve(Handler('POST', '/scan', form={'session': token, 'csrf': self.csrf(token)}))
         self.assertIn('Scannen is niet gelukt', error.text)
         self.assertNotIn('internal diagnostic', error.text)
+        self.assertIn('WIFI-SCAN-FAILED', error.text)
         self.scan.side_effect = None
         self.scan.return_value = []
         empty = self.serve(Handler('POST', '/scan', form={'session': token, 'csrf': self.csrf(token)}))

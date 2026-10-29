@@ -1,5 +1,17 @@
 # Wifi instellen vanaf het retroapparaat
 
+Bij een scanfout toont de pagina een code, bijvoorbeeld `WIFI-SCAN-TIMEOUT`,
+`WIFI-SCAN-NOT-ALLOWED` of `WIFI-FORM-EXPIRED`. Noteer de code of maak een foto.
+Een verlopen formulier heeft een link om de pagina opnieuw te openen.
+Geen gevonden netwerken is geen scanfout.
+
+De laatste 64 scan-/formuliergebeurtenissen staan voor diagnose in
+`/var/lib/retromodem/wifi-diagnostics.json` (alleen root kan lezen).
+Ze blijven na herstart bewaard en bevatten tijdstip, uptime, wifi-/hotspotstand,
+veilige foutcategorie en bij een geslaagde scan het aantal resultaten.
+Netwerknamen, wachtwoorden, sessietokens en ruwe systeemfouten worden niet opgeslagen.
+Zonder internet kan de klok verkeerd lopen; daarom wordt ook uptime vastgelegd.
+
 Je kunt deze pagina ook bereiken via `http://start.retromodem/` →
 **Instellingen** (`http://setup.retromodem/`) → **Wi-Fi**.
 

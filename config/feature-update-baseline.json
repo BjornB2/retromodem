@@ -1,6 +1,8 @@
 {
   "schema_version": 1,
   "files": {
+    "web/wifi_network.py": ["604da11155bbe75d7320c01bf8701d95e49b5557cc803983409f529c4a4ac4d8"],
+    "web/wifi_web.py": ["0908b8a12f994c2a0f3af88b8b0276c722447d79fb230122e034042515930ea5"],
     "proxy/retroweb/lib/PagePaginator.php": [
       "e5409be9fcd380b1ddbdbe6a469fece7f66b55f1552a8f5118a0acbcf6cfd242",
       "b95d5e399dda2386db4d77aec19f93db64255f9f755e8f6db85ba81266cc04f9",
@@ -13,6 +15,7 @@
       "2fc67acbb2192e366cb63fc4cc9a8afbb09733aef6373d8b62b2bee563c89fda"
     ],
     "web/web.py": [
+      "e2dd468d623dc280cd04791fec70244acb0e2c001bf479137b6a66aa7e3fcbeb",
       "f27b87782f6f58703414c56352ad97dd55843c451e70a13e8333b97f1a127611",
       "143a95110f3adb2f306f79b710a1b4123dc6d830f530e873aa3bbeb2f27d17ae",
       "4c58cb8e8ea9826b92db5f5583ce030172b18a911ddf4d60bad98216e0172c3f",

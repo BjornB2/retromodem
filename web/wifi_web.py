@@ -132,7 +132,7 @@ def _body_form(handler):
     return {key: items[0] for key, items in values.items()}
 
 
-def serve(handler, *, status, scan, connect):
+def serve(handler, *, status, scan, connect, diagnostic=None):
     """Callbacks receive config; connect starts asynchronously, never blocks for Wi-Fi."""
     config = handler.config()
     tr = lambda nl, en: local_ui.tr(config.get('RETROMODEM_LANGUAGE', 'nl'), nl, en)
@@ -176,8 +176,10 @@ def serve(handler, *, status, scan, connect):
         item = _session(token, peer)
         expected = item['actions'][parsed.path] if item else ''
         if not item or not secrets.compare_digest(form.get('csrf', '').encode('utf-8'), expected.encode('ascii')):
+            if diagnostic is not None:
+                diagnostic(config, 'form_expired')
             _reply(handler, title, '<p>' + tr('Formulier verlopen; open de pagina opnieuw.',
-                                             'Form expired; reopen the page.') + '</p>', 403)
+                                             'Form expired; reopen the page.') + ' [WIFI-FORM-EXPIRED]</p><p><a href="/">' + tr('Opnieuw openen', 'Start again') + '</a></p>', 403)
             return
     else:
         _reply(handler, title, '<p>' + tr('Pagina niet gevonden.', 'Page not found.') + '</p>', 404)
@@ -204,9 +206,22 @@ def serve(handler, *, status, scan, connect):
                 if _session(token, peer) is not item:
                     raise ValueError('expired')
                 item['networks'] = choices
-        except (OSError, RuntimeError, ValueError):
+        except (OSError, RuntimeError, ValueError) as error:
             choices = {}
-            body += '<p>' + tr('Scannen is niet gelukt. Probeer opnieuw.', 'Scan failed. Please try again.') + '</p>'
+            code = getattr(error, 'code', 'failed')
+            reasons = {
+                'timeout': tr('De wifi-scan duurde te lang.', 'The Wi-Fi scan timed out.'),
+                'busy': tr('Er wordt al een wifi-bewerking uitgevoerd.', 'Another Wi-Fi operation is in progress.'),
+                'not_allowed': tr('De wifi-radio staat scannen nu niet toe.', 'The Wi-Fi radio does not allow scanning right now.'),
+                'unavailable': tr('De wifi-service is tijdelijk niet beschikbaar.', 'The Wi-Fi service is temporarily unavailable.'),
+                'failed': tr('De wifi-service kon de scan niet voltooien.', 'The Wi-Fi service could not complete the scan.'),
+            }
+            if code not in reasons:
+                code = 'failed'
+            body += ('<p>' + tr('Scannen is niet gelukt. ', 'Scan failed. ') + reasons[code] +
+                     ' [WIFI-SCAN-' + code.upper().replace('_', '-') + ']</p><p>' +
+                     tr('Probeer Scan netwerken opnieuw. Noteer deze foutcode als het blijft gebeuren.',
+                        'Try Scan networks again. Note this error code if the problem persists.') + '</p>')
         if choices:
             options = []
             for choice, (ssid, security) in choices.items():
