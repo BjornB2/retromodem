@@ -30,6 +30,12 @@ current uplink/AP status, explicit scanning and asynchronous connection status.
 It has PPP/admin peer gating, action-specific CSRF, serialized NetworkManager
 operations and root-only persistent profiles. Full installation is required
 once for the DNS alias. See docs/RETRO-WIFI.md for scope and acceptance limits.
+Installed on the original Pi via the full installer on 2026-10-29 and rebooted.
+Live checks passed for current connected status, direct/proxied HTML and real
+scans (four networks after reboot), local DNS, unauthorized/forged-peer rejection
+and invalid connect selections. The active Wi-Fi UUID remained unchanged.
+NetworkManager accepted the generated credential profile in offline parsing.
+A real switch and saved-credential reconnection are not yet physically tested.
 The DKMS inventory now follows target-kernel capabilities; unsupported ISA/PCI
 drivers are not required on the Pi. Full clean-SD acceptance remains pending.
 The modem discovery helper now uses the bundled legacy IrDA header directory.
