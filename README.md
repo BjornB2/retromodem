@@ -92,10 +92,10 @@ by repetition of the physical connection tests. See the
 
 ## Documentation
 
-- [Install RetroModem](docs/INSTALL.md)
-- [Configure a Psion 5mx or Palm](docs/CLIENT-SETUP.md)
 - [Hardware, GPIO wiring, power and enclosure](docs/HARDWARE.md)
 - [MY018 modification, speed control and limitations](docs/MY018-SETUP.md)
+- [Install RetroModem](docs/INSTALL.md)
+- [Configure a Psion 5mx or Palm](docs/CLIENT-SETUP.md)
 - [Clean-install acceptance checklist](docs/CLEAN-INSTALL-ACCEPTANCE.md)
 - [Quick reference](docs/QUICKSTART.md)
 
