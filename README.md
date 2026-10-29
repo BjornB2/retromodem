@@ -61,6 +61,11 @@ From a modern computer, tablet or phone on the same network, open
 `http://retromodem.local/` for the full administration interface. This interface
 is intended for remote management and is not the retro-device page.
 
+For day-to-day use, print or save the
+[one-page RetroModem quick reference (PDF)](docs/RetroModem-Quick-Reference.pdf).
+It collects the default access details, local URLs, virtual telephone numbers,
+network settings and button controls on a single A4 page.
+
 Connection type, adapter and link speeds can be selected without editing
 configuration files:
 

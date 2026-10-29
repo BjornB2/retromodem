@@ -2,7 +2,13 @@
   "schema_version": 1,
   "files": {
     "web/wifi_network.py": ["604da11155bbe75d7320c01bf8701d95e49b5557cc803983409f529c4a4ac4d8"],
-    "web/wifi_web.py": ["0908b8a12f994c2a0f3af88b8b0276c722447d79fb230122e034042515930ea5"],
+    "web/wifi_web.py": [
+      "0908b8a12f994c2a0f3af88b8b0276c722447d79fb230122e034042515930ea5",
+      "75537ec857bc27468788125ab32e5600adeea33866cc1604ec8d7dd22bd1caee"
+    ],
+    "web/proxy_web.py": [
+      "a2afb0c7ead755335f68451b2c09534cb2ab2ccb8efbefbffb216c1e3a914834"
+    ],
     "proxy/retroweb/lib/PagePaginator.php": [
       "e5409be9fcd380b1ddbdbe6a469fece7f66b55f1552a8f5118a0acbcf6cfd242",
       "b95d5e399dda2386db4d77aec19f93db64255f9f755e8f6db85ba81266cc04f9",
@@ -31,7 +37,8 @@
       "27f6160b6f53eb54efd3a654829ad1e0b4ac430770424835888939154ea46ce8",
       "b772d5c63dbf878e5132972cad151a212d8099014094d291d1821bfec9224e49",
       "9ddb929c570c7e8cf7d2fb551ba75e9a5f4e61459e557484fcdd7bdab11ccb21",
-      "8c71db54f3b49cedb3a083bf9aca82602d503b52c0719688d3091ce1420708e5"
+      "8c71db54f3b49cedb3a083bf9aca82602d503b52c0719688d3091ce1420708e5",
+      "94ca0201b9da66d818cb8adb5dc27fc215863597069f79cc955153487ba50efb"
     ],
     "web/chatgpt_web.py": [
       "9163d5a0668781cf484b0040ccda5a36bbc33c8615bfeed299025760ff95ea48"
@@ -75,7 +82,8 @@
     ],
     "scripts/diagnose": [
       "e48e96e2e4ffc0e762e187496a5663641cf06770c9cb117aa599abcc833ea4a2",
-      "a18b044226122f3298cf9a83dce316e36a400ff010850a54cbeadaf3892515bd"
+      "a18b044226122f3298cf9a83dce316e36a400ff010850a54cbeadaf3892515bd",
+      "4d3c45d78bf384185278c22faee41433a6b727a642c97c512b0a2cba675671f6"
     ],
     "proxy/retroweb/upstream.php": [
       "ef887de10e9cdaf058bf0a18d9d661f662955ac54570083853fcc1ee9948ea13"
