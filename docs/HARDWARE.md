@@ -5,6 +5,11 @@ infrared interface is a modified Ming Yuan MY018 module. A Prolific
 USB-to-RS-232 adapter is the main wired alternative, and a Mobile Action MA-620
 is supported as a USB infrared fallback.
 
+![Interior of the hand-built RetroModem prototype](retromodem-prototype-photo.jpg)
+
+The prototype combines the Pi, 18650 cell, charging and step-up boards, status
+LEDs, button and infrared interface in one compact enclosure.
+
 ## MY018 prototype wiring
 
 The drawing below is a practical assembly overview rather than a formal

@@ -80,7 +80,5 @@ Modern HTTPS sites can be simplified by RetroModem's built-in RetroWEB proxy.
 In manual mode configure HTTP proxy `192.168.77.1`, port `8080`; automatic mode
 does not require a browser proxy setting.
 
-![RetroWEB rendering a modern page on a Macintosh Performa 200](retroweb-interface.webp)
-
-Photo and original configuration research:
+Original configuration research:
 [Björns Blog](https://www.bjornsblog.nl/general/my-take-on-a-retro-proxy/).

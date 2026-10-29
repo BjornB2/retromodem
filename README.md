@@ -7,7 +7,10 @@ vintage computers and handhelds.**
 > needs final acceptance on a clean second SD card. Raspberry Pi 3 Model B is
 > the only Pi model tested so far.
 
-![The hand-built RetroModem Raspberry Pi prototype](docs/retromodem-prototype-photo.jpg)
+![RetroModem in its closed enclosure next to a Psion 5mx](docs/retromodem-hero.jpg)
+
+*The original wired RetroModem prototype with a Psion 5mx. Photo from
+[Björns Blog](https://www.bjornsblog.nl/general/how-to-connect-your-psion-to-the-internet-in-2024/).*
 
 RetroModem gives devices such as a Psion 5mx, Palm IIIc, Windows 98/XP PC and
 classic Macintosh a route to the internet without requiring another computer
@@ -58,8 +61,6 @@ RetroModem includes RetroWEB, a translation layer that fetches modern HTTPS
 pages, extracts their useful content and serves compact legacy-compatible HTML.
 Images can be shown inline or as links and are resized to reduce memory and
 bandwidth use.
-
-![RetroWEB displaying a modern page on a Macintosh Performa 200](docs/retroweb-interface.webp)
 
 The proxy is based on the project described in
 [My take on a retro proxy](https://www.bjornsblog.nl/general/my-take-on-a-retro-proxy/).
