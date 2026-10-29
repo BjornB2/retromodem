@@ -16,6 +16,7 @@ PROJECT = Path(__file__).resolve().parents[1]
 # source path: (installed path, default mode, affected service, new file allowed)
 FILES = {
     'web/web.py': ('usr/local/lib/retromodem/web.py', 0o644, 'retromodem-web.service', False),
+    'web/proxy_web.py': ('usr/local/lib/retromodem/proxy_web.py', 0o644, 'retromodem-web.service', True),
     'web/chatgpt_web.py': ('usr/local/lib/retromodem/chatgpt_web.py', 0o644, 'retromodem-web.service', False),
     'web/wifi_web.py': ('usr/local/lib/retromodem/wifi_web.py', 0o644, 'retromodem-web.service', True),
     'web/wifi_network.py': ('usr/local/lib/retromodem/wifi_network.py', 0o644, 'retromodem-web.service', True),
@@ -85,6 +86,9 @@ def plan(root, source=PROJECT):
     if conflicts:
         raise ValueError('Feature-update conflicts; nothing changed: ' + ', '.join(conflicts))
     dns = guarded_path(root, 'etc/dnsmasq.d/retromodem.conf')
+    if any(change['source'] == 'web/proxy_web.py' for change in changes):
+        if not dns.exists() or 'address=/proxy.retromodem/192.168.77.1' not in dns.read_text().splitlines():
+            raise ValueError('Retro proxy settings require the full installer once for DNS; nothing changed.')
     if any(change['source'] == 'web/web.py' for change in changes):
         aliases = dns.read_text().splitlines() if dns.exists() else []
         if any('address=/' + host + '/192.168.77.1' not in aliases

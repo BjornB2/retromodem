@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+import fcntl
 import hashlib
 import hmac
 import html
@@ -134,7 +135,19 @@ def load_config() -> dict[str, str]:
     return values
 
 
+CONFIG_WRITE_LOCK = threading.RLock()
+
+
 def save_config(changes: dict[str, str]) -> None:
+    CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    with CONFIG_WRITE_LOCK:
+        fd = os.open(str(CONFIG) + '.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            _save_config_unlocked(changes)
+
+
+def _save_config_unlocked(changes: dict[str, str]) -> None:
     current = load_config()
     current.update(changes)
     lines = [f"{key}={shlex.quote(current[key])}" for key in sorted(current)]
@@ -475,7 +488,7 @@ def library_upload_form(language: str) -> str:
 
 
 def proxy_pagination_settings(page_size: str = "250000", page_images: str = "5") -> dict[str, str]:
-    if page_size not in {"12000", "18000", "25000", "50000", "75000", "100000", "125000", "150000", "175000", "200000", "250000", "500000", "750000", "1000000", "1250000", "1500000", "1750000", "2000000", "0"}:
+    if page_size not in proxy_module().PAGE_SIZES:
         raise ValueError("Invalid pagination settings")
     return {"RETROMODEM_PROXY_PAGE_SIZE": page_size}
 
@@ -518,6 +531,7 @@ def proxy_settings_card(language: str, config: dict[str, str]) -> str:
     image_options = ''.join(f'<option value="{value}" {"selected" if image_start == value else ""}>{label}</option>' for value, label in (("inline", tr(language,'Afbeeldingen laten zien','Show images')), ("links", tr(language,'Als links tonen','Show as links')), ("remember", tr(language,'Vorige keuze onthouden','Remember previous choice'))))
     advanced_controls = f'''<label>{tr(language,'Afbeeldingen bij starten','Images at session start')}</label><select name="image_start">{image_options}</select><p class="helper">{tr(language,'Start iedere nieuwe verbinding met afbeeldingen, met klikbare afbeeldingslinks of met je laatst gekozen weergave. Tijdens het browsen kun je bovenaan wisselen met Images: Inline | As links. Deze keuze blijft gelden tijdens die verbinding.','Start each new connection with images, clickable image links, or your last chosen view. While browsing, switch at the top using Images: Inline | As links. The choice remains active for that connection.')}</p><label>{tr(language,'Uitzonderingen','Exceptions')}</label><textarea name="exceptions" rows="8" placeholder="example.com\nretro.example.org">{extra_exceptions}</textarea><p class="helper">{tr(language,'Deze domeinen worden rechtstreeks en ongewijzigd doorgegeven. RetroWEB, FrogFind, The Old Net en 68k.news zijn standaard opgenomen.','These domains are passed through directly and unchanged. RetroWEB, FrogFind, The Old Net and 68k.news are included by default.')}</p><label>{tr(language,'Preset voor afbeeldingsformaat','Image size preset')}</label><select onchange="if(this.value){{const p=this.value.split('x');document.getElementById('proxy-image-width').value=p[0];document.getElementById('proxy-image-height').value=p[1];}}"><option value="">{tr(language,'Kies een apparaat…','Choose a device…')}</option>{preset_options}</select><p class="helper">{tr(language,'De apparaatpresets laten ruimte vrij voor de browserbalken, zodat de volledige afbeelding op het scherm past.','Device presets leave room for browser controls so the complete image fits on screen.')}</p><div class="grid" style="margin-bottom:18px"><div class="span-6"><label>{tr(language,'Maximale afbeeldingsbreedte','Maximum image width')}</label><input id="proxy-image-width" type="number" name="image_width" min="16" max="4096" step="1" value="{image_width}"></div><div class="span-6"><label>{tr(language,'Maximale afbeeldingshoogte','Maximum image height')}</label><input id="proxy-image-height" type="number" name="image_height" min="16" max="4096" step="1" value="{image_height}"></div></div>'''
     advanced_controls = advanced_controls.replace('Images: Inline | As links', tr(language,'Afbeeldingen: Afbeeldingen laten zien | Als links','Images: Inline | As links'))
+    advanced_controls = ('<p>' + tr(language, 'Deze weergave-instellingen zijn ook vanaf je retroapparaat beschikbaar op', 'These display settings are also available from your retro device at') + ' <a href="http://proxy.retromodem/">proxy.retromodem</a>.</p>' + advanced_controls)
     advanced_controls = (f'<div class="notice"><strong>{tr(language,"Zoeken:","Search:")}</strong> {tr(language,"open <code>http://search.retromodem</code>. Deze lokale pagina is alleen voor zoeken; resultaten openen als gewone websites via de proxy.","open <code>http://search.retromodem</code>. This local page is for search only; results open as ordinary websites through the proxy.")}</div>' + advanced_controls)
     return f"""<section class="card" id="webproxy"><h2>{tr(language,'Ingebouwde webproxy','Built-in web proxy')}</h2><p>{tr(language,'Gebaseerd op','Based on')} <a href="http://retroweb.bjrno.com">RetroWEB</a>, {tr(language,'het open webproxyproject voor oude browsers. De proxy haalt moderne HTTPS-pagina’s op, vereenvoudigt ze en levert ze als gewone HTTP-pagina.','the web proxy project for old browsers. The proxy fetches modern HTTPS pages, simplifies them and serves them as ordinary HTTP pages.')}</p><form method="post" action="/settings/proxy"><input type="hidden" name="csrf" value="{{{{csrf}}}}"><label>{tr(language,'Proxystand','Proxy mode')}</label><select name="mode">{option('manual',tr(language,'Handmatig (standaard)','Manual (default)'))}{option('transparent',tr(language,'Automatisch','Automatic'))}</select><p class="helper"><strong>{tr(language,'Handmatig:','Manual:')}</strong> {tr(language,'stel in de browser HTTP-proxy <code>192.168.77.1</code>, poort <code>8080</code> in. Zonder browserinstelling gaat verkeer rechtstreeks.','configure HTTP proxy <code>192.168.77.1</code>, port <code>8080</code> in the browser. Without a browser setting, traffic remains direct.')}<br><strong>{tr(language,'Automatisch:','Automatic:')}</strong> {tr(language,'al het HTTP-webverkeer gaat vanzelf via de ingebouwde proxy.','all HTTP web traffic automatically uses the built-in proxy.')}</p>{pagination_controls}{advanced_controls}<div class="notice warning"><strong>{tr(language,'Niet voor gevoelige gegevens.','Not for sensitive data.')}</strong> {tr(language,'De proxy herschrijft inhoud en ondersteunt alleen GET-verzoeken; gebruik hem niet voor wachtwoorden, accounts of betalingen.','The proxy rewrites content and supports GET requests only; do not use it for passwords, accounts or payments.')}</div><button class="primary" type="submit">{tr(language,'Proxy-instellingen opslaan','Save proxy settings')}</button></form></section>"""
 
@@ -644,8 +658,8 @@ def general_guide(language: str) -> str:
          t('Open <a href="http://start.retromodem/">http://start.retromodem/</a> in de retrobrowser, met <strong>http://</strong> en niet https://. Daar staan Zoeken en ChatGPT bovenaan. Instellingen leidt naar <a href="http://setup.retromodem/">setup.retromodem</a>. De lokale pagina’s werken zonder browserproxy en ook via de ingebouwde proxy. Dit geldt voor direct PPP en voor PPP na inbellen op 5559000; niet iedere apparaat/route-combinatie is fysiek getest.',
            'Open <a href="http://start.retromodem/">http://start.retromodem/</a> in the retro browser, using <strong>http://</strong>, not https://. Search and ChatGPT are at the top. Settings opens <a href="http://setup.retromodem/">setup.retromodem</a>. Local pages work without a browser proxy and through the built-in proxy. This applies to direct PPP and PPP after dialling 5559000; not every device/route combination has been physically tested.')),
         (t('5. Wifi en beheer', '5. Wi-Fi and administration'),
-         t('Je kunt vanaf het retroapparaat zelf via <a href="http://wifi.retromodem/">wifi.retromodem</a> de huidige verbinding bekijken, netwerken scannen en een netwerk met wachtwoord kiezen. Hiervoor is geen internet nodig. Als de Pi geen bekend netwerk kan gebruiken, is de noodhotspot <code>retromodem</code> beschikbaar; verbind een telefoon of laptop en open <code>http://10.42.0.1</code>. Op je gewone netwerk staat de beheerinterface op <code>http://retromodem.local</code>. Start/Setup zijn de eenvoudige retro-ingang, niet die uitgebreide beheerinterface. Proxy- en ChatGPT-instellingen staan voorlopig nog in de beheerinterface.',
-           'From the retro device itself, use <a href="http://wifi.retromodem/">wifi.retromodem</a> to view the current connection, scan networks and select a network with its password. Internet is not required. If the Pi cannot use a known network, the fallback hotspot <code>retromodem</code> is available; connect a phone or laptop and open <code>http://10.42.0.1</code>. On your normal network, administration is at <code>http://retromodem.local</code>. Start/Setup are the simple retro entry points, not that full administration interface. Proxy and ChatGPT settings currently remain in the administration interface.')),
+         t('Je kunt vanaf het retroapparaat zelf via <a href="http://wifi.retromodem/">wifi.retromodem</a> de huidige verbinding bekijken, netwerken scannen en een netwerk met wachtwoord kiezen. Hiervoor is geen internet nodig. Als de Pi geen bekend netwerk kan gebruiken, is de noodhotspot <code>retromodem</code> beschikbaar; verbind een telefoon of laptop en open <code>http://10.42.0.1</code>. Op je gewone netwerk staat de beheerinterface op <code>http://retromodem.local</code>. Start/Setup zijn de eenvoudige retro-ingang, niet die uitgebreide beheerinterface. Proxy-instellingen kun je via <a href="http://proxy.retromodem/">proxy.retromodem</a> aanpassen. ChatGPT-accountbeheer blijft in de beheerinterface.',
+           'From the retro device itself, use <a href="http://wifi.retromodem/">wifi.retromodem</a> to view the current connection, scan networks and select a network with its password. Internet is not required. If the Pi cannot use a known network, the fallback hotspot <code>retromodem</code> is available; connect a phone or laptop and open <code>http://10.42.0.1</code>. On your normal network, administration is at <code>http://retromodem.local</code>. Start/Setup are the simple retro entry points, not that full administration interface. Change proxy settings at <a href="http://proxy.retromodem/">proxy.retromodem</a>. ChatGPT account management remains in administration.')),
         (t('6. Zoeken, chatten en bestanden', '6. Search, chat and files'),
          t('<a href="http://search.retromodem/">search.retromodem</a> zoekt op internet. Voor moderne sites gebruik je de ingebouwde webproxy; zie het tabblad Webproxy. <a href="http://chatgpt.retromodem/">chatgpt.retromodem</a> vereist eerst een gekoppeld account via Instellingen → ChatGPT in de beheerinterface. Voor beide is internet nodig. Voor BBS stuur je in een terminal <code>AT</code> + Enter (antwoord <code>OK</code>), gevolgd door <code>ATDT</code> en het nummer. ChatGPT BBS gebruikt <code>5559999</code>. <a href="/transfer">Bestandsoverdracht</a> biedt onder andere Palm Beam en terminalprotocollen; kies het protocol uit je apparaatgids. Ingebouwde software en eigen uploads staan bij de betreffende apparaatpagina.',
            '<a href="http://search.retromodem/">search.retromodem</a> searches the internet. Use the built-in web proxy for modern sites; see the Web proxy tab. <a href="http://chatgpt.retromodem/">chatgpt.retromodem</a> first requires linking an account under Settings → ChatGPT in administration. Both need internet. For a BBS, send <code>AT</code> + Enter in a terminal (reply <code>OK</code>), followed by <code>ATDT</code> and the number. ChatGPT BBS uses <code>5559999</code>. <a href="/transfer">File transfer</a> offers Palm Beam and terminal protocols, among others; choose the protocol in your device guide. Bundled software and your own uploads appear on the relevant device page.')),
@@ -666,8 +680,8 @@ def proxy_guide(language: str) -> str:
             t('Bovenaan een vereenvoudigde pagina kies je <strong>Afbeeldingen: Laten zien | Als links</strong>. Met links laad je afbeeldingen alleen wanneer je ze opent. In de beheerinterface kies je de startstand per sessie (laten zien, als links, of vorige sessie) en de afmetingen na conversie. De ingestelde paginagrootte is een schatting van HTML plus uitgepakte afbeeldingen na conversie, niet het aantal verzonden kilobytes. Met afbeeldingen als links telt alleen HTML voor de verdeling. Nieuwe installaties beginnen voorlopig op 250 kB; bestaande keuzes blijven behouden. Een kleiner budget is veiliger op apparaten met weinig geheugen. Er is geen vaste limiet van vijf afbeeldingen of vijf delen: grotere inhoud krijgt extra delen. Navigatie boven- en onderaan gaat naar het volgende deel.',
               'At the top of a simplified page choose <strong>Images: Inline | As links</strong>. Links load images only when you open them. Administration lets you choose the session starting mode (inline, links or previous session) and dimensions after conversion. The page-size setting estimates HTML plus decoded images after conversion, not transferred kilobytes. In image-link mode only HTML counts towards splitting. New installations currently start at 250 kB; existing choices are preserved. A smaller budget is safer on devices with little memory. There is no fixed limit of five images or five parts: larger content gets additional parts. Navigation at the top and bottom opens the next part.') + '</p>' +
             '<h3>' + t('Zoeken en uitzonderingen', 'Search and exceptions') + '</h3><p>' +
-            t('Gebruik <a href="http://search.retromodem/">search.retromodem</a> voor zoekresultaten met samenvattingen waar de zoekprovider die levert. Verdere resultaten zijn afhankelijk van de provider. Uitgezonderde domeinen worden niet vereenvoudigd. Stel proxygedrag in via de beheerinterface; setup.retromodem bevat nog geen proxy-instellingenpagina.',
-              'Use <a href="http://search.retromodem/">search.retromodem</a> for results with summaries where supplied by the search provider. Further results depend on the provider. Excluded domains are not simplified. Configure proxy behaviour in administration; setup.retromodem does not yet contain a proxy settings page.') + '</p><p class="notice warning">' +
+            t('Gebruik <a href="http://search.retromodem/">search.retromodem</a> voor zoekresultaten met samenvattingen waar de zoekprovider die levert. Verdere resultaten zijn afhankelijk van de provider. Uitgezonderde domeinen worden niet vereenvoudigd. Stel paginagrootte en afbeeldingen in via <a href="http://proxy.retromodem/">proxy.retromodem</a>, ook bereikbaar via setup.retromodem. Routering en uitzonderingen blijven in de beheerinterface.',
+              'Use <a href="http://search.retromodem/">search.retromodem</a> for results with summaries where supplied by the search provider. Further results depend on the provider. Excluded domains are not simplified. Configure page size and images at <a href="http://proxy.retromodem/">proxy.retromodem</a>, also linked from setup.retromodem. Routing and exceptions remain in administration.') + '</p><p class="notice warning">' +
             t('Gebruik de webproxy niet voor wachtwoorden, accounts of betalingen. Hij herschrijft pagina’s en is geen volledige moderne browser. JavaScript-sites en bronblokkades kunnen onbruikbare inhoud of een fout opleveren. De lokale wifi- en chatpagina’s hebben hun eigen formulierafhandeling; dat maakt externe inlogformulieren niet geschikt.',
               'Do not use the web proxy for passwords, accounts or payments. It rewrites pages and is not a full modern browser. JavaScript sites and source restrictions may produce unusable content or errors. Local Wi-Fi and chat pages have their own form handling; this does not make external login forms suitable.') + '</p>')
 
@@ -756,6 +770,14 @@ def wifi_modules():
     return wifi_web, wifi_network
 
 
+def proxy_module():
+    try:
+        import proxy_web
+    except ModuleNotFoundError:
+        from web import proxy_web
+    return proxy_web
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "RetroModem/0.1"
 
@@ -764,7 +786,10 @@ class Handler(BaseHTTPRequestHandler):
         t = lambda nl, en: tr(language, nl, en)
         if host == 'setup.retromodem':
             title = t('Instellingen', 'Settings')
-            body = ('<p><a href="http://wifi.retromodem/">Wi-Fi</a><br>' +
+            body = ('<p><a href="http://proxy.retromodem/">Webproxy</a><br>' +
+                    t('Paginagrootte, afbeeldingsweergave en afbeeldingsformaat.',
+                      'Page size, image display and image dimensions.') + '</p>' +
+                    '<p><a href="http://wifi.retromodem/">Wi-Fi</a><br>' +
                     t('Bekijk de verbinding, zoek netwerken en verbind met Wi-Fi.',
                       'View the connection, scan networks and connect to Wi-Fi.') + '</p>' +
                     '<p>' + t('Meer instellingen voor dit apparaat volgen later.',
@@ -796,6 +821,9 @@ class Handler(BaseHTTPRequestHandler):
         frontend, network = wifi_modules()
         frontend.serve(self, status=network.status, scan=network.scan, connect=network.connect,
                        diagnostic=network.record_event)
+
+    def serve_retro_proxy(self) -> None:
+        proxy_module().serve(self, save=save_config)
 
     def authenticated(self, config: dict[str, str]) -> bool:
         header = self.headers.get("Authorization", "")
@@ -891,6 +919,9 @@ class Handler(BaseHTTPRequestHandler):
         host = getattr(self, "headers", {}).get("Host", "").split(":", 1)[0].lower().rstrip(".")
         if host in {'start.retromodem', 'setup.retromodem'}:
             self.serve_retro_home(host)
+            return
+        if host == 'proxy.retromodem':
+            self.serve_retro_proxy()
             return
         if host == 'wifi.retromodem':
             self.serve_retro_wifi()
@@ -1273,6 +1304,9 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
+        if getattr(self, 'headers', {}).get('Host', '').split(':', 1)[0].lower().rstrip('.') == 'proxy.retromodem':
+            self.serve_retro_proxy()
+            return
         config = self.config()
         if getattr(self, 'headers', {}).get('Host', '').split(':', 1)[0].lower().rstrip('.') == 'wifi.retromodem':
             self.serve_retro_wifi()
@@ -1647,7 +1681,9 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             if not 16 <= image_width <= 4096 or not 16 <= image_height <= 4096:
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige afbeeldingsgrootte")
                 return
-            save_config({**pagination, "RETROMODEM_PROXY_MODE": mode,
+            content = proxy_module().content_settings(form.get('page_size', '250000'), image_start,
+                                                      str(image_width), str(image_height))
+            save_config({**content, "RETROMODEM_PROXY_MODE": mode,
                          "RETROMODEM_PROXY_EXCEPTIONS": ",".join(dict.fromkeys(exceptions)),
                          "RETROMODEM_PROXY_IMAGE_START": image_start,
                          "RETROMODEM_PROXY_IMAGE_WIDTH": str(image_width),

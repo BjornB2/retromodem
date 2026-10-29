@@ -209,6 +209,7 @@ install -m 0755 "$PROJECT_DIR/web/web.py" /usr/local/lib/retromodem/web.py
 install -m 0644 "$PROJECT_DIR/web/chatgpt_web.py" /usr/local/lib/retromodem/chatgpt_web.py
 install -m 0644 "$PROJECT_DIR/web/wifi_web.py" /usr/local/lib/retromodem/wifi_web.py
 install -m 0644 "$PROJECT_DIR/web/wifi_network.py" /usr/local/lib/retromodem/wifi_network.py
+install -m 0644 "$PROJECT_DIR/web/proxy_web.py" /usr/local/lib/retromodem/proxy_web.py
 install -m 0644 "$PROJECT_DIR/web/static/software/"* /usr/local/share/retromodem/static/software/
 install -m 0644 "$PROJECT_DIR/web/static/guides/psion/"* /usr/local/share/retromodem/static/guides/psion/
 install -m 0644 "$PROJECT_DIR/config/ppp/retromodem" /etc/ppp/peers/retromodem
@@ -279,6 +280,7 @@ usr/local/lib/retromodem/local_ui.py
 usr/local/lib/retromodem/chatgpt_web.py
 usr/local/lib/retromodem/wifi_web.py
 usr/local/lib/retromodem/wifi_network.py
+usr/local/lib/retromodem/proxy_web.py
 usr/local/lib/retromodem/ensure-chatgpt-phonebook.py
 usr/local/lib/retromodem/apply-mode
 usr/local/lib/retromodem/dialup-ppp

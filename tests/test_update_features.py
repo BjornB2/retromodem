@@ -49,7 +49,7 @@ class FeatureUpdateTests(unittest.TestCase):
         dns = self.root / 'etc/dnsmasq.d/retromodem.conf'
         dns.parent.mkdir(parents=True)
         dns.write_text(''.join('address=/' + host + '/192.168.77.1\n' for host in
-                              ('wifi.retromodem', 'start.retromodem', 'setup.retromodem')))
+                              ('wifi.retromodem', 'start.retromodem', 'setup.retromodem', 'proxy.retromodem')))
 
     def run_update(self, **kwargs):
         options = dict(validator=lambda *_: None, is_active=lambda _: True,

@@ -2,7 +2,7 @@
 
 The full installer has a feature-only mode. It does not install packages, build
 drivers, change boot settings, adapter selection, Wi-Fi or ChatGPT credentials.
-The first installation of wifi.retromodem, start.retromodem or setup.retromodem requires the full installer once for
+The first installation of wifi.retromodem, start.retromodem, setup.retromodem or proxy.retromodem requires the full installer once for
 its DNS route. Feature-only mode refuses that transition when the route is
 missing; subsequent updates include the two Wi-Fi web modules.
 Run from a reviewed source checkout:

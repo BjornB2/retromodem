@@ -494,7 +494,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get('Transfer-Encoding'):
             self.send_error(400)
             return
-        if not 0 <= length <= (4096 if host == 'wifi.retromodem' else 16000):
+        if not 0 <= length <= (4096 if host in {'wifi.retromodem', 'proxy.retromodem'} else 16000):
             self.send_error(413)
             return
         connection = http.client.HTTPConnection('127.0.0.1', 80, timeout=200)
@@ -502,7 +502,7 @@ class Handler(BaseHTTPRequestHandler):
             parsed = urllib.parse.urlsplit(original)
             target = urllib.parse.urlunsplit(('', '', parsed.path or '/', parsed.query, ''))
             headers = {'Host': host, 'Content-Type': self.headers.get('Content-Type', 'application/x-www-form-urlencoded')}
-            if host == 'wifi.retromodem':
+            if host in {'wifi.retromodem', 'proxy.retromodem'}:
                 headers['X-Retromodem-Client'] = self.client_address[0]
                 for name in ('Origin', 'Authorization'):
                     if self.headers.get(name):
@@ -516,7 +516,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')
             self.send_header('Referrer-Policy', 'no-referrer')
-            if host == 'wifi.retromodem':
+            if host in {'wifi.retromodem', 'proxy.retromodem'}:
                 self.send_header('X-Frame-Options', 'DENY')
             self.send_header('Connection', 'close')
             self.end_headers()
@@ -532,8 +532,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         original = requested_url(self)
-        if urllib.parse.urlsplit(original).hostname == 'wifi.retromodem':
-            self.relay_local(original, 'wifi.retromodem')
+        if urllib.parse.urlsplit(original).hostname in {'wifi.retromodem', 'proxy.retromodem'}:
+            self.relay_local(original, urllib.parse.urlsplit(original).hostname)
         elif urllib.parse.urlsplit(original).hostname == 'chatgpt.retromodem':
             self.relay_chat(original)
         else:
@@ -547,7 +547,7 @@ class Handler(BaseHTTPRequestHandler):
             original = requested_url(self)
             parsed = urllib.parse.urlsplit(original)
             host = parsed.hostname or ""
-            if host in {'start.retromodem', 'setup.retromodem'}:
+            if host in {'start.retromodem', 'setup.retromodem', 'proxy.retromodem'}:
                 self.relay_local(original, host)
                 return
             if host == 'wifi.retromodem':

@@ -15,6 +15,12 @@ als DNS-server (`192.168.77.1`), ook bij dial-up internet. De lokale pagina's
 werken zonder browserproxy en via de ingebouwde proxy. Voor ChatGPT moet je
 eerst je account koppelen in de beheerinterface; zoeken en chat vereisen internet.
 
+Via **Instellingen → Webproxy**, of `http://proxy.retromodem/`, stel je de
+paginagrootte, startstand voor afbeeldingen en afbeeldingsafmetingen in.
+Deze keuzes zijn gedeeld met de beheerinterface. Open de oorspronkelijke website
+opnieuw na opslaan; de startstand voor afbeeldingen geldt bij de volgende PPP-verbinding.
+Zie ook [de tweetalige client-proxyhandleiding](RETRO-PROXY-SETTINGS.md).
+
 
 
 ## Standaardgegevens

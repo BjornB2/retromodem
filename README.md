@@ -17,6 +17,9 @@ ChatGPT and Settings. **http://setup.retromodem/** lists local configuration
 pages, including **http://wifi.retromodem/** for Wi-Fi setup from the retro
 device itself. See the [quickstart](docs/QUICKSTART.md).
 
+**http://proxy.retromodem/** provides page-size and image settings from the
+retro device, also linked from Setup. See [retro proxy settings](docs/RETRO-PROXY-SETTINGS.md).
+
 RetroModem turns a Raspberry Pi into a standalone internet bridge and Hayes
 modem for vintage handhelds and computers. The preferred infrared build uses a
 Ming Yuan MY018 module connected to the Pi's GPIO/UART. Computers without
