@@ -56,7 +56,10 @@ Once connected, the retro device can open:
 | `http://setup.retromodem/` | Retro-client configuration |
 | `http://wifi.retromodem/` | Wi-Fi status, scanning and connection |
 | `http://proxy.retromodem/` | RetroWEB page and image settings |
-| `http://retromodem.local/` | Full administration interface |
+
+From a modern computer, tablet or phone on the same network, open
+`http://retromodem.local/` for the full administration interface. This interface
+is intended for remote management and is not the retro-device page.
 
 Connection type, adapter and link speeds can be selected without editing
 configuration files:
