@@ -176,7 +176,7 @@ class DocumentVariantTests(unittest.TestCase):
         self.assertIn(b'Unsplit: may use substantial memory.', all_page)
 
     def test_controls_and_messages_are_localized_and_before_first_heading(self):
-        content = '<img src="huge.gif" width="500" height="500" data-rm-link-label="Image 1: Big">'
+        content = '<h1>Article heading</h1><img src="huge.gif" width="500" height="500" data-rm-link-label="Image 1: Big">'
         dutch = self.first(content, language='nl')
         page = dutch['html']
         for control in (b'Afbeeldingen:', b'Laten zien', b'als links', b'Deel 1 van', b'Volledige pagina tonen'):

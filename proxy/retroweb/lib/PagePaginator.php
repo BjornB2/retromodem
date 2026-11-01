@@ -371,7 +371,6 @@ class RetroWebPagePaginator
     {
         $this->weightImages = $mode === 'inline' && $this->limit !== 0;
         [$header, $footer] = $this->frame($title, $navigation, $bodyAttrs);
-        $heading = '<h1>' . $title . '</h1>';
         $content = $this->imageVariant($canonical, $mode);
         $splitContent = preg_replace_callback('/href=(["\'])#([^"\']+)\1/i', function ($match) use ($baseUrl, $token, $mode) {
             $anchor = rawurldecode(html_entity_decode($match[2], ENT_QUOTES, 'ISO-8859-1'));
@@ -383,7 +382,7 @@ class RetroWebPagePaginator
         } else {
             $reserve = 2 * max(strlen($this->navigation($baseUrl, $token, 999998, 999999, 'inline', 'b999999')),
                                strlen($this->navigation($baseUrl, $token, 999998, 999999, 'links', 'b999999')));
-            $budget = $this->limit - self::BRIDGE_RESERVE - strlen($header) - strlen($heading) - strlen($footer)
+            $budget = $this->limit - self::BRIDGE_RESERVE - strlen($header) - strlen($footer)
                     - $reserve - strlen($this->budgetNotice(999999));
             if ($budget < 256) throw new RuntimeException('Pagination navigation exceeds page budget');
             [, $root] = $this->document($splitContent);
@@ -420,7 +419,7 @@ class RetroWebPagePaginator
             $part = $this->cleanBody($part);
             $paging = $this->navigation($baseUrl, $token, $index + 1, $total, $mode, $starts[$index]);
             $notice = $this->budgetNotice($largeImages, $this->limit === 0);
-            $page = $header . $paging . $notice . $heading . $part . $paging . $footer;
+            $page = $header . $paging . $notice . $part . $paging . $footer;
             if ($this->limit !== 0 && $this->htmlBytes($page) > $this->limit - self::BRIDGE_RESERVE) {
                 throw new RuntimeException('Pagination page exceeded budget');
             }
@@ -429,7 +428,7 @@ class RetroWebPagePaginator
         $whole = $this->cleanBody($content);
         $paging = $this->navigation($baseUrl, $token, 1, $total, $mode, 'b1', true);
         return ['pages' => $pages, 'starts' => $starts, 'blocks' => $blocks,
-                'all' => base64_encode($header . $paging . $this->budgetNotice(0, true) . $heading . $whole . $paging . $footer)];
+                'all' => base64_encode($header . $paging . $this->budgetNotice(0, true) . $whole . $paging . $footer)];
     }
 
     private function save(string $token, array $snapshot): void
@@ -470,7 +469,7 @@ class RetroWebPagePaginator
                           string $baseUrl, string $mode = 'inline'): string
     {
         if (!in_array($mode, ['inline', 'links'], true)) throw new RuntimeException('Invalid image mode');
-        $token = hash('sha256', "retroweb-combined-v3\0" . $content . "\0" . $title . "\0" . $navigation
+        $token = hash('sha256', "retroweb-combined-v4\0" . $content . "\0" . $title . "\0" . $navigation
                     . "\0" . $bodyAttrs . "\0" . $baseUrl . "\0" . $this->limit . "\0" . $this->language);
         $existing = $this->read($token, '1', $mode);
         if ($existing['status'] === 200) return $existing['html'];

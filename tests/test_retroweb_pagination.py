@@ -84,6 +84,12 @@ class RetroWebPaginationTests(unittest.TestCase):
         response['all'] = base64.b64decode(response['all'])
         return response
 
+    def test_document_title_stays_in_head_and_is_not_injected_as_heading(self):
+        page = self.paginate('<article><h1>Visible article title</h1><p>Body</p></article>')['first']
+        self.assertIn(b'<title>Test article</title>', page)
+        self.assertNotIn(b'<h1>Test article</h1>', page)
+        self.assertEqual(page.count(b'<h1>Visible article title</h1>'), 1)
+
     def test_small_preset_and_entire_page_ignore_legacy_image_limit(self):
         content = '<div id="article">' + '<p>Lots of text here. </p>' * 1800 + '<img src="a.gif" width="8" height="8">' * 8 + '</div>'
         small = self.paginate(content, limit=12000, images=2)
