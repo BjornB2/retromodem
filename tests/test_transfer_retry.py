@@ -161,6 +161,24 @@ class RetryTests(unittest.TestCase):
         self.assertEqual(run.call_args_list[1].args[0], ['/usr/local/lib/retromodem/set-mode-leds'])
         self.assertNotIn(['/usr/local/lib/retromodem/apply-mode'], [call.args[0] for call in run.call_args_list])
 
+    def test_palm_recovery_restarts_irda_and_waits_for_beam_profile(self):
+        restarted = Mock(returncode=0)
+        discovery = Mock(side_effect=[
+            'IrLMP: Discovery log:\n',
+            'nickname: Palm III, hint: 0x8220, saddr: 1, daddr: 2\n',
+        ])
+        discovery_file = Mock()
+        discovery_file.read_text.side_effect = discovery
+        with patch.object(worker.subprocess, 'run', return_value=restarted) as run, \
+                patch.object(worker, 'IRDA_DISCOVERY', discovery_file), \
+                patch.object(worker.time, 'sleep') as sleep:
+            self.assertTrue(worker.recover_palm_irda())
+        run.assert_called_once_with(
+            ['systemctl', 'restart', 'retromodem-irda.service'],
+            text=True, capture_output=True, check=False,
+        )
+        sleep.assert_called_once_with(0.5)
+
     def test_rendered_transfer_javascript_parses(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(web, 'TRANSFERS', Path(directory)), patch.object(web, 'RECEIVED', Path(directory) / 'received'):
             handler = self.handler({})

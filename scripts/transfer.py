@@ -17,6 +17,7 @@ ROOT = Path("/var/lib/retromodem/transfers")
 STATUS = ROOT / "status.json"
 LOCK = ROOT / "transfer.lock"
 ACTIVE_PROCESS: subprocess.Popen[bytes] | None = None
+IRDA_DISCOVERY = Path("/proc/net/irda/discovery")
 
 
 class TransferProgress:
@@ -257,6 +258,25 @@ def restore_modem_mode(values: dict[str, str], preserve_irda: bool = False) -> s
     return f"{expected} kwam niet terug" + (f": {details}" if details else "")
 
 
+def recover_palm_irda() -> bool:
+    """Clear a stale IrCOMM session and wait for the Palm to advertise again."""
+    restarted = subprocess.run(
+        ["systemctl", "restart", "retromodem-irda.service"],
+        text=True, capture_output=True, check=False,
+    )
+    if restarted.returncode != 0:
+        return False
+    for _attempt in range(30):
+        try:
+            discovery = IRDA_DISCOVERY.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            discovery = ""
+        if "nickname: Palm" in discovery and "hint: 0x8220" in discovery:
+            return True
+        time.sleep(0.5)
+    return False
+
+
 def main() -> int:
     if len(sys.argv) != 4:
         raise SystemExit("Gebruik: transfer.py send|receive ascii|xmodem|ymodem|zmodem|epoc|palm|windows PAD")
@@ -349,6 +369,22 @@ def main() -> int:
             returncode, message = execute_device(
                 command, transfer_cwd, status_extra, label, inactivity_timeout=timeout
             )
+            if (protocol == "palm" and returncode != 0
+                    and "unable to connect" in message.lower()):
+                write_status(
+                    "running", "Palm-verbinding herstellen na PPP", message,
+                    **{**status_extra, "phase": "recovering"},
+                )
+                if recover_palm_irda():
+                    status_extra["phase"] = "discovering"
+                    write_status(
+                        "running", "Palm opnieuw gevonden — Beam opnieuw proberen", "",
+                        **status_extra,
+                    )
+                    returncode, message = execute_device(
+                        command, transfer_cwd, status_extra, label,
+                        inactivity_timeout=timeout,
+                    )
             if returncode != 0:
                 family = {"palm": "Palm Beam", "windows": "Windows Wireless Link"}.get(
                     protocol, "EPOC-overdracht"
