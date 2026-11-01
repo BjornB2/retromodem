@@ -225,15 +225,26 @@ def cleanup_sent_upload(path: Path) -> None:
             pass
 
 
-def restore_modem_mode(values: dict[str, str]) -> str:
+def restore_modem_mode(values: dict[str, str], preserve_irda: bool = False) -> str:
     """Restore the selected modem service and verify that it really returned."""
-    result = subprocess.run(
-        ["/usr/local/lib/retromodem/apply-mode"],
-        text=True, capture_output=True, check=False,
-    )
     expected = ("retromodem-ppp.service"
                 if values.get("RETROMODEM_LINE_MODE", "ppp") == "ppp"
                 else "retromodem-tcpser.service")
+    if preserve_irda and values.get("RETROMODEM_TRANSPORT", "irda") == "irda":
+        # A completed Palm PUT leaves a proven 57600-bit/s IrLAP association.
+        # apply-mode would restart irattach, reset MY018 to 9600 and discard
+        # that healthy link. Resume the selected consumer in place instead.
+        result = subprocess.run(
+            ["systemctl", "start", expected],
+            text=True, capture_output=True, check=False,
+        )
+        if result.returncode == 0:
+            subprocess.run(["/usr/local/lib/retromodem/set-mode-leds"], check=False)
+    else:
+        result = subprocess.run(
+            ["/usr/local/lib/retromodem/apply-mode"],
+            text=True, capture_output=True, check=False,
+        )
     for _attempt in range(50):
         active = subprocess.run(
             ["systemctl", "is-active", "--quiet", expected],
@@ -394,7 +405,21 @@ def main() -> int:
         final_state = ("error", str(error), "")
         return 1
     finally:
-        restore_error = restore_modem_mode(values)
+        if protocol == "palm" and final_state[0] == "complete":
+            # irobex_palm3 reports success as soon as the PUT completes, while
+            # Palm OS still needs a short window to finish the Exchange Manager
+            # disconnect. Restarting irattach/PPP in that same instant leaves
+            # some Palms unable to accept a second Beam until they are reset.
+            write_status(
+                "running", "Palm Beam afronden", final_state[2],
+                direction=direction, protocol=protocol, filename=path.name,
+                started=started, phase="finalizing",
+            )
+            time.sleep(3.0)
+        restore_error = restore_modem_mode(
+            values,
+            preserve_irda=(protocol == "palm" and final_state[0] == "complete"),
+        )
         if restore_error:
             state, message, output = final_state
             final_state = (

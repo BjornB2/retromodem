@@ -173,7 +173,8 @@ class InstallationTests(unittest.TestCase):
         transfer = (ROOT / "scripts/transfer.py").read_text(encoding="utf-8")
         self.assertIn("def restore_modem_mode", transfer)
         self.assertIn('systemctl", "is-active", "--quiet", expected', transfer)
-        self.assertIn("restore_error = restore_modem_mode(values)", transfer)
+        self.assertIn("restore_error = restore_modem_mode(", transfer)
+        self.assertIn('preserve_irda=(protocol == "palm" and final_state[0] == "complete")', transfer)
 
     def test_transfer_terminal_phase_matches_failure_state(self):
         transfer = (ROOT / "scripts/transfer.py").read_text(encoding="utf-8")

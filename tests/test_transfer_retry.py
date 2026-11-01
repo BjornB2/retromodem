@@ -145,10 +145,21 @@ class RetryTests(unittest.TestCase):
                 work.mkdir()
                 asset = work / 'test.prc'
                 asset.write_bytes(b'0' * 64 + b'TEST')
-                with patch.object(worker, 'ROOT', root), patch.object(worker, 'LOCK', root / 'lock'), patch.object(worker, 'config', return_value={}), patch.object(worker, 'write_status') as status, patch.object(worker, 'restore_modem_mode', return_value='failed' if outcome == 'restore-error' else ''), patch.object(worker.subprocess, 'run'), patch.object(worker.signal, 'signal'), patch.object(worker.sys, 'argv', ['transfer.py', 'send', 'palm', str(asset)]), patch.object(worker, 'execute_device', side_effect=worker.TransferCancelled() if outcome == 'cancelled' else None, return_value=(1, 'bad') if outcome == 'error' else (0, 'OK')):
+                with patch.object(worker, 'ROOT', root), patch.object(worker, 'LOCK', root / 'lock'), patch.object(worker, 'config', return_value={}), patch.object(worker, 'write_status') as status, patch.object(worker, 'restore_modem_mode', return_value='failed' if outcome == 'restore-error' else '') as restore, patch.object(worker.time, 'sleep') as sleep, patch.object(worker.subprocess, 'run'), patch.object(worker.signal, 'signal'), patch.object(worker.sys, 'argv', ['transfer.py', 'send', 'palm', str(asset)]), patch.object(worker, 'execute_device', side_effect=worker.TransferCancelled() if outcome == 'cancelled' else None, return_value=(1, 'bad') if outcome == 'error' else (0, 'OK')):
                     worker.main()
                 self.assertEqual(asset.exists(), keep)
                 self.assertEqual(status.call_args.args[0], 'error' if outcome == 'restore-error' else outcome)
+                self.assertEqual(sleep.call_args_list, [unittest.mock.call(3.0)] if outcome in {'complete', 'restore-error'} else [])
+                self.assertEqual(restore.call_args.kwargs['preserve_irda'], outcome in {'complete', 'restore-error'})
+
+    def test_successful_palm_restore_preserves_live_irda_link(self):
+        completed = Mock(returncode=0, stderr='', stdout='')
+        active = Mock(returncode=0)
+        with patch.object(worker.subprocess, 'run', side_effect=[completed, Mock(returncode=0), active]) as run:
+            self.assertEqual(worker.restore_modem_mode({}, preserve_irda=True), '')
+        self.assertEqual(run.call_args_list[0].args[0], ['systemctl', 'start', 'retromodem-ppp.service'])
+        self.assertEqual(run.call_args_list[1].args[0], ['/usr/local/lib/retromodem/set-mode-leds'])
+        self.assertNotIn(['/usr/local/lib/retromodem/apply-mode'], [call.args[0] for call in run.call_args_list])
 
     def test_rendered_transfer_javascript_parses(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(web, 'TRANSFERS', Path(directory)), patch.object(web, 'RECEIVED', Path(directory) / 'received'):
