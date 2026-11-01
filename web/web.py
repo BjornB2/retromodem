@@ -39,9 +39,9 @@ STATIC_ROOT = Path("/usr/local/share/retromodem/static")
 LIBRARY_ROOT = Path("/var/lib/retromodem/software-library")
 LIBRARY_META = LIBRARY_ROOT / "library.json"
 SOFTWARE = {
-    "rbrowser-0.1.17": {
-        "name": "RetroModem Browser 0.1.17",
-        "file": "software/RBrowser-0.1.17.prc",
+    "rbrowser-0.1.21": {
+        "name": "RetroModem Browser 0.1.21",
+        "file": "software/RBrowser-0.1.21.prc",
         "protocol": "palm",
     },
     "eudoraweb-2.1": {
@@ -739,14 +739,14 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
     body = body.replace('</script>', "window.addEventListener('hashchange',()=>showGuide(location.hash.slice(1)||'generic',false));</script>", 1)
     rbrowser_card = software_card(
         language,
-        title="RetroModem Browser 0.1.17",
+        title="RetroModem Browser 0.1.21",
         description=tr(
             language,
             "Speciaal voor RetroModem gemaakte open-source browser met search.retromodem als startpagina, eenvoudige HTML-weergave en inline GIF-afbeeldingen.",
             "Open-source browser made specifically for RetroModem, with search.retromodem as its home page, basic HTML rendering and inline GIF images.",
         ),
         compatibility="Palm OS 4.0/4.1 · getest op Palm IIIc · MIT",
-        software_id="rbrowser-0.1.17",
+        software_id="rbrowser-0.1.21",
         source="https://github.com/BjornB2/palm-retroweb-browser",
     )
     body = re.sub(
