@@ -39,6 +39,11 @@ STATIC_ROOT = Path("/usr/local/share/retromodem/static")
 LIBRARY_ROOT = Path("/var/lib/retromodem/software-library")
 LIBRARY_META = LIBRARY_ROOT / "library.json"
 SOFTWARE = {
+    "rbrowser-0.1.17": {
+        "name": "RetroModem Browser 0.1.17",
+        "file": "software/RBrowser-0.1.17.prc",
+        "protocol": "palm",
+    },
     "eudoraweb-2.1": {
         "name": "EudoraWeb 2.1",
         "file": "software/EudoraWeb_2.1.prc",
@@ -732,6 +737,23 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
 </script>"""
 
     body = body.replace('</script>', "window.addEventListener('hashchange',()=>showGuide(location.hash.slice(1)||'generic',false));</script>", 1)
+    rbrowser_card = software_card(
+        language,
+        title="RetroModem Browser 0.1.17",
+        description=tr(
+            language,
+            "Speciaal voor RetroModem gemaakte open-source browser met search.retromodem als startpagina, eenvoudige HTML-weergave en inline GIF-afbeeldingen.",
+            "Open-source browser made specifically for RetroModem, with search.retromodem as its home page, basic HTML rendering and inline GIF images.",
+        ),
+        compatibility="Palm OS 4.0/4.1 · getest op Palm IIIc · MIT",
+        software_id="rbrowser-0.1.17",
+        source="https://github.com/BjornB2/palm-retroweb-browser",
+    )
+    body = re.sub(
+        r'(<section class="card guide-panel" id="palm-new".*?<div class="software-list">)',
+        lambda match: match.group(1) + rbrowser_card,
+        body, count=1, flags=re.S,
+    )
     device_next = ('<div class="form-section"><h3>' + tr(language, 'Na het verbinden', 'After connecting') + '</h3><p>' + tr(language,
         'Open <a href="http://start.retromodem/">start.retromodem</a> voor Zoeken, ChatGPT en Instellingen. Via <a href="http://setup.retromodem/">setup.retromodem</a> ga je naar <a href="http://wifi.retromodem/">wifi.retromodem</a> om wifi vanaf dit apparaat in te stellen. Gebruik DNS 192.168.77.1. Dit kan na direct PPP of inbel-PPP; een terminalverbinding alleen is niet genoeg.',
         'Open <a href="http://start.retromodem/">start.retromodem</a> for Search, ChatGPT and Settings. <a href="http://setup.retromodem/">setup.retromodem</a> links to <a href="http://wifi.retromodem/">wifi.retromodem</a> to configure Wi-Fi from this device. Use DNS 192.168.77.1. This works after direct PPP or dial-up PPP; a terminal connection alone is not enough.') + '</p><p><a href="/guides#generic">' + tr(language, 'Algemene uitleg en problemen oplossen', 'General workflow and troubleshooting') + '</a> · <a href="/guides#proxy">' + tr(language, 'Webproxy, afbeeldingen en geheugen', 'Web proxy, images and memory') + '</a></p></div>')
