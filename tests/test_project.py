@@ -192,7 +192,11 @@ class InstallationTests(unittest.TestCase):
         self.assertTrue((ROOT / "web/static/software/EudoraWeb_2.1.prc").is_file())
         self.assertTrue((ROOT / "web/static/software/MochaTelnet_3.0.prc").is_file())
         self.assertTrue((ROOT / "web/static/software/RBrowser-0.1.21.prc").is_file())
+        self.assertTrue((ROOT / "web/static/software/PalmTerm-RetroIRModem-0.1.34.prc").is_file())
         self.assertIn('"rbrowser-0.1.21"', web)
+        self.assertIn('"palmterm-retromodem-0.1.34"', web)
+        self.assertIn("standaardnummers voor BBS’en en ChatGPT", web)
+        self.assertIn("https://github.com/BjornB2/PalmTerm", web)
         self.assertIn("https://github.com/BjornB2/palm-retroweb-browser", web)
 
     def test_windows_wireless_link_is_wired_end_to_end(self):

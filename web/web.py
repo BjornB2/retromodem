@@ -39,6 +39,11 @@ STATIC_ROOT = Path("/usr/local/share/retromodem/static")
 LIBRARY_ROOT = Path("/var/lib/retromodem/software-library")
 LIBRARY_META = LIBRARY_ROOT / "library.json"
 SOFTWARE = {
+    "palmterm-retromodem-0.1.34": {
+        "name": "PalmTerm for RetroModem 0.1.34",
+        "file": "software/PalmTerm-RetroIRModem-0.1.34.prc",
+        "protocol": "palm",
+    },
     "rbrowser-0.1.21": {
         "name": "RetroModem Browser 0.1.21",
         "file": "software/RBrowser-0.1.21.prc",
@@ -749,9 +754,21 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
         software_id="rbrowser-0.1.21",
         source="https://github.com/BjornB2/palm-retroweb-browser",
     )
+    palmterm_card = software_card(
+        language,
+        title="PalmTerm for RetroModem 0.1.34",
+        description=tr(
+            language,
+            "Open-source ANSI/VT100-terminal voor Palm OS 4 met kleur, CP437, scrollback en drie weergaven: leesbaar ingepakt, ingezoomd met horizontaal schuiven en een volledige 80×25-overview. Deze RetroModem-versie heeft de standaardnummers voor BBS’en en ChatGPT al in het telefoonboek staan.",
+            "Open-source ANSI/VT100 terminal for Palm OS 4 with colour, CP437, scrollback and three views: readable wrapped text, zoomed with horizontal panning, and a complete 80×25 overview. This RetroModem build already includes the default BBS and ChatGPT numbers in its phone book.",
+        ),
+        compatibility="Palm OS 4.0/4.1 · getest op Palm IIIc · MIT",
+        software_id="palmterm-retromodem-0.1.34",
+        source="https://github.com/BjornB2/PalmTerm",
+    )
     body = re.sub(
         r'(<section class="card guide-panel" id="palm-new".*?<div class="software-list">)',
-        lambda match: match.group(1) + rbrowser_card,
+        lambda match: match.group(1) + palmterm_card + rbrowser_card,
         body, count=1, flags=re.S,
     )
     device_next = ('<div class="form-section"><h3>' + tr(language, 'Na het verbinden', 'After connecting') + '</h3><p>' + tr(language,
