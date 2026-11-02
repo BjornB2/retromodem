@@ -29,6 +29,12 @@ FILES = {
     'proxy/retroweb/lib/PagePaginator.php': ('opt/retromodem/retroweb/lib/PagePaginator.php', 0o644, 'retromodem-retroweb-core.service', True),
     'proxy/retroweb/lib/ContentExtractor.php': ('opt/retromodem/retroweb/lib/ContentExtractor.php', 0o644, 'retromodem-retroweb-core.service', False),
     'scripts/diagnose': ('usr/local/sbin/retromodem-diagnose', 0o755, None, False),
+    'web/static/software/PalmTerm-RetroIRModem-0.1.34.prc': (
+        'usr/local/share/retromodem/static/software/PalmTerm-RetroIRModem-0.1.34.prc',
+        0o644,
+        None,
+        True,
+    ),
 }
 MANIFEST = 'usr/local/share/retromodem/install-manifest.sha256'
 

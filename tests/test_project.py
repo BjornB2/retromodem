@@ -197,6 +197,8 @@ class InstallationTests(unittest.TestCase):
         self.assertIn('"palmterm-retromodem-0.1.34"', web)
         self.assertIn("standaardnummers voor BBS’en en ChatGPT", web)
         self.assertIn("https://github.com/BjornB2/PalmTerm", web)
+        updater = (ROOT / "scripts/update-features.py").read_text(encoding="utf-8")
+        self.assertIn("web/static/software/PalmTerm-RetroIRModem-0.1.34.prc", updater)
         self.assertIn("https://github.com/BjornB2/palm-retroweb-browser", web)
 
     def test_windows_wireless_link_is_wired_end_to_end(self):
