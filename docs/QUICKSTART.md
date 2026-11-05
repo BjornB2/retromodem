@@ -51,6 +51,10 @@ These pages work without JavaScript and do not require a browser proxy.
 | `5551000`–`5551009` | Included public BBS entries | depends on the BBS |
 | `5559999` | ChatGPT BBS | authorize ChatGPT through the web interface first |
 
+For a Nokia 9210i, use eInternet with **Standard Hayes modem**, **57600 bit/s**,
+fax class **Automatic** and number `5559000`. The complete Dutch guide includes
+the [eInternet ZIP, registration guide and Windows XP setup](NOKIA-9210I.md).
+
 Select **Hayes dial-up modem/BBS**, send `AT` if necessary and dial with a
 command such as `ATDT5551000`. New installations use 115200 bit/s for the
 virtual Hayes/Comms port. This does not increase the physical MY018 link above

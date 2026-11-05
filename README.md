@@ -132,6 +132,7 @@ implementation details and known limits.
 - [MY018 modification, speed control and limitations](docs/MY018-SETUP.md)
 - [Install RetroModem](docs/INSTALL.md)
 - [Configure a Psion 5mx or Palm](docs/CLIENT-SETUP.md)
+- [Nokia 9210i via eInternet en IrDA](docs/NOKIA-9210I.md)
 - [Clean-install verification](docs/CLEAN-INSTALL-ACCEPTANCE.md)
 - [Quick reference](docs/QUICKSTART.md)
 - [Printable one-page quick reference (PDF)](docs/RetroModem-Quick-Reference.pdf)

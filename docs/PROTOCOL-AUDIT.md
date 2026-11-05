@@ -20,6 +20,7 @@ Wireless Link of HP HPSIR werkt.
 |---|---|---|---|
 | MA-620 naar internet | IrCOMM + PPP | Geverifieerd op 9600 bit/s | Psion 5mx en Palm IIIc met Palm OS 4.1 maken verbinding; Palm vereist de normale PPP-herstarttijd van 3 seconden |
 | Windows XP inbelinternet via IR | IrCOMM + Hayes/tcpser + PPP | Fysiek geverifieerd | Windows XP belt via het infraroodmodem naar `5559000`; gebruiker `user`, leeg wachtwoord en automatische IP/DNS werken |
+| Nokia 9210i inbelinternet via IR | IrCOMM + Hayes/tcpser + PPP | Fysiek geverifieerd op 57600 bit/s | eInternet 1.10F werkt met `Standard Hayes modem`, fax class automatisch en nummer `5559000` |
 | USB-serieel naar internet | Serieel + PPP | Backend geverifieerd | Proces-, apparaat- en hersteltest; fysieke clienttest blijft apparaatafhankelijk |
 | MA-620/USB-serieel naar BBS | IrCOMM/serieel + tcpser | Backend geverifieerd | AT/ATDT en BBS-sessie getest; tcpser upstream ondersteunt phonebookregels |
 | Terminalbestandsoverdracht | X/Y/ZMODEM via seriële stroom | YMODEM met Psion Comms geverifieerd | Met een tweede Psion 5mx fysiek in beide richtingen geslaagd |
@@ -27,7 +28,7 @@ Wireless Link of HP HPSIR werkt.
 | Psion ingebouwde IR-verzending | EPOC EikonIr/TinyTP | Geverifieerd, apparaatafhankelijk | Met een tweede Psion 5mx werkend; de eerste 5mx vertoont uitval |
 | Palm Beam naar Palm | IrOBEX | Geverifieerd | `irobex_palm3` stuurde EudoraWeb 2.1 volledig naar een Palm IIIc met Palm OS 4.1 |
 | Palm Beam vanaf Palm | IrOBEX | Geverifieerd | Een memo kwam als tekstbestand binnen en een PRC als applicatiebestand |
-| Windows Wireless Link | IrOBEX | Geïmplementeerd, niet fysiek getest | Microsoft documenteert de IrDA OBEX PUT/CONNECT-route |
+| Windows Wireless Link naar Nokia 9210i | IrOBEX | Windows-route geverifieerd; RetroModem-pad nog niet compatibel | Windows XP stuurde buiten PC Suite om een bestand naar de Nokia; dezelfde overdracht via RetroModem werkte nog niet |
 | HP 200LX infrarood | raw HPSIR | Niet ondersteund | Vereist een backend buiten IrLAP/IrLMP/IrCOMM |
 
 ## Bevindingen uit broncode en documentatie
@@ -196,7 +197,9 @@ retroapparaat een overeenkomstig terminalprogramma heeft.
 
 Palm OS Exchange Manager gebruikt IrOBEX. Windows Wireless Link gebruikt
 eveneens IrDA OBEX. Die functies mogen niet als gewone terminaltransfer worden
-voorgesteld en krijgen later een OpenOBEX-backend.
+voorgesteld. De huidige OpenOBEX-route werkt voor de geverifieerde Palm-tests,
+maar nog niet voor Windows-naar-Nokia-compatibiliteit via RetroModem; dat pad
+wordt later apart onderzocht.
 
 Bronnen:
 

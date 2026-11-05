@@ -120,6 +120,14 @@ class InstallationTests(unittest.TestCase):
         self.assertIn("tcpser-initialize-termios.patch", installer)
         self.assertIn("tcgetattr(fd, &tio)", patch)
 
+    def test_tcpser_advertises_data_only_fax_class(self):
+        installer = (ROOT / "install.sh").read_text(encoding="utf-8")
+        patch = (ROOT / "patches/tcpser-data-fclass.patch").read_text(encoding="utf-8")
+        self.assertIn("tcpser-data-fclass.patch", installer)
+        self.assertIn('strcasecmp(command, "+FCLASS=?")', patch)
+        self.assertIn('strcasecmp(command, "+FCLASS=0")', patch)
+        self.assertIn("+FCLASS: (0)", patch)
+
     def test_retroweb_proxy_is_toggleable_and_transparent(self):
         unit = (ROOT / "systemd/retromodem-proxy.service").read_text(encoding="utf-8")
         firewall = (ROOT / "scripts/proxy-firewall").read_text(encoding="utf-8")
