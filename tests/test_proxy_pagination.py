@@ -95,13 +95,19 @@ class ProxyPaginationTests(unittest.TestCase):
         response = io.BytesIO(b'<html>ok</html>')
         response.headers = {'Content-Type': 'text/html'}
         with patch.object(proxy.urllib.request, 'urlopen', return_value=response) as fetch:
-            proxy._fetch_retroweb('https://example.org', {'RETROMODEM_PROXY_PAGE_SIZE': '12000', 'RETROMODEM_PROXY_PAGE_IMAGES': '2'})
+            proxy._fetch_retroweb('https://example.org', {'RETROMODEM_PROXY_PAGE_SIZE': '12000', 'RETROMODEM_PROXY_PAGE_IMAGES': '2',
+                                                            'RETROMODEM_PROXY_PROFILE': 'nokia9210',
+                                                            'RETROMODEM_PROXY_TABLES': 'table',
+                                                            'RETROMODEM_PROXY_LAYOUT': 'flow'})
         query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0].full_url).query)
         self.assertEqual(query['page_size'], ['12000'])
+        self.assertEqual(query['profile'], ['nokia9210'])
+        self.assertEqual(query['tables'], ['table'])
+        self.assertEqual(query['layout'], ['flow'])
         self.assertEqual(query['page_images'], ['2'])
 
     def test_large_decoded_page_budgets_are_forwarded_and_accepted_by_php(self):
-        php = (ROOT / 'proxy/retroweb/proxy.php').read_text()
+        settings = (ROOT / 'proxy/retroweb/lib/UserSettings.php').read_text()
         for size in (str(n * 1000) for n in range(250, 2001, 250)):
             response = io.BytesIO(b'<html>ok</html>')
             response.headers = {'Content-Type': 'text/html'}
@@ -109,7 +115,7 @@ class ProxyPaginationTests(unittest.TestCase):
                 proxy._fetch_retroweb('https://example.org', {'RETROMODEM_PROXY_PAGE_SIZE': size})
             query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0].full_url).query)
             self.assertEqual(query['page_size'], [size])
-            self.assertIn("'" + size + "'", php)
+            self.assertRegex(settings, rf'\b{size}\b')
 
     def test_rendering_language_follows_ui_language(self):
         with patch.object(proxy.local_ui, 'language', return_value='nl'):
@@ -131,7 +137,7 @@ class ProxyPaginationTests(unittest.TestCase):
         response.headers = {'Content-Type': 'text/html'}
         with patch.object(proxy.local_ui, 'language', return_value='nl'), patch.object(proxy.urllib.request, 'urlopen', return_value=response) as fetch:
             proxy.fetch_retroweb_part({'document': TOKEN, 'part': '2', 'img': 'inline', 'lang': 'unsafe'})
-        query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0]).query)
+        query = proxy.urllib.parse.parse_qs(proxy.urllib.parse.urlsplit(fetch.call_args.args[0].full_url).query)
         self.assertEqual(query['lang'], ['nl'])
         self.assertNotIn('image_pixels', query)
         self.assertEqual(query['img'], ['inline'])
@@ -140,6 +146,22 @@ class ProxyPaginationTests(unittest.TestCase):
         for extra in ('lang=en', 'image_pixels=0'):
             with self.assertRaises(ValueError):
                 proxy.pagination_parameters(f'document={TOKEN}&part=2&{extra}')
+
+    def test_new_retroweb_navigation_stays_on_the_modem(self):
+        source = (b'<a href="http://127.0.0.1:8090/index.php?profile=psion">Home</a>'
+                  b'<form action="http://127.0.0.1:8090/settings.php">')
+        result = proxy.rewrite_retroweb_html(source).decode()
+        self.assertIn('http://search.retromodem/__retroweb/core/index.php?profile=psion', result)
+        self.assertIn('http://search.retromodem/__retroweb/core/settings.php', result)
+        self.assertNotIn('127.0.0.1:8090', result)
+
+    def test_client_user_agent_is_forwarded_to_retroweb_core(self):
+        headers = proxy.core_request_headers({'_RETROMODEM_CLIENT_USER_AGENT': 'EPOC32-WTL/2.0\r\nInjected: no'})
+        self.assertEqual(headers['X-RetroModem-User-Agent'], 'EPOC32-WTL/2.0Injected: no')
+
+    def test_core_relay_only_accepts_public_ui_scripts(self):
+        with self.assertRaises(ValueError):
+            proxy.fetch_retroweb_core('config.php', '', {})
 
     def test_cache_separates_language(self):
         proxy._cache.clear()

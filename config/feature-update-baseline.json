@@ -7,9 +7,14 @@
       "75537ec857bc27468788125ab32e5600adeea33866cc1604ec8d7dd22bd1caee"
     ],
     "web/proxy_web.py": [
+      "5cfb7b7233e5dc8c22e5f3d930e22ae86c9950042dee9fe2c6bc79c358197da1",
+      "c989b3d126f2c63915896b6e6fc9ba4abb3d2d0cb5351469639c6d75e4fe25e9",
+      "36cc417851141b64468c1d9c1fcebbc9163fed5d14f3f6efbffd31560c687716",
+      "5c56ce36f5a4a285d35351adbcd01200bba1c8a9faadb5829c574c0719f82a1d",
       "a2afb0c7ead755335f68451b2c09534cb2ab2ccb8efbefbffb216c1e3a914834"
     ],
     "proxy/retroweb/lib/PagePaginator.php": [
+      "cf451508b2bd3c850e339715bf9df5c669aff717724993d6f3629933d226b491",
       "e5409be9fcd380b1ddbdbe6a469fece7f66b55f1552a8f5118a0acbcf6cfd242",
       "b95d5e399dda2386db4d77aec19f93db64255f9f755e8f6db85ba81266cc04f9",
       "e811272bef663479fc9c7b56cfeb355af125659e0e1583031afe1b9584a1d63d",
@@ -21,6 +26,13 @@
       "2fc67acbb2192e366cb63fc4cc9a8afbb09733aef6373d8b62b2bee563c89fda"
     ],
     "web/web.py": [
+      "59aa12f68817e33e5ca4d7e1bef0a9be05a9fbb088320a1a0f8c3824bd6e9e01",
+      "437ef2cc9e4c0f761f45bcb3c34a2609e91e38d17312ec3ce99b694b5be6ba61",
+      "3aabedc3b966bde5477ec7c13bcf44c7049a5cd4e18d33de99b4fa1e615867d1",
+      "b11c8e445ada2eb9bbf057d22fbaa43e5f120988f8e9da7f8b82dd3ac427edce",
+      "915fa02057a662b26cc774967956dc3e2ff4cac4e3ee055b4c5bc4075df89078",
+      "3f98ce7f6e7a1d846dfbe1bb69dfba1e0b6bc0e5cd14dd63fe468138006a2c54",
+      "5bf82efc50fc1fde5c15e2eb147ec36f92e849fd87fc467bcd12dc93a3eef7af",
       "34716b5940784211cc4955b23a0fcb59378408e6ecc84bdd53daec54d783ecdd",
       "e2dd468d623dc280cd04791fec70244acb0e2c001bf479137b6a66aa7e3fcbeb",
       "f27b87782f6f58703414c56352ad97dd55843c451e70a13e8333b97f1a127611",
@@ -45,6 +57,11 @@
       "9163d5a0668781cf484b0040ccda5a36bbc33c8615bfeed299025760ff95ea48"
     ],
     "scripts/retroweb-proxy.py": [
+      "56dd5002b3af1ade7a9c1d3d4600fad344a67b584e3ab7d606125dfdd056e734",
+      "0481abbf40c4587c37b121888079c9de66492d2f2824da5e933c721fa3a7f9e3",
+      "4f040067c3bdad77bae0d86dcf3753be7bbb7bd606f75e83d5868a6e6770bd2f",
+      "e9d535538a7e2ea6fd076a39288366dfc7ec43ce046280bf466d7ebe0e2e7f1d",
+      "57e598af96ae5d758fbf2ac10038ca2c454bcc939e14b12d440783062f489c80",
       "8ad99217bd5909741b13338c8a782b424de22a5b8ae766542c758bd433350b69",
       "4fe29ef24381e98da1df9421d1b53d280e3427b89a54901dc1ac4f1fe4a47e9f",
       "6ae8e031a08a2d866ec2447bef6448d8e20e978e23ca11b8cbd60fd0dd153b12",
@@ -61,7 +78,16 @@
       "e6c7f8f932cdc74ec0e00465bba3609728f84bd6e76873f87136bba74d17a320",
       "16ff7c3593c6772333d58be917dd39044f5a29f5dd2b5d8fcabe3dbde6e53ab2"
     ],
+    "scripts/proxy-firewall": [
+      "9a4542affadc074dafd42c893c485fabc192c12c174da8b1db1cd3e836827905",
+      "efc0b45ed6b31c9cbeae6de9298752e64731e59d6323a575b8f333c47cb4bb4c"
+    ],
+    "scripts/proxy-enabled": [
+      "fb009907188909c329dface1dd45d1884fada689fabc4183a7f38dffdba2c44a",
+      "615272d5251482292010b65de4c27bb280699136b6efe4841ba34404966731b0"
+    ],
     "proxy/retroweb/proxy.php": [
+      "b1f160802facf5744042e40db2059282e0f7c65f9b5ec723bab1fea97bd269a3",
       "ff707ea0ed4f97f24012b63d2b9b8c1bbaa8d38611e0798325a925aebe9ed805",
       "c6159d21e756e5c2718bddb0a98a6c6c1835ca464bfb4c744a837857ca6a8e3c",
       "61dfb17e3ca5f8ad144c27ab0873030e6e31e2590b88acdb2ea699ac35cd939f",
@@ -73,11 +99,19 @@
       "3c3b1f24699fe3c9a077a7e613dfc803f7c7060fcdbdd2e6e7cdf0f4d3115d5e"
     ],
     "proxy/retroweb/config.php": [
+      "5cac7b3ac3a1ce1537fac8e46bef873f7115b986b3c16adc4ba117cc81083287",
       "6538f7c8d255fd288fc8ea466767b5565fcf570e29a250d90a869bcc66c3487c",
       "872a99d0015db201a065d7142c3d7de4227d9f28c60cb9c0706c00c53c264b28",
       "6cbbc55dde6fc2650c43425a619146808bdb1ed679716e4af7e57b9f32e79f04",
       "13f875ab05702d0c4dc0e52b8d029bcccc5341f936e747e8a91e64d0154d635c"
     ],
+    "proxy/retroweb/config.defaults.php": ["690e41504e35c85be3c5ebe648b717d37c181771ff641fd6995c19007d229e0b"],
+    "proxy/retroweb/lib/DeviceProfiles.php": [
+      "16fb8baeac9dd70c6271bb2ca0af71dab09ac3d0701c64b3abfe29730f4d0ebc",
+      "004d69fa55ea4fdb60f850bc0cb0f107d8f131f7d8666745a07284900fa8a542"
+    ],
+    "proxy/retroweb/lib/UpstreamFetcher.php": ["966ad7eb40d80410ceff8db32877f9165d8b0fd78743fa49f33c0da6431c7a17"],
+    "proxy/retroweb/lib/UserSettings.php": ["546939e96827307aea0496fccb21de22088042414f9872e42c9791dbf4b9cf37"],
     "proxy/retroweb/lib/ContentExtractor.php": [
       "e4049ec15e70ef9bf0872daac0a9a7e6e0ebc4c20ea9365d0765934ee667cb15"
     ],
@@ -93,7 +127,9 @@
       "4d45be356163bff0d475c8be76a37372f9c33131402438d917f13598c4836134"
     ],
     "proxy/retroweb/image_cruncher.php": [
+      "3d3e000bc5e5ec9f06d9e00d26ae189f3b6d48410a2b2885ee8c9e86f3e2fe35",
       "beb8f5030ae5728c1487f5ba846055b81e7b26828ad1ec0c9c69f1d59be42267"
-    ]
+    ],
+    "proxy/retroweb/settings.php": ["47ea833114506208eb86afa6d3085f543a34a518baebe1b018ccf61e27ef0760"]
   }
 }

@@ -42,6 +42,7 @@ NON_DOCUMENT_SUFFIXES = {
 }
 PAGINATION_PATH = '/__retroweb/page'
 IMAGE_PATH = '/__retroweb/image'
+CORE_PATH = '/__retroweb/core/'
 IMAGE_CHOICE_FILE = Path('/var/lib/retromodem/proxy-image-choice.json')
 _image_session_lock = threading.Lock()
 _image_sessions = {}
@@ -98,7 +99,7 @@ def remember_image_mode(mode: str) -> None:
 
 def session_image_mode(values: dict[str, str], client: str, explicit: str | None = None) -> str:
     policy = values.get('RETROMODEM_PROXY_IMAGE_START', values.get('RETROMODEM_PROXY_IMAGE_MODE', 'inline'))
-    if policy not in {'inline', 'links', 'remember'}:
+    if policy not in {'profile', 'inline', 'links', 'remember'}:
         policy = 'inline'
     if explicit is not None and explicit not in {'inline', 'links'}:
         raise ValueError('Invalid image mode')
@@ -170,7 +171,7 @@ def image_parameters(query: str) -> dict[str, str]:
 
 def rewrite_retroweb_html(data: bytes) -> bytes:
     text = data.decode('iso-8859-1', 'replace')
-    pattern = re.compile(r'http://127\.0\.0\.1:8090/(?:proxy\.php|image_cruncher\.php)\?[^"\' <>]+')
+    pattern = re.compile(r'http://127\.0\.0\.1:8090/(?:proxy\.php|image_cruncher\.php|index\.php|settings\.php)(?:\?[^"\' <>]*)?')
 
     def browser_link(match: re.Match[str]) -> str:
         address = urllib.parse.urlsplit(html.unescape(match.group(0)))
@@ -191,6 +192,10 @@ def rewrite_retroweb_html(data: bytes) -> bytes:
                 result += '#' + address.fragment
         elif len(query.get('url', [])) == 1:
             result = browser_url(query['url'][0])
+        elif address.path in {'/index.php', '/settings.php'}:
+            result = 'http://search.retromodem' + CORE_PATH + address.path.lstrip('/')
+            if address.query:
+                result += '?' + address.query
         else:
             return match.group(0)
         return html.escape(result, quote=True)
@@ -204,7 +209,30 @@ def fetch_retroweb_part(params: dict[str, str]) -> tuple[bytes, str]:
     query = dict(params)
     query.update(rendering_options())
     endpoint = 'http://127.0.0.1:8090/proxy.php?' + urllib.parse.urlencode(query)
-    with urllib.request.urlopen(endpoint, timeout=30) as response:
+    request = urllib.request.Request(endpoint, headers=core_request_headers())
+    with urllib.request.urlopen(request, timeout=30) as response:
+        data = response.read(MAX_DOCUMENT + 1)
+        if len(data) > MAX_DOCUMENT:
+            raise ValueError('processed response too large')
+        content_type = response.headers.get('Content-Type', 'text/html; charset=iso-8859-1')
+    return rewrite_retroweb_html(data), content_type
+
+
+def core_request_headers(values: dict[str, str] | None = None) -> dict[str, str]:
+    values = values or {}
+    headers = {'User-Agent': USER_AGENT}
+    client_agent = values.get('_RETROMODEM_CLIENT_USER_AGENT', '')
+    if client_agent:
+        headers['X-RetroModem-User-Agent'] = client_agent[:1024].replace('\r', '').replace('\n', '')
+    return headers
+
+
+def fetch_retroweb_core(path: str, query: str, values: dict[str, str]) -> tuple[bytes, str]:
+    if path not in {'index.php', 'settings.php'} or len(query) > 16384:
+        raise ValueError('Invalid RetroWEB page')
+    endpoint = 'http://127.0.0.1:8090/' + path + (('?' + query) if query else '')
+    request = urllib.request.Request(endpoint, headers=core_request_headers(values))
+    with urllib.request.urlopen(request, timeout=30) as response:
         data = response.read(MAX_DOCUMENT + 1)
         if len(data) > MAX_DOCUMENT:
             raise ValueError('processed response too large')
@@ -296,7 +324,10 @@ def fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     key = (url, values.get('RETROMODEM_PROXY_IMAGE_MODE', 'inline'),
            values.get('RETROMODEM_PROXY_IMAGE_WIDTH', ''), values.get('RETROMODEM_PROXY_IMAGE_HEIGHT', ''),
            values.get('RETROMODEM_PROXY_PAGE_SIZE', '250000'), values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5'),
-           options['lang'], values.get('RETROMODEM_PROXY_HTTP_FALLBACK', '0'))
+           values.get('RETROMODEM_PROXY_PROFILE', 'auto'), values.get('RETROMODEM_PROXY_TABLES', 'auto'),
+           values.get('RETROMODEM_PROXY_LAYOUT', 'auto'),
+           options['lang'], values.get('RETROMODEM_PROXY_HTTP_FALLBACK', '0'),
+           values.get('_RETROMODEM_CLIENT_USER_AGENT', ''))
     with _cache_lock:
         cached = _cache.get(key)
         if cached and cached[0] > time.monotonic():
@@ -331,15 +362,36 @@ def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     mode = values.get("RETROMODEM_PROXY_IMAGE_MODE", "inline")
     page_size = values.get('RETROMODEM_PROXY_PAGE_SIZE', '250000')
     page_images = values.get('RETROMODEM_PROXY_PAGE_IMAGES', '5')
+    profile = values.get('RETROMODEM_PROXY_PROFILE', 'auto')
+    tables = values.get('RETROMODEM_PROXY_TABLES', 'auto')
+    layout = values.get('RETROMODEM_PROXY_LAYOUT', 'auto')
+    image_size_mode = values.get('RETROMODEM_PROXY_IMAGE_SIZE_MODE', 'custom')
     if page_size not in {'0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000', '250000', '500000', '750000', '1000000', '1250000', '1500000', '1750000', '2000000'}:
         page_size = '250000'
-    if page_images not in {str(n) for n in range(0, 11)}:
-        page_images = '5'
-    endpoint = "http://127.0.0.1:8090/proxy.php?" + urllib.parse.urlencode({
-        "url": url, "img": mode, "page_size": page_size, "page_images": page_images,
+    if page_images not in {'all', *(str(n) for n in range(0, 11))}:
+        page_images = 'all'
+    if profile not in {'auto', 'generic', 'macweb', 'psion', 'psion5mx', 'palm', 'nokia9210', 'ie_win98', 'text'}:
+        profile = 'auto'
+    if tables not in {'auto', 'table', 'linearise'}:
+        tables = 'auto'
+    if layout not in {'auto', 'flow', 'table'}:
+        layout = 'auto'
+    parameters = {
+        "url": url, "page_size": page_size, "page_images": page_images,
+        "profile": profile, "tables": tables, "layout": layout,
         "http_fallback": '1' if values.get('RETROMODEM_PROXY_HTTP_FALLBACK') == '1' else '0',
-        **rendering_options()})
-    request = urllib.request.Request(endpoint, headers={"User-Agent": USER_AGENT})
+        **rendering_options()}
+    if mode != 'profile':
+        parameters['img'] = mode
+    else:
+        parameters['profile_img'] = '1'
+    if image_size_mode != 'profile':
+        parameters['iw'] = values.get('RETROMODEM_PROXY_IMAGE_WIDTH', '200')
+        parameters['ih'] = values.get('RETROMODEM_PROXY_IMAGE_HEIGHT', '150')
+    else:
+        parameters['profile_size'] = '1'
+    endpoint = "http://127.0.0.1:8090/proxy.php?" + urllib.parse.urlencode(parameters)
+    request = urllib.request.Request(endpoint, headers=core_request_headers(values))
     with urllib.request.urlopen(request, timeout=45) as response:
         content_type = response.headers.get("Content-Type", "application/octet-stream")
         data = response.read(MAX_DOCUMENT + 1)
@@ -348,6 +400,16 @@ def _fetch_retroweb(url: str, values: dict[str, str]) -> tuple[bytes, str]:
     if content_type.startswith("text/html"):
         data = rewrite_retroweb_html(data)
     return data, content_type
+
+
+def fetch_online_proxy(url: str, values: dict[str, str]) -> tuple[bytes, str]:
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({'http': 'http://retroweb.bjrno.com:8081'}))
+    request = urllib.request.Request(url, headers={'User-Agent': values.get('_RETROMODEM_CLIENT_USER_AGENT', '')})
+    with opener.open(request, timeout=45) as response:
+        data = response.read(MAX_DOCUMENT + 1)
+        if len(data) > MAX_DOCUMENT:
+            raise ValueError('processed response too large')
+        return data, response.headers.get('Content-Type', 'text/html; charset=iso-8859-1')
 
 
 def likely_document(url: str) -> bool:
@@ -543,6 +605,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             values = settings()
             client = image_client(self)
+            values['_RETROMODEM_CLIENT_USER_AGENT'] = self.headers.get('User-Agent', '')[:1024]
             values['RETROMODEM_PROXY_IMAGE_MODE'] = session_image_mode(values, client)
             original = requested_url(self)
             parsed = urllib.parse.urlsplit(original)
@@ -586,10 +649,22 @@ class Handler(BaseHTTPRequestHandler):
                         self.reply(b'<html><body><h1>Page unavailable</h1><p>This page reference is invalid or expired. Open the original page again.</p></body></html>',
                                    'text/html; charset=iso-8859-1', status)
                     return
+                if parsed.path.startswith(CORE_PATH):
+                    try:
+                        data, content_type = fetch_retroweb_core(parsed.path[len(CORE_PATH):], parsed.query, values)
+                        self.reply(data, content_type)
+                    except urllib.error.HTTPError as error:
+                        status = error.code if error.code in {400, 403, 404, 410, 413} else 502
+                        self.send_error(status, 'RetroWEB page unavailable')
+                    return
                 search_args = urllib.parse.parse_qs(parsed.query)
                 query = search_args.get("q", [""])[0].strip()[:500]
                 token = search_args.get('page', [''])[0][:128]
                 self.reply(search_page(query, page_token=token), "text/html; charset=iso-8859-1")
+                return
+            if values.get('RETROMODEM_PROXY_MODE') == 'transparent-online':
+                data, content_type = fetch_online_proxy(original, values)
+                self.reply(data, content_type)
                 return
             excluded = is_excluded(host, values)
             if excluded:

@@ -3,6 +3,66 @@
  * RetroWEB - Configuratie
  */
 
+require_once __DIR__ . '/lib/ConfigLoader.php';
+require_once __DIR__ . '/lib/DeviceProfiles.php';
+require_once __DIR__ . '/lib/UserSettings.php';
+
+$retroWebConfig = \RetroWEB\ConfigLoader::load(__DIR__);
+
+function defineRetroWebConfig(array $config): void {
+    $constants = [
+        'public_host' => 'PUBLIC_HOST',
+        'cache_dir' => 'CACHE_DIR',
+        'cache_ttl' => 'CACHE_TTL',
+        'cache_ttl_failed' => 'CACHE_TTL_FAILED',
+        'cache_version' => 'CACHE_VERSION',
+        'render_version' => 'RENDER_VERSION',
+        'image_cache_ttl' => 'IMAGE_CACHE_TTL',
+        'image_cache_revalidate' => 'IMAGE_CACHE_REVALIDATE',
+        'image_cache_max_files' => 'IMAGE_CACHE_MAX_FILES',
+        'image_cache_max_bytes' => 'IMAGE_CACHE_MAX_BYTES',
+        'max_download_size' => 'MAX_DOWNLOAD_SIZE',
+        'max_image_width' => 'MAX_IMAGE_WIDTH',
+        'max_image_height' => 'MAX_IMAGE_HEIGHT',
+        'min_image_size' => 'MIN_IMAGE_SIZE',
+        'jpg_quality' => 'JPG_QUALITY',
+        'gif_palette_colors' => 'GIF_PALETTE_COLORS',
+        'gif_use_dithering' => 'GIF_USE_DITHERING',
+        'user_agent' => 'USER_AGENT',
+        'content_extractor' => 'CONTENT_EXTRACTOR',
+        'app_env' => 'APP_ENV',
+        'rate_limit_enabled' => 'RATE_LIMIT_ENABLED',
+        'rate_limit_requests' => 'RATE_LIMIT_REQUESTS',
+        'rate_limit_window' => 'RATE_LIMIT_WINDOW',
+        'max_url_length' => 'MAX_URL_LENGTH',
+        'max_image_processing_size' => 'MAX_IMAGE_PROCESSING_SIZE',
+        'image_processing_timeout' => 'IMAGE_PROCESSING_TIMEOUT',
+        'max_search_query_length' => 'MAX_SEARCH_QUERY_LENGTH',
+        'max_redirect_depth' => 'MAX_REDIRECT_DEPTH',
+        'max_request_size' => 'MAX_REQUEST_SIZE',
+        'request_timeout' => 'REQUEST_TIMEOUT',
+        'visitor_tracking_enabled' => 'VISITOR_TRACKING_ENABLED',
+        'visitor_tracking_window' => 'VISITOR_TRACKING_WINDOW',
+        'stats_cache_ttl' => 'STATS_CACHE_TTL',
+        'settings_session_ttl' => 'SETTINGS_SESSION_TTL',
+        'forward_proxy_monthly_bytes' => 'FORWARD_PROXY_MONTHLY_BYTES',
+        'forward_proxy_daily_bytes' => 'FORWARD_PROXY_DAILY_BYTES',
+        'forward_proxy_ip_daily_bytes' => 'FORWARD_PROXY_IP_DAILY_BYTES',
+    ];
+
+    foreach ($constants as $key => $constant) {
+        if (!array_key_exists($key, $config)) {
+            throw new RuntimeException('Missing configuration key: ' . $key);
+        }
+        if (!defined($constant)) {
+            define($constant, $config[$key]);
+        }
+    }
+}
+
+defineRetroWebConfig($retroWebConfig);
+unset($retroWebConfig);
+
 // VROEGE REQUEST NORMALISATIE (VOOR ALLES ANDERS)
 // Dit is cruciaal voor HTTP/1.0 browsers zoals MacWeb 2.0 die geen Host header sturen
 // De webserver kan een 400 error geven VOORDAT PHP draait, dus normaliseer zo vroeg mogelijk
@@ -23,85 +83,12 @@ if (empty($_SERVER['REQUEST_URI']) && !empty($_SERVER['SCRIPT_NAME'])) {
 
 // Bereken base path dynamisch voor subfolder installaties
 if (isset($_SERVER['SCRIPT_NAME']) && !empty($_SERVER['SCRIPT_NAME'])) {
-    define('BASE_PATH', rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') ?: '/');
+    $scriptDirectory = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+    define('BASE_PATH', ($scriptDirectory === '' || $scriptDirectory === '.') ? '/' : $scriptDirectory);
 } else {
     // Fallback als SCRIPT_NAME niet beschikbaar is
     define('BASE_PATH', '/');
 }
-
-// Cache configuratie
-define('CACHE_DIR', __DIR__ . '/cache');
-define('CACHE_TTL', 3600); // 1 uur voor succesvolle requests
-define('CACHE_TTL_FAILED', 300); // 5 minuten voor failed requests
-define('CACHE_VERSION', '1.4'); // Increment bij parsing logica wijzigingen
-
-// Max download size voor non-HTML content (8MB)
-define('MAX_DOWNLOAD_SIZE', 8 * 1024 * 1024);
-
-// Image compression settings
-// Reload only numeric image limits from the local config for every request.
-// Never source/evaluate the file or expose other settings to the response.
-function retromodemImageDimension(string $key, string $legacy, int $fallback): int {
-    $path = getenv('RETROMODEM_CONFIG_FILE') ?: '/etc/retromodem/retromodem.env';
-    $local = [];
-    foreach (@file($path, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
-        if (preg_match('/^(RETROMODEM_(?:PROXY|68KPROXY)_IMAGE_(?:WIDTH|HEIGHT))=(.*)$/D', $line, $match)) {
-            $value = trim($match[2], " \t\r\n\"'");
-            if (ctype_digit($value) && (int)$value >= 16 && (int)$value <= 4096) {
-                $local[$match[1]] = (int)$value;
-            }
-        }
-    }
-    foreach ([$local[$key] ?? null, $local[$legacy] ?? null, getenv($key), getenv($legacy)] as $value) {
-        if (is_numeric($value) && (int)$value >= 16 && (int)$value <= 4096) return (int)$value;
-    }
-    return $fallback;
-}
-define('MAX_IMAGE_WIDTH', retromodemImageDimension('RETROMODEM_PROXY_IMAGE_WIDTH', 'RETROMODEM_68KPROXY_IMAGE_WIDTH', 200));
-define('MAX_IMAGE_HEIGHT', retromodemImageDimension('RETROMODEM_PROXY_IMAGE_HEIGHT', 'RETROMODEM_68KPROXY_IMAGE_HEIGHT', 150));
-define('MIN_IMAGE_SIZE', 32); // Verberg images kleiner dan 32x32
-define('JPG_QUALITY', 70); // JPG compressie kwaliteit (0-100)
-
-// GIF color palette settings
-define('GIF_PALETTE_COLORS', 128); // Aantal kleuren in GIF palette (max 256, aanbevolen 64-128 voor oude browsers)
-define('GIF_USE_DITHERING', true); // Gebruik dithering voor betere kleurovergangen
-
-// User-Agent voor externe requests
-define('USER_AGENT', getenv('RETROMODEM_PROXY_USER_AGENT') ?: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
-
-// Content extractor configuratie
-// Opties: 'readability', 'custom', 'hybrid'
-// - 'readability': Gebruik alleen fivefilters/readability.php
-// - 'custom': Gebruik alleen CustomDOMExtractor (behoudt meer content)
-// - 'hybrid': Probeer eerst Readability, fallback naar CustomDOMExtractor
-define('CONTENT_EXTRACTOR', 'hybrid');
-
-// Application environment
-// Opties: 'production' of 'development'
-// - 'production': Geen error display, alleen logging
-// - 'development': Error display aan voor debugging
-define('APP_ENV', 'production');
-
-// Rate limiting configuratie
-define('RATE_LIMIT_ENABLED', false);
-define('RATE_LIMIT_REQUESTS', 200); // Aantal requests per window
-define('RATE_LIMIT_WINDOW', 60); // Tijdvenster in seconden
-
-// Resource limits
-define('MAX_URL_LENGTH', 2048); // Maximum URL lengte in karakters
-define('MAX_IMAGE_PROCESSING_SIZE', 10 * 1024 * 1024); // 10MB max voor image processing
-define('IMAGE_PROCESSING_TIMEOUT', 30); // Timeout in seconden voor image processing
-
-// Extra security limits
-define('MAX_SEARCH_QUERY_LENGTH', 500); // Maximum search query lengte in karakters
-define('MAX_REDIRECT_DEPTH', 10); // Maximum redirect depth
-define('MAX_REQUEST_SIZE', 1024 * 1024); // 1MB max request size
-define('REQUEST_TIMEOUT', 30); // Timeout in seconden voor externe requests
-
-// Visitor tracking configuratie
-define('VISITOR_TRACKING_ENABLED', false);
-define('VISITOR_TRACKING_WINDOW', 3600); // 1 uur in seconden (configureerbaar, bijv. 21600 voor 6 uur)
-define('STATS_CACHE_TTL', 5); // Cache stats voor 5 seconden om database queries te verminderen
 
 // Zorg dat cache directory bestaat
 if (!file_exists(CACHE_DIR)) {
@@ -120,13 +107,30 @@ function getBasePath() {
 }
 
 /**
+ * Return response headers from the most recent HTTP stream request.
+ *
+ * PHP versions before http_get_last_response_headers() cannot expose these
+ * without referencing the deprecated magic $http_response_header variable.
+ * In that case callers safely continue without optional response metadata.
+ */
+function getLastHttpResponseHeaders(array $requestScope = []): array {
+    if (!function_exists('http_get_last_response_headers')) {
+        $headers = $requestScope['http_response_header'] ?? [];
+        return is_array($headers) ? $headers : [];
+    }
+
+    $headers = http_get_last_response_headers();
+    return is_array($headers) ? $headers : [];
+}
+
+/**
  * Retourneert volledige base URL met protocol en host
  * Voor oude browsers zoals MacWeb 2.0 die absolute URLs nodig hebben
  * @return string Volledige base URL (bijv. http://retroweb.heirman.nl)
  */
 function getBaseUrl() {
-    // Private core endpoint; the forward-proxy adapter removes this URL again.
-    $host = '127.0.0.1:8090';
+    // Hardcoded base URL voor deze installatie
+    $host = PUBLIC_HOST;
     
     // Detecteer protocol (HTTP vs HTTPS)
     $scheme = 'http';
@@ -144,6 +148,119 @@ function getBaseUrl() {
     }
     
     return $scheme . '://' . $host . $basePath;
+}
+
+function getUserSettings(): array {
+    static $settings = null;
+    if ($settings === null) {
+        $settings = \RetroWEB\UserSettings::resolve(
+            array_replace($_GET, $_POST),
+            $_COOKIE,
+            getClientUserAgent(),
+            getServerSettingsSession()
+        );
+    }
+    return $settings;
+}
+
+function getClientUserAgent(): string {
+    foreach (['HTTP_X_RETROMODEM_USER_AGENT', 'HTTP_X_ORIGINAL_USER_AGENT', 'HTTP_USER_AGENT'] as $key) {
+        if (isset($_SERVER[$key]) && is_string($_SERVER[$key]) && trim($_SERVER[$key]) !== '') {
+            return substr(trim($_SERVER[$key]), 0, 1024);
+        }
+    }
+    return '';
+}
+
+/** A short-lived, anonymous key for restoring settings in browsers without cookies. */
+function settingsSessionFingerprint(): ?string {
+    $forwardClient = trustedForwardProxyClientId();
+    if ($forwardClient !== null) return 'forward:' . $forwardClient;
+    $ip = getClientIp();
+    $agent = getClientUserAgent();
+    if ($ip === '' && $agent === '') return null;
+
+    $keyFile = CACHE_DIR . '/settings-session.key';
+    $secret = is_file($keyFile) ? file_get_contents($keyFile) : false;
+    if (!is_string($secret) || strlen($secret) < 32) {
+        try {
+            $secret = random_bytes(32);
+        } catch (Throwable $e) {
+            error_log('Unable to create settings session key: ' . $e->getMessage());
+            return null;
+        }
+        if (file_put_contents($keyFile, $secret, LOCK_EX) === false) return null;
+        @chmod($keyFile, 0600);
+    }
+    return hash_hmac('sha256', $ip . "\n" . $agent, $secret);
+}
+
+/** Trust the opaque forward-proxy identity only across the local loopback hop. */
+function trustedForwardProxyClientId(): ?string {
+    $remote = $_SERVER['REMOTE_ADDR'] ?? '';
+    $value = $_SERVER['HTTP_X_RETROWEB_CLIENT_ID'] ?? '';
+    if (!in_array($remote, ['127.0.0.1', '::1'], true) || !is_string($value)
+        || !preg_match('/^[a-f0-9]{64}$/D', $value)) return null;
+    return strtolower($value);
+}
+
+function getServerSettingsSession(): array {
+    $fingerprint = settingsSessionFingerprint();
+    $db = $fingerprint !== null ? getStatsDatabase() : null;
+    if (!$db) return [];
+    try {
+        $statement = $db->prepare('SELECT settings FROM settings_sessions WHERE fingerprint = :fingerprint AND updated_at >= :minimum');
+        $statement->bindValue(':fingerprint', $fingerprint, SQLITE3_TEXT);
+        $statement->bindValue(':minimum', time() - SETTINGS_SESSION_TTL, SQLITE3_INTEGER);
+        $row = $statement->execute()->fetchArray(SQLITE3_ASSOC);
+        if (!$row) return [];
+        $settings = json_decode($row['settings'], true);
+        return is_array($settings) ? $settings : [];
+    } catch (Throwable $e) {
+        error_log('Settings session read failed: ' . $e->getMessage());
+        return [];
+    }
+}
+
+function rememberUserSettings(array $settings): void {
+    $fingerprint = settingsSessionFingerprint();
+    $db = $fingerprint !== null ? getStatsDatabase() : null;
+    if (!$db) return;
+    $stored = array_replace(\RetroWEB\UserSettings::query($settings), ['_resolved' => \RetroWEB\DeviceProfiles::storageGeneration($settings['resolved_profile'])]);
+    try {
+        $statement = $db->prepare('INSERT INTO settings_sessions (fingerprint, settings, updated_at) VALUES (:fingerprint, :settings, :updated_at)
+            ON CONFLICT(fingerprint) DO UPDATE SET settings = excluded.settings, updated_at = excluded.updated_at');
+        $statement->bindValue(':fingerprint', $fingerprint, SQLITE3_TEXT);
+        $statement->bindValue(':settings', json_encode($stored), SQLITE3_TEXT);
+        $statement->bindValue(':updated_at', time(), SQLITE3_INTEGER);
+        $statement->execute();
+        $db->exec('DELETE FROM settings_sessions WHERE updated_at < ' . (time() - SETTINGS_SESSION_TTL));
+    } catch (Throwable $e) {
+        error_log('Settings session write failed: ' . $e->getMessage());
+    }
+}
+
+function buildRetroWebUrl(string $script, array $parameters = []): string {
+    $url = rtrim(getBaseUrl(), '/') . '/' . ltrim($script, '/');
+    return $parameters ? $url . '?' . http_build_query($parameters) : $url;
+}
+
+/** Apply newly saved settings to a safe internal return URL. */
+function settingsReturnUrl($candidate, array $settings): ?string {
+    if (!is_string($candidate) || $candidate === '' || preg_match('/[\r\n]/', $candidate)) return null;
+    $return = parse_url($candidate);
+    $base = parse_url(getBaseUrl());
+    if (!$return || !$base) return null;
+    if (strcasecmp($return['scheme'] ?? '', $base['scheme'] ?? '') !== 0
+        || strcasecmp($return['host'] ?? '', $base['host'] ?? '') !== 0
+        || ($return['port'] ?? null) !== ($base['port'] ?? null)) return null;
+
+    $basePath = rtrim(getBasePath(), '/');
+    $allowedPaths = [($basePath ?: '') . '/index.php', ($basePath ?: '') . '/proxy.php'];
+    if (!in_array($return['path'] ?? '', $allowedPaths, true)) return null;
+    parse_str($return['query'] ?? '', $parameters);
+    $parameters = array_replace($parameters, \RetroWEB\UserSettings::query($settings));
+    return buildRetroWebUrl(basename($return['path']), $parameters);
 }
 
 /**
@@ -175,19 +292,9 @@ function isInternalUrl($url) {
         }
     }
     
-    // Resolve hostname naar IP
-    $ip = @gethostbyname($host);
-    if ($ip !== $host && $ip !== false) {
-        // Check if IP is in private/reserved ranges
-        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            return true; // Private/reserved IP
-        }
-        
-        // Check voor localhost IPs
-        if (in_array($ip, ['127.0.0.1', '::1', '0.0.0.0'])) {
-            return true;
-        }
-    }
+    $addresses = resolvePublicTargetAddresses((string)$url);
+    if (!$addresses) return true;
+    $ip = $addresses[0];
     
     // Block gevaarlijke protocols
     if (isset($parsed['scheme'])) {
@@ -208,6 +315,29 @@ function isInternalUrl($url) {
     }
     
     return false;
+}
+
+/** Resolve every A/AAAA address and reject the complete target if any is not public. */
+function resolvePublicTargetAddresses(string $url): array {
+    $host = strtolower(trim((string)parse_url($url, PHP_URL_HOST), '[]'));
+    if ($host === '') return [];
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        $addresses = [$host];
+    } else {
+        $addresses = [];
+        $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+        if (!is_array($records)) return [];
+        foreach ($records as $record) {
+            if (!empty($record['ip'])) $addresses[] = $record['ip'];
+            if (!empty($record['ipv6'])) $addresses[] = $record['ipv6'];
+        }
+    }
+    $addresses = array_values(array_unique($addresses));
+    if (!$addresses) return [];
+    foreach ($addresses as $address) {
+        if (!filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return [];
+    }
+    return $addresses;
 }
 
 /**
@@ -250,7 +380,7 @@ function initErrorHandling() {
     $isProduction = (defined('APP_ENV') && APP_ENV === 'production');
     
     if ($isProduction) {
-        error_reporting(0);
+        error_reporting(E_ALL);
         ini_set('display_errors', 0);
     } else {
         error_reporting(E_ALL);
@@ -263,9 +393,14 @@ function initErrorHandling() {
     
     // Set error handler
     set_error_handler(function($errno, $errstr, $errfile, $errline) {
-        $errorMsg = "PHP Error [$errno]: $errstr in $errfile on line $errline\n";
-        error_log($errorMsg, 3, __DIR__ . '/error.log');
-        return false; // Laat PHP de error ook normaal afhandelen
+        // Respect @ suppression and the active error_reporting mask.
+        if ((error_reporting() & $errno) === 0) {
+            return false;
+        }
+
+        $errorMsg = "PHP Error [$errno]: $errstr in $errfile on line $errline";
+        writeRetroWebLog($errorMsg);
+        return true; // Prevent PHP from writing the same error a second time.
     });
     
     // Set exception handler
@@ -274,7 +409,7 @@ function initErrorHandling() {
         $errorMsg .= "File: " . $exception->getFile() . "\n";
         $errorMsg .= "Line: " . $exception->getLine() . "\n";
         $errorMsg .= $exception->getTraceAsString() . "\n";
-        error_log($errorMsg, 3, __DIR__ . '/error.log');
+        writeRetroWebLog($errorMsg);
         if (defined('APP_ENV') && APP_ENV === 'production') {
             sendHttp10Response(500);
             exit;
@@ -288,9 +423,30 @@ function initErrorHandling() {
             $errorMsg = "Fatal Error [" . $error['type'] . "]: " . $error['message'] . "\n";
             $errorMsg .= "File: " . $error['file'] . "\n";
             $errorMsg .= "Line: " . $error['line'] . "\n";
-            error_log($errorMsg, 3, __DIR__ . '/error.log');
+            writeRetroWebLog($errorMsg);
         }
     });
+}
+
+/**
+ * Remove binary payloads and cap application log entries.
+ */
+function sanitizeLogMessage(string $message, int $maximumBytes = 4096): string {
+    $message = preg_replace(
+        '#data:[a-z0-9.+-]+/[a-z0-9.+-]+;base64,[a-z0-9+/=]+#i',
+        '[data URI omitted]',
+        $message
+    );
+    $message = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', (string)$message);
+    if (strlen($message) > $maximumBytes) {
+        $message = substr($message, 0, max(0, $maximumBytes - 24)) . '...[entry truncated]';
+    }
+    return rtrim($message);
+}
+
+function writeRetroWebLog(string $message): void {
+    $line = '[' . gmdate('d-M-Y H:i:s') . " UTC] " . sanitizeLogMessage($message) . "\n";
+    error_log($line, 3, __DIR__ . '/error.log');
 }
 
 /**
@@ -497,6 +653,7 @@ function sendHttp10Response($code, $statusMessage = null) {
         400 => 'Bad Request',
         403 => 'Forbidden',
         404 => 'Not Found',
+        410 => 'Gone',
         413 => 'Request Entity Too Large',
         429 => 'Too Many Requests',
         500 => 'Internal Server Error'
@@ -515,6 +672,14 @@ function setHttp10Headers($contentLength = null) {
     if ($contentLength !== null) {
         header('Content-Length: ' . $contentLength);
     }
+}
+
+/** Prevent browsers and intermediary proxies from retaining generated HTML. */
+function setHtmlNoCacheHeaders(): void {
+    if (headers_sent()) return;
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 }
 
 /**
@@ -751,21 +916,7 @@ function validateContentLength($content, $headers = []) {
  * @return string 'links' of 'inline'
  */
 function getImageMode() {
-    // Check of er meerdere img parameters zijn (kan gebeuren door URL building)
-    // Pak de laatste waarde, of check of 'inline' ergens voorkomt
-    if (isset($_GET['img'])) {
-        $imgValue = $_GET['img'];
-        // Als het een array is (meerdere parameters), pak de laatste
-        if (is_array($imgValue)) {
-            $imgValue = end($imgValue);
-        }
-        return $imgValue === 'inline' ? 'inline' : 'links';
-    }
-    // Check ook in REQUEST_URI voor het geval dat
-    if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'img=inline') !== false) {
-        return 'inline';
-    }
-    return 'links';
+    return getUserSettings()['image_mode'];
 }
 
 /**
@@ -931,6 +1082,12 @@ function convertModernTags($html) {
     $html = preg_replace('/<\/strong>/i', '</b>', $html);
     $html = preg_replace('/<em\b[^>]*>/i', '<i>', $html);
     $html = preg_replace('/<\/em>/i', '</i>', $html);
+    $html = preg_replace('/<del\b[^>]*>/i', '<strike>', $html);
+    $html = preg_replace('/<\/del>/i', '</strike>', $html);
+    $html = preg_replace('/<ins\b[^>]*>/i', '<u>', $html);
+    $html = preg_replace('/<\/ins>/i', '</u>', $html);
+    $html = preg_replace('/<mark\b[^>]*>/i', '<b>', $html);
+    $html = preg_replace('/<\/mark>/i', '</b>', $html);
     
     return $html;
 }
@@ -1273,7 +1430,8 @@ function mergeImageHints(array $previous, array $incoming): array {
 function renderCanonicalImages(string $content, string $baseUrl, string $targetUrl,
                                string $originalHtml = '', array $imageMap = [], array $imageDimensions = []): string {
     $number = 0;
-    return preg_replace_callback('/<img\b[^>]*>/i', function ($matches) use (&$number, $content, $baseUrl, $targetUrl, $originalHtml, $imageMap, $imageDimensions) {
+    $settings=getUserSettings();
+    return preg_replace_callback('/<img\b[^>]*>/i', function ($matches) use (&$number, $content, $baseUrl, $targetUrl, $originalHtml, $imageMap, $imageDimensions, $settings) {
         $tag = $matches[0][0];
         $offset = $matches[0][1];
         if (!preg_match('/\bsrc\s*=\s*["\']([^"\']+)["\']/i', $tag, $src)) return '';
@@ -1294,14 +1452,14 @@ function renderCanonicalImages(string $content, string $baseUrl, string $targetU
         $width = $dimensions['width'];
         $height = $dimensions['height'];
         if ($width !== null && $height !== null) {
-            $ratio = min(1, MAX_IMAGE_WIDTH / $width, MAX_IMAGE_HEIGHT / $height);
+            $ratio = min(1, max(1,$settings['image_width']) / $width, max(1,$settings['image_height']) / $height);
             $width = max(1, (int)floor($width * $ratio));
             $height = max(1, (int)floor($height * $ratio));
         } else {
-            if ($width !== null) $width = min($width, MAX_IMAGE_WIDTH);
-            if ($height !== null) $height = min($height, MAX_IMAGE_HEIGHT);
+            if ($width !== null) $width = min($width, $settings['image_width']);
+            if ($height !== null) $height = min($height, $settings['image_height']);
         }
-        $parameters = ['url' => $url];
+        $parameters = \RetroWEB\UserSettings::query($settings, ['url' => $url]);
         if ($width !== null) $parameters['w'] = $width;
         if ($height !== null) $parameters['h'] = $height;
         $asset = rtrim($baseUrl, '/') . '/image_cruncher.php?' . http_build_query($parameters);
@@ -1311,14 +1469,28 @@ function renderCanonicalImages(string $content, string $baseUrl, string $targetU
         $label = (retromodemNavigationLanguage() === 'nl' ? 'Afbeelding ' : 'Image ') . $number . ($alt !== '' ? ': ' . $alt : '');
         $escape = fn($value) => mb_encode_numericentity(htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false), [128, 0x10ffff, 0, 0x1fffff], 'UTF-8');
         $image = '<img src="' . $escape($asset) . '" alt="' . $escape($alt) . '" data-rm-link-label="' . $escape($label) . '"';
-        // Unknown source dimensions can still be bounded by the converter's
-        // configured output rectangle; do not assume a fixed device preset.
-        $image .= ' data-rm-pixels="' . (($width ?? MAX_IMAGE_WIDTH) * ($height ?? MAX_IMAGE_HEIGHT)) . '"';
+        $image .= ' data-rm-pixels="' . (($width ?? $settings['image_width']) * ($height ?? $settings['image_height'])) . '"';
+        // Preserve the source site's intended display size, capped
+        // proportionally by RetroWEB. This never enlarges beyond the hint.
         if ($width !== null) $image .= ' width="' . $width . '"';
         if ($height !== null) $image .= ' height="' . $height . '"';
         // Do not wrap in a paragraph inside an existing functional link.
-        return $image . '>';
+        $after = substr($content, $offset + strlen($tag), 32);
+        $lineBreak = preg_match('/^\s*<br\b/i', $after) ? '' : '<br>';
+        return $image . '>' . $lineBreak;
     }, $content, -1, $count, PREG_OFFSET_CAPTURE);
+}
+
+/** Return dimensions that preserve aspect ratio and can never upscale. */
+function calculateDownscaledDimensions(int $actualWidth, int $actualHeight, int $maxWidth, int $maxHeight,
+                                       ?int $hintWidth = null, ?int $hintHeight = null): array {
+    if ($actualWidth < 1 || $actualHeight < 1) return [1, 1];
+    $limitWidth = max(1, $maxWidth);
+    $limitHeight = max(1, $maxHeight);
+    if ($hintWidth !== null && $hintWidth > 0) $limitWidth = min($limitWidth, $hintWidth);
+    if ($hintHeight !== null && $hintHeight > 0) $limitHeight = min($limitHeight, $hintHeight);
+    $ratio = min(1.0, $limitWidth / $actualWidth, $limitHeight / $actualHeight);
+    return [max(1, (int)floor($actualWidth * $ratio)), max(1, (int)floor($actualHeight * $ratio))];
 }
 
 /**
@@ -1326,14 +1498,25 @@ function renderCanonicalImages(string $content, string $baseUrl, string $targetU
  * @param string $method HTTP method (GET, HEAD, etc.)
  * @return resource Stream context
  */
-function createStreamContext($method = 'GET') {
+function createStreamContext($method = 'GET', ?string $body = null, array $extraHeaders = []) {
     $timeout = defined('REQUEST_TIMEOUT') ? REQUEST_TIMEOUT : 30;
     $maxRedirects = defined('MAX_REDIRECT_DEPTH') ? MAX_REDIRECT_DEPTH : 5;
+    $headers = "User-Agent: " . USER_AGENT . "\r\n";
+    if ($body !== null) {
+        $headers .= "Content-Type: application/x-www-form-urlencoded\r\n";
+        $headers .= "Content-Length: " . strlen($body) . "\r\n";
+    }
+    foreach ($extraHeaders as $name => $value) {
+        if (preg_match('/^[A-Za-z0-9-]+$/', (string)$name) && is_string($value) && !preg_match('/[\r\n]/', $value)) {
+            $headers .= $name . ': ' . $value . "\r\n";
+        }
+    }
     
     return stream_context_create([
         'http' => [
             'method' => $method,
-            'header' => "User-Agent: " . USER_AGENT . "\r\n",
+            'header' => $headers,
+            'content' => $body ?? '',
             'follow_location' => 1,
             'max_redirects' => $maxRedirects,
             'timeout' => $timeout,
@@ -1352,9 +1535,19 @@ function retromodemNavigationLanguage(): string {
     return is_string($language) && $language === 'nl' ? 'nl' : 'en';
 }
 
-function renderNavigation($imageMode = null) {
-    // Reload is provided by the browser; keep the small viewport for content.
-    return '';
+function renderNavigation($imageMode = null, ?string $reloadUrl = null) {
+    $s=getUserSettings();
+    $label=htmlspecialchars($s['profile_label'],ENT_QUOTES,'ISO-8859-1').($s['automatic']?' (auto)':'');
+    $home=htmlspecialchars(buildRetroWebUrl('index.php',\RetroWEB\UserSettings::query($s)),ENT_QUOTES,'ISO-8859-1');
+    $settingsParameters=\RetroWEB\UserSettings::query($s);
+    if (settingsReturnUrl($reloadUrl, $s) !== null) $settingsParameters['return']=$reloadUrl;
+    $settings=htmlspecialchars(buildRetroWebUrl('settings.php',$settingsParameters),ENT_QUOTES,'ISO-8859-1');
+    $reload='';
+    if (is_string($reloadUrl) && preg_match('/^https?:\/\//i',$reloadUrl)) {
+        $reloadLabel='Reload';
+        $reload=' | <a href="'.htmlspecialchars($reloadUrl,ENT_QUOTES,'ISO-8859-1').'">'.$reloadLabel.'</a>';
+    }
+    return '<p><small><a href="'.$home.'"><b>RetroWEB</b></a> | Profile: '.$label.' | Images: '.$s['image_width'].'x'.$s['image_height'].' | <a href="'.$settings.'">Settings</a>'.$reload.'</small></p><hr>';
 }
 
 /**
@@ -1417,6 +1610,9 @@ function getStatsDatabase() {
         
         $dbPath = CACHE_DIR . '/stats.db';
         $db = new SQLite3($dbPath);
+        $db->enableExceptions(true);
+        $db->busyTimeout(5000);
+        $db->exec('PRAGMA busy_timeout=5000');
         $db->exec('PRAGMA journal_mode=WAL'); // Betere concurrency
         $db->exec('PRAGMA synchronous=NORMAL'); // Balans tussen safety en speed
         
@@ -1435,10 +1631,25 @@ function getStatsDatabase() {
         // Initialiseer stats als ze niet bestaan
         $db->exec("INSERT OR IGNORE INTO stats (key, value) VALUES ('unique_visitors', 0)");
         $db->exec("INSERT OR IGNORE INTO stats (key, value) VALUES ('total_pageviews', 0)");
+        foreach (['processed_pages','processed_images','processing_success','processing_error',
+                  'processing_under_500ms','processing_under_2s','processing_over_2s'] as $key) {
+            $db->exec("INSERT OR IGNORE INTO stats (key, value) VALUES ('" . $key . "', 0)");
+        }
+        $db->exec("CREATE TABLE IF NOT EXISTS profile_stats (
+            profile TEXT PRIMARY KEY,
+            value INTEGER NOT NULL DEFAULT 0
+        )");
+        $db->exec("CREATE TABLE IF NOT EXISTS settings_sessions (
+            fingerprint TEXT PRIMARY KEY,
+            settings TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        )");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_settings_sessions_updated ON settings_sessions(updated_at)");
         
         return $db;
         
     } catch (Exception $e) {
+        $db = null;
         error_log('Stats database error: ' . $e->getMessage());
         return null;
     }
@@ -1471,6 +1682,8 @@ function trackVisitor() {
         $window = defined('VISITOR_TRACKING_WINDOW') ? VISITOR_TRACKING_WINDOW : 86400;
         $cutoff = $now - $window;
         
+        $db->exec('BEGIN IMMEDIATE');
+
         // Check of bezoeker bestaat (prepared statement voor SQL injection prevention)
         $stmt = $db->prepare('SELECT first_seen FROM visitor_ips WHERE ip_hash = ?');
         $stmt->bindValue(1, $ipHash, SQLITE3_TEXT);
@@ -1506,9 +1719,22 @@ function trackVisitor() {
         $stmt = $db->prepare('UPDATE stats SET value = value + 1 WHERE key = ?');
         $stmt->bindValue(1, 'total_pageviews', SQLITE3_TEXT);
         $stmt->execute();
+
+        $db->exec('COMMIT');
         
     } catch (Exception $e) {
-        error_log('trackVisitor error: ' . $e->getMessage());
+        if (isset($db) && $db instanceof SQLite3) {
+            try {
+                $db->exec('ROLLBACK');
+            } catch (Exception $ignored) {
+                // No active transaction or the connection is unavailable.
+            }
+        }
+        // Contention is expected under bursts; dropping one statistic is safer
+        // than delaying or failing the requested page.
+        if (stripos($e->getMessage(), 'locked') === false) {
+            writeRetroWebLog('trackVisitor error: ' . $e->getMessage());
+        }
         // Silent fail - site moet blijven werken
     }
 }
@@ -1517,7 +1743,7 @@ function trackVisitor() {
  * Haal stats op met caching
  * @return array ['unique_visitors' => int, 'total_pageviews' => int]
  */
-function getStats() {
+function getStats(bool $fresh = false) {
     try {
         $db = getStatsDatabase();
         if ($db === null) {
@@ -1529,7 +1755,7 @@ function getStats() {
         static $cacheTime = 0;
         $cacheTtl = defined('STATS_CACHE_TTL') ? STATS_CACHE_TTL : 5;
         
-        if ($cachedStats !== null && (time() - $cacheTime) < $cacheTtl) {
+        if (!$fresh && $cachedStats !== null && (time() - $cacheTime) < $cacheTtl) {
             return $cachedStats;
         }
         
@@ -1539,10 +1765,11 @@ function getStats() {
             $stats[$row['key']] = (int)$row['value'];
         }
         
-        $cachedStats = [
-            'unique_visitors' => $stats['unique_visitors'] ?? 0,
-            'total_pageviews' => $stats['total_pageviews'] ?? 0
-        ];
+        $cachedStats = [];
+        foreach (['unique_visitors','total_pageviews','processed_pages','processed_images','processing_success',
+                  'processing_error','processing_under_500ms','processing_under_2s','processing_over_2s'] as $key) {
+            $cachedStats[$key] = $stats[$key] ?? 0;
+        }
         $cacheTime = time();
         
         return $cachedStats;
@@ -1551,6 +1778,62 @@ function getStats() {
         error_log('getStats error: ' . $e->getMessage());
         return ['unique_visitors' => 0, 'total_pageviews' => 0];
     }
+}
+
+/** Public, aggregate-only counters. Never returns visitor identifiers. */
+function getPublicStats(): array {
+    $stats = getStats(true);
+    $stats['active_visitors'] = 0;
+    $stats['window_seconds'] = defined('VISITOR_TRACKING_WINDOW') ? VISITOR_TRACKING_WINDOW : 3600;
+    try {
+        $db = getStatsDatabase();
+        if ($db !== null) {
+            $stmt = $db->prepare('SELECT COUNT(*) AS count FROM visitor_ips WHERE first_seen >= ?');
+            $stmt->bindValue(1, time() - $stats['window_seconds'], SQLITE3_INTEGER);
+            $result = $stmt->execute();
+            $row = $result->fetchArray(SQLITE3_ASSOC);
+            $stats['active_visitors'] = max(0, (int)($row['count'] ?? 0));
+            $stats['profiles'] = [];
+            $profiles = $db->query('SELECT profile, value FROM profile_stats ORDER BY value DESC, profile ASC LIMIT 10');
+            while ($profile = $profiles->fetchArray(SQLITE3_ASSOC)) {
+                $stats['profiles'][(string)$profile['profile']] = max(0, (int)$profile['value']);
+            }
+        }
+    } catch (Exception $e) {
+        if (stripos($e->getMessage(), 'locked') === false) writeRetroWebLog('getPublicStats error: ' . $e->getMessage());
+    }
+    return $stats;
+}
+
+function recordAggregateProcessing(string $kind, string $profile, bool $success, float $seconds): void {
+    if (!in_array($kind, ['page','image'], true)) return;
+    if (!preg_match('/^[a-z0-9_-]{1,40}$/', $profile)) $profile = 'unknown';
+    $bucket = $seconds < 0.5 ? 'processing_under_500ms' : ($seconds < 2.0 ? 'processing_under_2s' : 'processing_over_2s');
+    try {
+        $db = getStatsDatabase();
+        if ($db === null) return;
+        $db->exec('BEGIN IMMEDIATE');
+        foreach ([$kind === 'page' ? 'processed_pages' : 'processed_images', $success ? 'processing_success' : 'processing_error', $bucket] as $key) {
+            $stmt = $db->prepare('UPDATE stats SET value = value + 1 WHERE key = ?');
+            $stmt->bindValue(1, $key, SQLITE3_TEXT);
+            $stmt->execute();
+        }
+        $stmt = $db->prepare('INSERT INTO profile_stats(profile,value) VALUES(?,1) ON CONFLICT(profile) DO UPDATE SET value=value+1');
+        $stmt->bindValue(1, $profile, SQLITE3_TEXT);
+        $stmt->execute();
+        $db->exec('COMMIT');
+    } catch (Exception $e) {
+        if (isset($db) && $db instanceof SQLite3) try { $db->exec('ROLLBACK'); } catch (Exception $ignored) {}
+        if (stripos($e->getMessage(), 'locked') === false) writeRetroWebLog('recordAggregateProcessing error: ' . $e->getMessage());
+    }
+}
+
+function registerAggregateProcessing(string $kind, string $profile): void {
+    $started = microtime(true);
+    register_shutdown_function(static function () use ($kind, $profile, $started): void {
+        $status = http_response_code();
+        recordAggregateProcessing($kind, $profile, $status >= 200 && $status < 400, microtime(true) - $started);
+    });
 }
 
 /**

@@ -9,21 +9,23 @@ class RetroWebPagePaginator
     private int $maxDocuments;
     private int $maxCacheBytes;
     private string $language;
+    private string $renderVersion;
+    private int $maxImages;
     private bool $weightImages = false;
     private const BRIDGE_RESERVE = 512;
 
     public function __construct(string $directory, int $limit = 250000, int $images = 5,
                                 int $ttl = 3600, int $maxDocuments = 128, int $maxCacheBytes = 67108864,
-                                string $language = 'en')
+                                string $language = 'en', string $renderVersion = '1')
     {
         $this->directory = $directory;
         $this->limit = $limit;
-        // $images is retained only for source compatibility. Image count must
-        // never determine where article text is divided.
+        $this->maxImages = $images === -1 ? -1 : max(0, min(10, $images));
         $this->ttl = $ttl;
         $this->maxDocuments = $maxDocuments;
         $this->maxCacheBytes = $maxCacheBytes;
         $this->language = $language === 'nl' ? 'nl' : 'en';
+        $this->renderVersion = $renderVersion;
     }
 
     private function tr(string $nl, string $en): string
@@ -33,9 +35,10 @@ class RetroWebPagePaginator
 
     private function frame(string $title, string $navigation, string $bodyAttrs): array
     {
+        $title = $this->latin1(htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false));
         return ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 2.0//EN\">\n<html><head>"
             . '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">'
-            . '<title>' . $title . '</title></head><body' . $bodyAttrs . '>', '</body></html>'];
+            . '<title>' . $title . '</title></head><body' . $bodyAttrs . '>' . $navigation, '</body></html>'];
     }
 
     private function navigation(string $base, string $token, int $part, int $total,
@@ -46,12 +49,11 @@ class RetroWebPagePaginator
             if ($sourceBlock !== null) $query['block'] = $sourceBlock;
             return htmlspecialchars(rtrim($base, '/') . '/proxy.php?' . http_build_query($query), ENT_QUOTES, 'ISO-8859-1');
         };
-        $images = $this->tr('Afbeeldingen: ', 'Images: ');
-        foreach (['inline' => $this->tr('Laten zien', 'Inline'), 'links' => $this->tr('als links', 'As links')] as $value => $label) {
-            if ($value !== 'inline') $images .= ' | ';
-            $images .= $mode === $value ? '<b>' . $label . '</b>'
-                : '<a href="' . $url($all ? 'all' : $part, $value, $all ? null : $block) . '">' . $label . '</a>';
-        }
+        $currentLabel = $mode === 'inline' ? $this->tr('zichtbaar', 'Inline') : $this->tr('als links', 'As links');
+        $otherMode = $mode === 'inline' ? 'links' : 'inline';
+        $actionLabel = $otherMode === 'inline' ? $this->tr('Afbeeldingen tonen', 'Show inline') : $this->tr('Toon als links', 'Show as links');
+        $images = $this->tr('Afbeeldingen: ', 'Images: ') . '<b>' . $currentLabel . '</b> | <a href="'
+            . $url($all ? 'all' : $part, $otherMode, $all ? null : $block) . '">' . $actionLabel . '</a>';
         if ($all) {
             return '<p class="retroweb-paging">' . $images . '<br><a href="' . $url(1, $mode)
                 . '">' . $this->tr('Opdelen in pagina\'s', 'Show paginated page') . '</a></p><hr>';
@@ -118,21 +120,27 @@ class RetroWebPagePaginator
         foreach ($root->getElementsByTagName('img') as $image) $images[] = $image;
         foreach ($images as $index => $image) {
             $image->setAttribute('data-rm-image-number', (string)($index + 1));
-            if ($mode === 'links') {
+            if ($mode === 'links' || ($this->maxImages >= 0 && $index >= $this->maxImages)) {
                 $label = $this->imageLabel($image);
-                $replacement = $dom->createTextNode('[' . $label . ']');
                 $ancestor = $image->parentNode;
                 while ($ancestor && !($ancestor instanceof DOMElement && strtolower($ancestor->tagName) === 'a')) {
                     $ancestor = $ancestor->parentNode;
                 }
-                // A functional image link keeps its original destination.
-                if (!$ancestor && $image->getAttribute('src') !== '') {
-                    $link = $dom->createElement('a');
-                    $link->setAttribute('href', $image->getAttribute('src'));
-                    $link->appendChild($replacement);
-                    $replacement = $link;
+                $imageLabel = $dom->createTextNode('[' . $label . ']');
+                $imageLink = $imageLabel;
+                if ($image->getAttribute('src') !== '') {
+                    $imageLink = $dom->createElement('a');
+                    $imageLink->setAttribute('href', $image->getAttribute('src'));
+                    $imageLink->appendChild($imageLabel);
                 }
-                $image->parentNode->replaceChild($replacement, $image);
+                if ($ancestor instanceof DOMElement && $ancestor->parentNode) {
+                    // Keep the image target and the original functional link as
+                    // two independent controls; nested anchors are invalid.
+                    $ancestor->parentNode->insertBefore($imageLink, $ancestor);
+                    $image->parentNode->replaceChild($dom->createTextNode('[Link]'), $image);
+                } else {
+                    $image->parentNode->replaceChild($imageLink, $image);
+                }
             }
         }
         $output = '';
@@ -372,6 +380,25 @@ class RetroWebPagePaginator
         $this->weightImages = $mode === 'inline' && $this->limit !== 0;
         [$header, $footer] = $this->frame($title, $navigation, $bodyAttrs);
         $content = $this->imageVariant($canonical, $mode);
+        // A document can switch image variants after its ordinary proxy links
+        // were created. Carry the selected variant into those destinations so
+        // clicking a story does not restore the document's original mode.
+        $content = preg_replace_callback('/href=(["\'])([^"\']+)\1/i', function ($match) use ($mode) {
+            $href = html_entity_decode($match[2], ENT_QUOTES, 'ISO-8859-1');
+            $parts = parse_url($href);
+            if (!is_array($parts) || !preg_match('~/proxy\.php$~', $parts['path'] ?? '')) return $match[0];
+            parse_str($parts['query'] ?? '', $query);
+            if (!isset($query['url'])) return $match[0];
+            $query['img'] = $mode;
+            $rebuilt = '';
+            if (isset($parts['scheme'])) $rebuilt .= $parts['scheme'] . '://';
+            if (isset($parts['host'])) $rebuilt .= $parts['host'];
+            if (isset($parts['port'])) $rebuilt .= ':' . $parts['port'];
+            $rebuilt .= $parts['path'] ?? '';
+            $rebuilt .= '?' . http_build_query($query);
+            if (isset($parts['fragment'])) $rebuilt .= '#' . $parts['fragment'];
+            return 'href="' . htmlspecialchars($rebuilt, ENT_QUOTES, 'ISO-8859-1') . '"';
+        }, $content);
         $splitContent = preg_replace_callback('/href=(["\'])#([^"\']+)\1/i', function ($match) use ($baseUrl, $token, $mode) {
             $anchor = rawurldecode(html_entity_decode($match[2], ENT_QUOTES, 'ISO-8859-1'));
             $url = rtrim($baseUrl, '/') . '/proxy.php?document=' . $token . '&part=999999&img=' . $mode . '#' . rawurlencode($anchor);
@@ -436,7 +463,7 @@ class RetroWebPagePaginator
         // Output is deliberately Latin-1 HTML, whereas JSON requires UTF-8.
         // Preserve framing bytes just as we already preserve content/pages.
         $stored = $snapshot;
-        foreach (['title', 'navigation', 'body_attrs', 'base_url'] as $field) {
+        foreach (['title', 'navigation', 'body_attrs', 'base_url', 'reload_url'] as $field) {
             if (!isset($stored[$field]) || !is_string($stored[$field])) {
                 throw new RuntimeException('Invalid snapshot metadata');
             }
@@ -466,10 +493,10 @@ class RetroWebPagePaginator
     }
 
     public function first(string $content, string $title, string $navigation, string $bodyAttrs,
-                          string $baseUrl, string $mode = 'inline'): string
+                          string $baseUrl, string $mode = 'inline', string $reloadUrl = ''): string
     {
         if (!in_array($mode, ['inline', 'links'], true)) throw new RuntimeException('Invalid image mode');
-        $token = hash('sha256', "retroweb-combined-v4\0" . $content . "\0" . $title . "\0" . $navigation
+        $token = hash('sha256', "retroweb-combined-v5\0" . $this->renderVersion . "\0" . $content . "\0" . $title . "\0" . $navigation
                     . "\0" . $bodyAttrs . "\0" . $baseUrl . "\0" . $this->limit . "\0" . $this->language);
         $existing = $this->read($token, '1', $mode);
         if ($existing['status'] === 200) return $existing['html'];
@@ -481,10 +508,11 @@ class RetroWebPagePaginator
         foreach (['inline', 'links'] as $imageMode) {
             $variants[$imageMode] = $this->renderVariant($canonical, $title, $navigation, $bodyAttrs, $baseUrl, $token, $imageMode);
         }
-        $snapshot = ['schema_version' => 3, 'language' => $this->language, 'weight_policy' => 'html-plus-pixels-v4-compact-label',
+        $snapshot = ['schema_version' => 4, 'render_version' => $this->renderVersion,
+                     'language' => $this->language, 'weight_policy' => 'html-plus-pixels-v4-compact-label',
                      'created' => time(), 'default_mode' => $mode,
                      'content' => base64_encode($canonical), 'title' => $title,
-                     'navigation' => $navigation, 'body_attrs' => $bodyAttrs, 'base_url' => $baseUrl,
+                     'navigation' => $navigation, 'body_attrs' => $bodyAttrs, 'base_url' => $baseUrl, 'reload_url' => $reloadUrl,
                      'limit' => $this->limit, 'variants' => $variants];
         $this->save($token, $snapshot);
         return base64_decode($variants[$mode]['pages'][0], true);
@@ -492,8 +520,15 @@ class RetroWebPagePaginator
 
     public function read(string $token, string $part, ?string $mode = null, ?string $block = null): array
     {
-        $error = fn($status, $nl, $en) => ['status' => $status,
-            'html' => '<html><head><title>RetroWEB</title></head><body><p>' . $this->tr($nl, $en) . '</p></body></html>'];
+        $error = function($status, $nl, $en, string $reloadUrl = '') {
+            $message = '<p>' . $this->tr($nl, $en) . '</p>';
+            if ($reloadUrl !== '') {
+                $message .= '<p><a href="' . htmlspecialchars($reloadUrl, ENT_QUOTES, 'ISO-8859-1') . '">'
+                    . $this->tr('Pagina opnieuw laden', 'Reload original page') . '</a></p>';
+            }
+            return ['status'=>$status,
+                'html'=>'<html><head><title>RetroWEB</title></head><body>' . $message . '</body></html>'];
+        };
         if (!preg_match('/^[a-f0-9]{64}$/D', $token)
             || ($part !== 'all' && !preg_match('/^[1-9][0-9]{0,5}$/D', $part))
             || ($mode !== null && !in_array($mode, ['inline', 'links'], true))
@@ -521,10 +556,16 @@ class RetroWebPagePaginator
                 }
                 $snapshot[$field] = $decoded;
             }
+            if (isset($snapshot['reload_url']) && is_string($snapshot['reload_url'])) {
+                $decodedReload = base64_decode($snapshot['reload_url'], true);
+                $snapshot['reload_url'] = $decodedReload === false ? '' : $decodedReload;
+            }
         }
-        if (!in_array($snapshot['schema_version'] ?? null, [2, 3], true)) {
+        $reloadUrl = isset($snapshot['reload_url']) && is_string($snapshot['reload_url']) ? $snapshot['reload_url'] : '';
+        if (($snapshot['schema_version'] ?? null) !== 4
+            || ($snapshot['render_version'] ?? null) !== $this->renderVersion) {
             return $error(410, 'Deze oude pagina is vervallen. Open de oorspronkelijke pagina opnieuw.',
-                'This old page has been retired. Open the original page again.');
+                'This old page has been retired. Open the original page again.', $reloadUrl);
         }
         // Rebuild old canonical snapshots locally under the current language
         // and combined-budget policy. Keep their original page-size setting.
@@ -546,7 +587,7 @@ class RetroWebPagePaginator
                         $snapshot['body_attrs'], $snapshot['base_url'], $token, $imageMode);
                 }
                 $snapshot['variants'] = $variants;
-                $snapshot['schema_version'] = 3;
+                $snapshot['schema_version'] = 4;
                 $snapshot['language'] = $this->language;
                 $snapshot['weight_policy'] = 'html-plus-pixels-v4-compact-label';
                 $this->save($token, $snapshot);

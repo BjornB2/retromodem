@@ -16,5 +16,12 @@
         "psr-4": {
             "RetroWEB\\": "lib/"
         }
+    },
+    "scripts": {
+        "check": [
+            "@php bin/verify.php",
+            "@php tests/run.php"
+        ],
+        "test": "@php tests/run.php"
     }
 }

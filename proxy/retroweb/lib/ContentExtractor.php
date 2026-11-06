@@ -52,8 +52,9 @@ abstract class BaseContentExtractor implements ContentExtractorInterface {
      * @return string Genormaliseerde HTML
      */
     protected function normalizeHtml($html) {
-        // Fix encoding issues
-        $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
+        // Preserve non-ASCII characters as numeric entities without the
+        // deprecated mb_convert_encoding(..., 'HTML-ENTITIES', ...) path.
+        $html = mb_encode_numericentity($html, [0x80, 0x10ffff, 0, 0x1fffff], 'UTF-8');
         
         // Add XML declaration voor DOMDocument
         if (strpos($html, '<?xml') === false) {
@@ -76,6 +77,7 @@ class CustomDOMExtractor extends BaseContentExtractor {
     
     public function extract($html, $url = '') {
         try {
+            $analysis = DocumentAnalyzer::analyse($html);
             $html = $this->normalizeHtml($html);
             
             // Load HTML in DOMDocument
@@ -85,6 +87,7 @@ class CustomDOMExtractor extends BaseContentExtractor {
             libxml_clear_errors();
             
             $xpath = new \DOMXPath($dom);
+            $this->removeNavigationNoise($xpath);
             
             // Eerst proberen semantische HTML5 tags
             $contentNodes = [];
@@ -180,12 +183,32 @@ class CustomDOMExtractor extends BaseContentExtractor {
             
             return [
                 'title' => $title,
-                'content' => $content
+                'content' => $content,
+                'classification' => $analysis['classification'],
+                'diagnostics' => $analysis,
             ];
             
         } catch (\Exception $e) {
             error_log('CustomDOMExtractor error: ' . $e->getMessage());
             return false;
+        }
+    }
+
+    private function removeNavigationNoise(\DOMXPath $xpath) {
+        $queries = [
+            '//nav | //aside | //footer | //template',
+            '//*[@role="navigation" or @hidden or @aria-hidden="true"]',
+            '//*[contains(concat(" ", normalize-space(@class), " "), " sidebar ")'
+                . ' or contains(concat(" ", normalize-space(@class), " "), " navigation ")'
+                . ' or contains(concat(" ", normalize-space(@class), " "), " main-menu ")'
+                . ' or contains(concat(" ", normalize-space(@class), " "), " vector-column-start ")'
+                . ' or contains(concat(" ", normalize-space(@class), " "), " vector-toc ")'
+                . ' or contains(concat(" ", normalize-space(@class), " "), " mw-jump-link ")]',
+        ];
+        foreach ($queries as $query) {
+            $nodes = [];
+            foreach ($xpath->query($query) as $node) $nodes[] = $node;
+            foreach ($nodes as $node) if ($node->parentNode) $node->parentNode->removeChild($node);
         }
     }
     

@@ -4,6 +4,8 @@
  */
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/ImageCache.php';
+require_once __DIR__ . '/lib/SecureHttpClient.php';
 
 // Initialiseer error handling
 initErrorHandling();
@@ -26,15 +28,17 @@ if (!checkRateLimit()) {
 // Haal URL parameter op (met fallback voor HTTP/1.0 browsers)
 $imageUrl = '';
 if (isset($_GET['url'])) {
-    $imageUrl = is_string($_GET['url']) ? trim($_GET['url']) : '';
+    $imageUrl = trim($_GET['url']);
 } elseif (!empty($_SERVER['QUERY_STRING'])) {
     // Fallback: parse QUERY_STRING handmatig als $_GET niet werkt
     parse_str($_SERVER['QUERY_STRING'], $params);
     if (isset($params['url'])) {
-        $imageUrl = is_string($params['url']) ? trim($params['url']) : '';
+        $imageUrl = trim($params['url']);
     }
 }
 
+$activeSettings = getUserSettings();
+registerAggregateProcessing('image', $activeSettings['resolved_profile']);
 $originalWidth = isset($_GET['w']) ? (int)$_GET['w'] : null;
 $originalHeight = isset($_GET['h']) ? (int)$_GET['h'] : null;
 
@@ -44,24 +48,137 @@ if (empty($imageUrl)) {
     exit;
 }
 
-// Every hop is validated and pinned; no automatic redirect can reach LAN/loopback.
-require_once __DIR__ . '/lib/ImageFetcher.php';
-$fetcher = new RetroWebImageFetcher(MAX_IMAGE_PROCESSING_SIZE, 25000, 5, USER_AGENT);
-$fetched = $fetcher->fetch($imageUrl);
-if ($fetched['status'] !== 200) {
-    sendHttp10Response($fetched['status']);
+// Soepelere URL validatie: gebruik regex in plaats van filter_var
+// filter_var kan te strikt zijn voor HTTP/1.0 browsers
+if (!preg_match('/^https?:\/\/[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}/', $imageUrl)) {
+    sendHttp10Response(204);
     setHttp10Headers(0);
     exit;
 }
-$imageData = $fetched['body'];
-$imageUrl = $fetched['url'];
+
+// SSRF bescherming: check of URL naar intern/private netwerk verwijst
+if (isInternalUrl($imageUrl)) {
+    logSecurityEvent('ssrf_attempt_image', ['url' => $imageUrl, 'ip' => getClientIp()]);
+    sendHttp10Response(403);
+    setHttp10Headers(0);
+    exit;
+}
+
+// Sanitize URL
+$imageUrl = sanitizeUrl($imageUrl);
+if ($imageUrl === false) {
+    logSecurityEvent('invalid_url_format_image', ['url' => isset($_GET['url']) ? substr($_GET['url'], 0, 200) : '']);
+    sendHttp10Response(204);
+    setHttp10Headers(0);
+    exit;
+}
+
+$imageCache = new \RetroWEB\ImageCache(
+    CACHE_DIR . '/images', IMAGE_CACHE_TTL, IMAGE_CACHE_MAX_FILES, IMAGE_CACHE_MAX_BYTES
+);
+$imageCacheKey = $imageCache->key([
+    'version'=>CACHE_VERSION, 'url'=>$imageUrl,
+    'max_width'=>$activeSettings['image_width'], 'max_height'=>$activeSettings['image_height'],
+    'hint_width'=>$originalWidth, 'hint_height'=>$originalHeight,
+    'palette'=>GIF_PALETTE_COLORS, 'dithering'=>GIF_USE_DITHERING,
+]);
+$cachedImage = $imageCache->get($imageCacheKey);
+$cachedMetadata = $imageCache->metadata($imageCacheKey);
+$sendCached = function(string $data, string $status): void {
+    sendHttp10Response(200);
+    header('Content-Type: image/gif');
+    header('X-RetroWEB-Image-Cache: ' . $status);
+    setHttp10Headers(strlen($data));
+    echo $data;
+};
+if ($cachedImage !== null && (int)($cachedMetadata['checked_at'] ?? 0) >= time() - IMAGE_CACHE_REVALIDATE) {
+    $sendCached($cachedImage, 'HIT');
+    exit;
+}
+$imageCache->maybePrune();
+
+$sourceMetadata = [];
+$sendGif = function(string $data) use ($imageCache, $imageCacheKey, &$sourceMetadata): void {
+    $imageCache->put($imageCacheKey, $data, $sourceMetadata);
+    sendHttp10Response(200);
+    header('Content-Type: image/gif');
+    header('X-RetroWEB-Image-Cache: MISS');
+    setHttp10Headers(strlen($data));
+    echo $data;
+};
+
+// Fetch external images through the same DNS-pinned, redirect-validating
+// transport as HTML. Every redirect is checked again before connecting.
+$requestHeaders = [];
+if ($cachedImage !== null && !empty($cachedMetadata['etag'])) $requestHeaders['If-None-Match'] = $cachedMetadata['etag'];
+if ($cachedImage !== null && !empty($cachedMetadata['last_modified'])) $requestHeaders['If-Modified-Since'] = $cachedMetadata['last_modified'];
+try {
+    $imageResponse = \RetroWEB\SecureHttpClient::request(
+        $imageUrl, 'GET', null, $requestHeaders, MAX_IMAGE_PROCESSING_SIZE, MAX_REDIRECT_DEPTH
+    );
+    $imageData = $imageResponse['data'];
+    $responseHeaders = $imageResponse['headers'];
+    $statusCode = $imageResponse['status'];
+    $imageUrl = $imageResponse['url'];
+} catch (Throwable $error) {
+    error_log('Secure image fetch failed: ' . sanitizeLogMessage($error->getMessage()));
+    $imageData = false; $responseHeaders = []; $statusCode = 0;
+}
+
+if ($cachedImage !== null && $statusCode === 304) {
+    $cachedMetadata['checked_at'] = time();
+    $imageCache->putMetadata($imageCacheKey, $cachedMetadata);
+    $sendCached($cachedImage, 'REVALIDATED');
+    exit;
+}
+
+if ($imageData === false || empty($imageData)) {
+    if ($cachedImage !== null) {
+        $sendCached($cachedImage, 'STALE');
+        exit;
+    }
+    sendHttp10Response(204);
+    setHttp10Headers(0);
+    exit;
+}
+
+$sourceMetadata = ['checked_at'=>time(), 'source_hash'=>hash('sha256', $imageData)];
+foreach ($responseHeaders as $header) {
+    if (preg_match('/^ETag:\s*(.+)$/i', $header, $match)) $sourceMetadata['etag'] = trim($match[1]);
+    if (preg_match('/^Last-Modified:\s*(.+)$/i', $header, $match)) $sourceMetadata['last_modified'] = trim($match[1]);
+}
+if ($cachedImage !== null && !empty($cachedMetadata['source_hash'])
+    && hash_equals((string)$cachedMetadata['source_hash'], $sourceMetadata['source_hash'])) {
+    $imageCache->putMetadata($imageCacheKey, $sourceMetadata);
+    $sendCached($cachedImage, 'REVALIDATED');
+    exit;
+}
+
+// Valideer Content-Length header
+if (!validateContentLength($imageData, $responseHeaders)) {
+    logSecurityEvent('content_length_mismatch_image', ['url' => $imageUrl]);
+    // Log maar blokkeer niet - image kan nog steeds geldig zijn
+}
+
+// Check image size voor processing
+if (strlen($imageData) > MAX_IMAGE_PROCESSING_SIZE) {
+    logSecurityEvent('image_size_exceeded', ['size' => strlen($imageData), 'max' => MAX_IMAGE_PROCESSING_SIZE, 'url' => $imageUrl]);
+    sendHttp10Response(413);
+    setHttp10Headers(0);
+    exit;
+}
 
 // Set timeout voor image processing
 $timeout = defined('IMAGE_PROCESSING_TIMEOUT') ? IMAGE_PROCESSING_TIMEOUT : 30;
 set_time_limit($timeout);
 
-// Content type comes from the validated final response, never an old redirect.
-$headers = ['content-type' => $fetched['type']];
+// Check Content-Type via response headers
+$headers = [];
+foreach ($responseHeaders as $header) {
+        if (preg_match('/^Content-Type:\s*(.+)$/i', $header, $matches)) {
+            $headers['content-type'] = strtolower(trim(explode(';', $matches[1])[0]));
+        }
+}
 
 // Check if this is an SVG file (by Content-Type, file extension, or content)
 $isSvg = false;
@@ -106,35 +223,21 @@ if ($isSvg) {
             
             if ($actualWidth > 0 && $actualHeight > 0) {
                 // Calculate target dimensions
-                $maxWidth = MAX_IMAGE_WIDTH;
-                $maxHeight = MAX_IMAGE_HEIGHT;
-                $targetWidth = $maxWidth;
-                $targetHeight = $maxHeight;
-                
-                if ($originalWidth !== null && $originalWidth > 0 && $originalWidth < $maxWidth) {
-                    $targetWidth = $originalWidth;
-                }
-                
-                // Calculate resize ratio
-                $ratio = min($targetWidth / $actualWidth, $targetHeight / $actualHeight);
-                
-                if ($ratio < 1.0) {
-                    $newWidth = (int)($actualWidth * $ratio);
-                    $newHeight = (int)($actualHeight * $ratio);
+                $maxWidth = max(1, $activeSettings['image_width']);
+                $maxHeight = max(1, $activeSettings['image_height']);
+                [$newWidth, $newHeight] = calculateDownscaledDimensions(
+                    $actualWidth, $actualHeight, $maxWidth, $maxHeight, $originalWidth, $originalHeight
+                );
+
+                if ($newWidth !== $actualWidth || $newHeight !== $actualHeight) {
                     $imagick->resizeImage($newWidth, $newHeight, Imagick::FILTER_LANCZOS, 1);
-                } else {
-                    $newWidth = $actualWidth;
-                    $newHeight = $actualHeight;
                 }
                 
                 // Convert to GIF
                 $imagick->setImageFormat('gif');
                 
-                sendHttp10Response(200);
-                header('Content-Type: image/gif');
                 $imageBlob = $imagick->getImageBlob();
-                setHttp10Headers(strlen($imageBlob));
-                echo $imageBlob;
+                $sendGif($imageBlob);
                 $imagick->destroy();
                 exit;
             }
@@ -180,47 +283,24 @@ if ($isSvg) {
     }
     
     // Calculate target dimensions
-    $maxWidth = MAX_IMAGE_WIDTH;
-    $maxHeight = MAX_IMAGE_HEIGHT;
-    $targetWidth = $maxWidth;
-    $targetHeight = $maxHeight;
-    
-    if ($originalWidth !== null && $originalWidth > 0 && $originalWidth < $maxWidth) {
-        $targetWidth = $originalWidth;
-    }
-    
-    // Calculate resize ratio (avoid division by zero)
+    $maxWidth = max(1, $activeSettings['image_width']);
+    $maxHeight = max(1, $activeSettings['image_height']);
     if ($svgWidth > 0 && $svgHeight > 0) {
-        $ratio = min($targetWidth / $svgWidth, $targetHeight / $svgHeight);
-        
-        if ($ratio < 1.0) {
-            $newWidth = (int)($svgWidth * $ratio);
-            $newHeight = (int)($svgHeight * $ratio);
-        } else {
-            $newWidth = min($svgWidth, $maxWidth);
-            $newHeight = min($svgHeight, $maxHeight);
-        }
+        [$newWidth, $newHeight] = calculateDownscaledDimensions(
+            $svgWidth, $svgHeight, $maxWidth, $maxHeight, $originalWidth, $originalHeight
+        );
     } else {
         // Fallback to default if dimensions couldn't be determined
         $newWidth = min(300, $maxWidth);
         $newHeight = min(300, $maxHeight);
     }
     
-    // Ensure minimum size for placeholder
-    if ($newWidth < 50) {
-        $newWidth = 50;
-    }
-    if ($newHeight < 50) {
-        $newHeight = 50;
-    }
-    
     // Create a simple placeholder image (white background with text)
     $placeholder = @imagecreatetruecolor($newWidth, $newHeight);
     if ($placeholder === false) {
-        // If creation failed, use default size
-        $placeholder = imagecreatetruecolor(300, 300);
-        $newWidth = 300;
-        $newHeight = 300;
+        sendHttp10Response(204);
+        setHttp10Headers(0);
+        exit;
     }
     
     $white = imagecolorallocate($placeholder, 255, 255, 255);
@@ -240,98 +320,24 @@ if ($isSvg) {
     $useDithering = defined('GIF_USE_DITHERING') ? GIF_USE_DITHERING : true;
     imagetruecolortopalette($placeholder, $useDithering, $paletteColors);
     
-    sendHttp10Response(200);
-    header('Content-Type: image/gif');
     ob_start();
     imagegif($placeholder);
     $imageData = ob_get_clean();
-    setHttp10Headers(strlen($imageData));
-    echo $imageData;
+    $sendGif($imageData);
     imagedestroy($placeholder);
     exit;
 }
 
 // Detect image type
 $imageType = null;
-$imageResource = null;
+$imageResource = false;
 
-// Probeer image te laden
-if (function_exists('imagecreatefromstring')) {
+// Validate the bytes before invoking GD. Content-Type is only a hint and must
+// never make us feed arbitrary HTML to every decoder or log a base64 payload.
+$imageInfo = function_exists('getimagesizefromstring') ? @getimagesizefromstring($imageData) : false;
+if ($imageInfo !== false && isset($imageInfo[2])) {
+    $imageType = (int)$imageInfo[2];
     $imageResource = @imagecreatefromstring($imageData);
-    if ($imageResource !== false) {
-        // Detect type via getimagesizefromstring
-        $imageInfo = @getimagesizefromstring($imageData);
-        if ($imageInfo !== false) {
-            $imageType = $imageInfo[2]; // IMAGETYPE_JPEG, IMAGETYPE_PNG, etc.
-        }
-    }
-}
-
-// Fallback: check Content-Type header
-if ($imageType === null && isset($headers['content-type'])) {
-    $contentType = strtolower($headers['content-type']);
-    if (strpos($contentType, 'jpeg') !== false || strpos($contentType, 'jpg') !== false) {
-        $imageResource = @imagecreatefromjpeg('data://image/jpeg;base64,' . base64_encode($imageData));
-        if ($imageResource !== false) {
-            $imageType = IMAGETYPE_JPEG;
-        }
-    } elseif (strpos($contentType, 'png') !== false) {
-        $imageResource = @imagecreatefrompng('data://image/png;base64,' . base64_encode($imageData));
-        if ($imageResource !== false) {
-            $imageType = IMAGETYPE_PNG;
-        }
-    } elseif (strpos($contentType, 'gif') !== false) {
-        $imageResource = @imagecreatefromgif('data://image/gif;base64,' . base64_encode($imageData));
-        if ($imageResource !== false) {
-            $imageType = IMAGETYPE_GIF;
-        }
-    } elseif (strpos($contentType, 'webp') !== false && function_exists('imagecreatefromwebp')) {
-        $imageResource = @imagecreatefromwebp('data://image/webp;base64,' . base64_encode($imageData));
-        if ($imageResource !== false) {
-            $imageType = IMAGETYPE_WEBP;
-        }
-    } elseif (strpos($contentType, 'bmp') !== false || strpos($contentType, 'x-ms-bmp') !== false) {
-        $imageResource = @imagecreatefrombmp('data://image/bmp;base64,' . base64_encode($imageData));
-        if ($imageResource !== false) {
-            $imageType = IMAGETYPE_BMP;
-        }
-    }
-}
-
-// Als nog steeds geen image, probeer direct
-if ($imageResource === false) {
-    // Probeer als JPEG
-    $imageResource = @imagecreatefromjpeg('data://image/jpeg;base64,' . base64_encode($imageData));
-    if ($imageResource !== false) {
-        $imageType = IMAGETYPE_JPEG;
-    } else {
-        // Probeer als PNG
-        $imageResource = @imagecreatefrompng('data://image/png;base64,' . base64_encode($imageData));
-        if ($imageResource !== false) {
-            $imageType = IMAGETYPE_PNG;
-        } else {
-            // Probeer als GIF
-            $imageResource = @imagecreatefromgif('data://image/gif;base64,' . base64_encode($imageData));
-            if ($imageResource !== false) {
-                $imageType = IMAGETYPE_GIF;
-            } else {
-                // Probeer als WebP (PHP 7.1+)
-                if (function_exists('imagecreatefromwebp')) {
-                    $imageResource = @imagecreatefromwebp('data://image/webp;base64,' . base64_encode($imageData));
-                    if ($imageResource !== false) {
-                        $imageType = IMAGETYPE_WEBP;
-                    }
-                }
-                // Probeer als BMP
-                if ($imageResource === false && function_exists('imagecreatefrombmp')) {
-                    $imageResource = @imagecreatefrombmp('data://image/bmp;base64,' . base64_encode($imageData));
-                    if ($imageResource !== false) {
-                        $imageType = IMAGETYPE_BMP;
-                    }
-                }
-            }
-        }
-    }
 }
 
 // Als nog steeds geen geldige image, retourneer 204
@@ -371,46 +377,11 @@ if ($actualWidth === false || $actualHeight === false) {
     exit;
 }
 
-// Bereken nieuwe dimensies - simpele logica
-// Max dimensies zijn 300x300
-$maxWidth = MAX_IMAGE_WIDTH;  // 300
-$maxHeight = MAX_IMAGE_HEIGHT; // 300
-
-// Als originele dimensions opgegeven zijn EN kleiner dan max, gebruik die
-// Anders gebruik max (300x300)
-$targetWidth = $maxWidth;
-$targetHeight = $maxHeight;
-
-if ($originalWidth !== null && $originalWidth > 0 && $originalWidth < $maxWidth) {
-    $targetWidth = $originalWidth;
-}
-if ($originalHeight !== null && $originalHeight > 0 && $originalHeight < $maxHeight) {
-    $targetHeight = $originalHeight;
-}
-
-// Bereken nieuwe dimensies met aspect ratio behoud
-// Zorg dat image niet groter wordt dan targetWidth x targetHeight
-$ratio = min($targetWidth / $actualWidth, $targetHeight / $actualHeight);
-
-if ($ratio >= 1.0) {
-    // Image is al kleiner of gelijk aan target, gebruik originele dimensies
-    $newWidth = $actualWidth;
-    $newHeight = $actualHeight;
-} else {
-    // Resize naar target dimensies met aspect ratio behoud
-    $newWidth = (int)($actualWidth * $ratio);
-    $newHeight = (int)($actualHeight * $ratio);
-    
-    // Safety check: nooit groter dan max
-    if ($newWidth > $maxWidth) {
-        $newWidth = $maxWidth;
-        $newHeight = (int)($maxWidth / $actualWidth * $actualHeight);
-    }
-    if ($newHeight > $maxHeight) {
-        $newHeight = $maxHeight;
-        $newWidth = (int)($maxHeight / $actualHeight * $actualWidth);
-    }
-}
+$maxWidth = max(1, $activeSettings['image_width']);
+$maxHeight = max(1, $activeSettings['image_height']);
+[$newWidth, $newHeight] = calculateDownscaledDimensions(
+    $actualWidth, $actualHeight, $maxWidth, $maxHeight, $originalWidth, $originalHeight
+);
 
 // Check memory beschikbaarheid (ruwe schatting: 4 bytes per pixel)
 $estimatedMemory = ($newWidth * $newHeight * 4) + (imagesx($imageResource) * imagesy($imageResource) * 4);
@@ -468,13 +439,10 @@ $useDithering = defined('GIF_USE_DITHERING') ? GIF_USE_DITHERING : true;
 imagetruecolortopalette($newImage, $useDithering, $paletteColors);
 
 // Output ALTIJD als GIF
-sendHttp10Response(200);
-header('Content-Type: image/gif');
 ob_start();
 imagegif($newImage);
 $imageData = ob_get_clean();
-setHttp10Headers(strlen($imageData));
-echo $imageData;
+$sendGif($imageData);
 
 // Cleanup
 imagedestroy($imageResource);

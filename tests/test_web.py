@@ -42,11 +42,28 @@ class ConfigTests(unittest.TestCase):
         self.assertNotIn('name="image_pixels"', dutch)
         self.assertIn("Geschatte paginagrootte per deel", dutch)
         self.assertIn("byte per weergegeven pixel", dutch)
-        self.assertIn("Afbeeldingen: Afbeeldingen laten zien | Als links", dutch)
-        self.assertNotIn("Images: Inline", dutch)
+        self.assertIn("Afbeeldingen bij starten", dutch)
+        self.assertNotIn("Images at session start", dutch)
         self.assertIn("Estimated page size per part", english)
         self.assertIn("inclusief uitgepakte afbeeldingen", dutch)
         self.assertIn('value="2000000"', dutch)
+        for page in (dutch, english):
+            self.assertIn("retroweb.bjrno.com", page)
+            self.assertIn("8081", page)
+            self.assertIn("192.168.77.1:8080", page)
+        self.assertIn("Handmatig — proxy instellen in browser", dutch)
+        self.assertIn("Manual — configure proxy in browser", english)
+
+    def test_proxy_modes_have_separate_hierarchy_and_keep_online_selection(self):
+        for mode in ("manual", "transparent", "transparent-online"):
+            page = web.proxy_settings_card("nl", {"RETROMODEM_PROXY_MODE": mode})
+            self.assertIn(f'value="{mode}" selected', page)
+        page = web.proxy_settings_card("nl", {})
+        self.assertIn("Instellen in je browser", page)
+        self.assertIn("Lokale RetroWEB-instellingen", page)
+        self.assertIn("Lokale routering", page)
+        self.assertIn('id="online-local-settings-note"', page)
+        self.assertIn('id="local-retroweb-settings"', page)
 
     def test_config_round_trip_preserves_spaces_and_shell_characters(self):
         with tempfile.TemporaryDirectory() as directory:

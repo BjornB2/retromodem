@@ -16,6 +16,7 @@ initErrorHandling();
 
 // Stel security headers in
 setSecurityHeaders();
+setHtmlNoCacheHeaders();
 
 // Check request size
 if (!checkRequestSize()) {
@@ -36,15 +37,14 @@ if (!checkRateLimit()) {
 }
 
 require_once __DIR__ . '/lib/PagePaginator.php';
-$pageSize = $_GET['page_size'] ?? getenv('RETROMODEM_PROXY_PAGE_SIZE');
-$pageImages = $_GET['page_images'] ?? getenv('RETROMODEM_PROXY_PAGE_IMAGES');
-$pageSize = is_string($pageSize) && in_array($pageSize, ['0', '12000', '18000', '25000', '50000', '75000', '100000', '125000', '150000', '175000', '200000', '250000', '500000', '750000', '1000000', '1250000', '1500000', '1750000', '2000000'], true) ? (int)$pageSize : 250000;
-$pageImages = is_string($pageImages) && preg_match('/^(?:[0-9]|10)$/D', $pageImages) ? (int)$pageImages : 5;
+$activeSettings = getUserSettings();
+rememberUserSettings($activeSettings);
+registerAggregateProcessing('page', $activeSettings['resolved_profile']);
+$pageSize = $activeSettings['page_size'];
+$pageImages = $activeSettings['page_images'];
 $pageLanguage = retromodemNavigationLanguage();
 $pagePaginator = new RetroWebPagePaginator(CACHE_DIR . '/pages', $pageSize, $pageImages,
-    3600, 128, 67108864, $pageLanguage);
-// Snapshot navigation is local and must not fetch the original site again.
-// Handle it before requiring an origin URL or loading the content extractor.
+    3600, 128, 67108864, $pageLanguage, RENDER_VERSION);
 if (isset($_GET['document'])) {
     $document = is_string($_GET['document']) ? $_GET['document'] : '';
     $part = isset($_GET['part']) ? (is_string($_GET['part']) ? $_GET['part'] : '') : '1';
@@ -66,12 +66,22 @@ try {
     exit;
 }
 
+$retroSessionId = isset($_COOKIE['retroweb_session']) && is_string($_COOKIE['retroweb_session'])
+    && preg_match('/^[a-f0-9]{32}$/', $_COOKIE['retroweb_session']) ? $_COOKIE['retroweb_session'] : bin2hex(random_bytes(16));
+if (!isset($_COOKIE['retroweb_session']) || $_COOKIE['retroweb_session'] !== $retroSessionId) {
+    setcookie('retroweb_session', $retroSessionId, ['expires'=>time()+86400, 'path'=>getBasePath()==='/'?'/':getBasePath().'/',
+        'secure'=>false, 'httponly'=>true, 'samesite'=>'Lax']);
+}
+$upstreamCookies = new \RetroWEB\UpstreamCookieJar(CACHE_DIR . '/cookies', $retroSessionId);
+
 // Content extractor wordt via config.php geladen
 
 // Haal URL parameter op (met fallback voor HTTP/1.0 browsers)
 $targetUrl = '';
 if (isset($_GET['url'])) {
     $targetUrl = trim($_GET['url']);
+} elseif (isset($_POST['url']) && is_string($_POST['url'])) {
+    $targetUrl = trim($_POST['url']);
 } elseif (!empty($_SERVER['QUERY_STRING'])) {
     // Fallback: parse QUERY_STRING handmatig als $_GET niet werkt
     parse_str($_SERVER['QUERY_STRING'], $params);
@@ -79,6 +89,11 @@ if (isset($_GET['url'])) {
         $targetUrl = trim($params['url']);
     }
 }
+
+$submittedFields = \RetroWEB\LegacyFormConverter::submittedFields(
+    ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ? $_POST : $_GET
+);
+$upstreamMethod = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && $submittedFields ? 'POST' : 'GET';
 
 $imageMode = getImageMode();
 $baseUrl = getBaseUrl();
@@ -160,61 +175,25 @@ if ($targetUrl === false) {
     exit;
 }
 
-// Fetch once: retain cookies and use the same response for type detection and extraction.
-require_once __DIR__ . '/upstream.php';
-$upstream = fetchModemUpstream($targetUrl, ($_GET['http_fallback'] ?? '') === '1');
-$targetUrl = $upstream['url'];
-$contentType = $upstream['type'];
-$prefetchedContent = $upstream['body'];
-$upstreamProblem = modemUpstreamProblem($upstream);
-if ($upstreamProblem !== null) {
-    $problemTitle = modemText('Website niet beschikbaar', 'Website unavailable');
-    $retrySeconds = (int)($upstream['retry_seconds'] ?? 15);
-    $page = '<html><head><title>' . $problemTitle . '</title><meta name="retromodem-source-error" content="1">'
-        . '<meta name="retromodem-retry-seconds" content="' . $retrySeconds . '"></head><body><h1>' . $problemTitle . '</h1><p>'
-        . htmlspecialchars($upstreamProblem) . '</p><p>Webadres: ' . htmlspecialchars($targetUrl)
-        . '</p>' . ($upstream['status'] === 429 ? '<p>' . modemText('Wacht ongeveer ', 'Wait approximately ') . $retrySeconds . modemText(' seconden voor een nieuwe poging.', ' seconds before trying again.') . '</p>' : '') . '</body></html>';
-    sendHttp10Response(200);
-    header('Content-Type: text/html; charset=iso-8859-1');
-    setHttp10Headers(strlen($page));
-    echo $page;
-    exit;
+if ($upstreamMethod === 'GET' && $submittedFields) {
+    $targetUrl .= (str_contains($targetUrl, '?') ? '&' : '?') . \RetroWEB\LegacyFormConverter::encodeFields($submittedFields);
 }
 
+// Cache uitgeschakeld - altijd live content
+
 // Check Content-Type via HEAD request (met fallback)
-if (false) {
+$contentType = '';
 try {
-    $headContext = createStreamContext('HEAD');
-    $headHeaders = @get_headers($targetUrl, 1, $headContext);
-    
-    if ($headHeaders && is_array($headHeaders)) {
-        // Normaliseer header keys naar lowercase
-        $headers = [];
-        foreach ($headHeaders as $key => $value) {
-            if (is_numeric($key)) {
-                // Numeric keys zijn response headers als strings
-                if (preg_match('/^Content-Type:\s*(.+)$/i', $value, $matches)) {
-                    $headers['content-type'] = strtolower(trim(explode(';', $matches[1])[0]));
-                }
-            } else {
-                $headers[strtolower($key)] = $value;
-            }
-        }
-        
-        // Check Content-Type (kan array zijn bij redirects)
-        if (isset($headers['content-type'])) {
-            $contentType = is_array($headers['content-type']) 
-                ? end($headers['content-type']) 
-                : $headers['content-type'];
-            $contentType = strtolower(trim(explode(';', $contentType)[0]));
-        }
-    }
-} catch (Exception $e) {
+    $cookieHeader = $upstreamCookies->headerFor($targetUrl);
+    $headResponse = \RetroWEB\SecureHttpClient::request($targetUrl, 'HEAD', null,
+        $cookieHeader !== null ? ['Cookie'=>$cookieHeader] : [], 1024, MAX_REDIRECT_DEPTH);
+    $headContentType = \RetroWEB\SecureHttpClient::header($headResponse['headers'], 'Content-Type');
+    if ($headContentType !== null) $contentType = strtolower(trim(explode(';', $headContentType)[0]));
+} catch (Throwable $e) {
     // Ignore errors bij HEAD request, we proberen het later met GET
     error_log('HEAD request failed: ' . $e->getMessage());
 }
 
-}
 // Check of het een image is - redirect naar image_cruncher.php
 $imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
 $isImage = false;
@@ -243,15 +222,19 @@ if ($isImage) {
 }
 
 // Als niet HTML/plain text, stream als download
-if (!empty($contentType) && $contentType !== 'text/html' && $contentType !== 'text/plain') {
-    $getContext = createStreamContext('GET');
-    $content = $prefetchedContent;
-    
-    // Valideer Content-Length voor download content
-    $downloadHeaders = [];
-    if (isset($http_response_header) && is_array($http_response_header)) {
-        $downloadHeaders = $http_response_header;
+if ($upstreamMethod === 'GET' && !empty($contentType) && $contentType !== 'text/html' && $contentType !== 'text/plain') {
+    $cookieHeader = $upstreamCookies->headerFor($targetUrl);
+    try {
+        $downloadResponse = \RetroWEB\SecureHttpClient::request($targetUrl, 'GET', null,
+            $cookieHeader !== null ? ['Cookie'=>$cookieHeader] : [], MAX_DOWNLOAD_SIZE, MAX_REDIRECT_DEPTH);
+        $content = $downloadResponse['data'];
+        $downloadHeaders = $downloadResponse['headers'];
+    } catch (Throwable $error) {
+        $content = false; $downloadHeaders = [];
     }
+
+    // Validate Content-Length for download content
+    $upstreamCookies->capture($downloadHeaders, $targetUrl);
     if ($content !== false && !empty($content)) {
         if (!validateContentLength($content, $downloadHeaders)) {
             logSecurityEvent('content_length_mismatch_download', ['url' => $targetUrl]);
@@ -307,14 +290,15 @@ $maxRedirects = defined('MAX_REDIRECT_DEPTH') ? MAX_REDIRECT_DEPTH : 10;
 $redirectCount = 0;
 $visitedUrls = [$targetUrl]; // Track bezochte URLs voor loop detectie
 
-while (false && $redirectCount < $maxRedirects) {
+if ($upstreamMethod === 'GET') while ($redirectCount < $maxRedirects) {
     try {
         // Maak HEAD request ZONDER follow_location om redirects handmatig te volgen
         $timeout = defined('REQUEST_TIMEOUT') ? REQUEST_TIMEOUT : 30;
+        $redirectCookie = $upstreamCookies->headerFor($currentUrl);
         $headContext = stream_context_create([
             'http' => [
                 'method' => 'HEAD',
-                'header' => "User-Agent: " . USER_AGENT . "\r\n",
+                'header' => "User-Agent: " . USER_AGENT . "\r\n" . ($redirectCookie !== null ? 'Cookie: ' . $redirectCookie . "\r\n" : ''),
                 'follow_location' => 0, // NIET automatisch volgen
                 'max_redirects' => 0,
                 'timeout' => $timeout,
@@ -400,22 +384,29 @@ while (false && $redirectCount < $maxRedirects) {
 // Dit is cruciaal voor correcte normalisatie van relatieve image URLs
 $targetUrl = $finalUrl;
 
-// Fetch HTML content (ondersteunt HTTPS) - gebruik finale URL
-$getContext = createStreamContext('GET');
-$html = $prefetchedContent;
+// Fetch HTML content (ondersteunt HTTPS) - gebruik finale URL.
+try {
+    $upstreamResponse = \RetroWEB\UpstreamFetcher::fetch($targetUrl, $upstreamMethod, $submittedFields, $upstreamCookies);
+    $html = $upstreamResponse['data'];
+    $lastResponseHeaders = $upstreamResponse['headers'];
+    $targetUrl = $upstreamResponse['url'];
+} catch (RuntimeException $fetchError) {
+    $html = false;
+    $lastResponseHeaders = [];
+}
 
 // Als Content-Type nog niet bekend is, check het nu via response headers
 $responseHeaders = [];
-if (empty($contentType) && isset($http_response_header) && is_array($http_response_header)) {
-    foreach ($http_response_header as $header) {
+if (empty($contentType) && $lastResponseHeaders) {
+    foreach ($lastResponseHeaders as $header) {
         if (preg_match('/^Content-Type:\s*(.+)$/i', $header, $matches)) {
             $contentType = strtolower(trim(explode(';', $matches[1])[0]));
         }
         $responseHeaders[] = $header;
     }
-} elseif (isset($http_response_header) && is_array($http_response_header)) {
-    $responseHeaders = $http_response_header;
-        }
+} elseif ($lastResponseHeaders) {
+    $responseHeaders = $lastResponseHeaders;
+}
 
 // Valideer Content-Length als content is opgehaald
 if ($html !== false && !empty($html)) {
@@ -491,13 +482,11 @@ try {
         $title = $result['title'] ?: 'Page';
         $content = $result['content'];
     }
+    $content = \RetroWEB\LegacyHtmlSanitizer::removeHiddenContent($content);
     
     // Sanitize title: verwijder control characters en limiteer lengte
     $title = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $title);
     $title = mb_substr(trim($title), 0, 200); // Max 200 karakters
-    
-    // Converteer umlauts en speciale karakters naar HTML entities voor HTML 2.0
-    $title = htmlentities($title, ENT_QUOTES | ENT_SUBSTITUTE, 'ISO-8859-1', false);
     
     // Sanitize content: verwijder control characters (behalve whitespace)
     $content = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $content);
@@ -514,13 +503,27 @@ try {
     $title = mb_substr(trim($title), 0, 200);
     $content = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $content);
     
-    // Converteer umlauts en speciale karakters naar HTML entities voor HTML 2.0
-    $title = htmlentities($title, ENT_QUOTES | ENT_SUBSTITUTE, 'ISO-8859-1', false);
 }
 
-// Filter toegestane tags met DOMDocument
-$allowedTags = '<a><ol><ul><li><br><p><small><font><b><strong><i><em><blockquote><h1><h2><h3><h4><h5><h6><img>';
-$content = strip_tags($content, $allowedTags);
+// Apply explicit CSS visual ordering before classes and styles are removed.
+$content = \RetroWEB\LegacyHtmlConverter::applyVisualOrder($content, $originalHtml);
+
+// Rewrite ordinary forms through RetroWEB before filtering attributes/tags.
+$content = \RetroWEB\LegacyFormConverter::rewrite($content, $targetUrl, $baseUrl . '/proxy.php', $activeSettings);
+
+// Convert tables according to the selected browser capability before filtering.
+$tableMode = \RetroWEB\LegacyHtmlConverter::tableMode($activeSettings['tables'], $activeSettings['html']);
+$content = \RetroWEB\LegacyHtmlConverter::convertTables($content, $tableMode, $activeSettings['html']);
+$layoutMode = \RetroWEB\LegacyHtmlConverter::layoutMode($activeSettings['layout'], $activeSettings['html']);
+$content = \RetroWEB\LegacyHtmlConverter::convertLayout($content, $layoutMode, $activeSettings['html'], $originalHtml);
+$content = \RetroWEB\LegacyHtmlConverter::preserveBlockSpacing($content);
+$content = \RetroWEB\LegacyHtmlConverter::relocateMenus($content);
+$content = \RetroWEB\LegacyHtmlSanitizer::sanitiseAttributes($content);
+
+// Render the final allowlisted legacy DOM without regex-based tag stripping.
+$allowTables = $tableMode !== 'linearise' || $layoutMode === 'table';
+$content = \RetroWEB\LegacyDomRenderer::render($content, $allowTables);
+$content = \RetroWEB\LegacyHtmlConverter::normaliseBlockSpacing($content);
 
 // Converteer moderne tags
 $content = convertModernTags($content);
@@ -545,7 +548,7 @@ $content = preg_replace_callback(
         $href = html_entity_decode($matches[2], ENT_QUOTES, 'UTF-8');
         if ($href === '' || $href[0] === '#' || preg_match('/^(?:mailto|tel):/i', $href)) return $matches[0];
         if (strpos($href, $baseUrl . '/proxy.php?') !== 0) {
-            $href = $baseUrl . '/proxy.php?' . http_build_query(['url' => normalizeImageUrl($href, $targetUrl)]);
+            $href = buildRetroWebUrl('proxy.php', \RetroWEB\UserSettings::query(getUserSettings(), ['url'=>normalizeImageUrl($href, $targetUrl)]));
         } else {
             parse_str(parse_url($href, PHP_URL_QUERY) ?? '', $parameters);
             unset($parameters['img']);
@@ -555,103 +558,7 @@ $content = preg_replace_callback(
     },
     $content
 );
-
-// Verplaats menu's naar het einde van de content
-// Detecteer menu's (veel links in een lijst, of elementen met menu/nav classes)
-$menus = [];
-$menuPlaceholders = [];
-
-// Functie om geneste <ul> tags te matchen (recursief)
-function matchNestedUl($html, $startPos = 0) {
-    $pos = strpos($html, '<ul', $startPos);
-    if ($pos === false) {
-        return null;
-    }
-    
-    // Vind de opening tag einde
-    $tagEnd = strpos($html, '>', $pos);
-    if ($tagEnd === false) {
-        return null;
-    }
-    
-    // Zoek naar de bijbehorende closing tag (rekening houdend met geneste <ul>)
-    $depth = 1;
-    $searchPos = $tagEnd + 1;
-    $endPos = null;
-    
-    while ($depth > 0 && $searchPos < strlen($html)) {
-        $nextOpen = strpos($html, '<ul', $searchPos);
-        $nextClose = strpos($html, '</ul>', $searchPos);
-        
-        if ($nextClose === false) {
-            break; // Geen closing tag gevonden
-        }
-        
-        if ($nextOpen !== false && $nextOpen < $nextClose) {
-            // Er is een geneste <ul> gevonden
-            $depth++;
-            $searchPos = strpos($html, '>', $nextOpen) + 1;
-        } else {
-            // Closing tag gevonden
-            $depth--;
-            if ($depth === 0) {
-                $endPos = $nextClose + 5; // +5 voor '</ul>'
-                break;
-            }
-            $searchPos = $nextClose + 5;
-        }
-    }
-    
-    if ($endPos !== null) {
-        return [
-            'start' => $pos,
-            'end' => $endPos,
-            'content' => substr($html, $pos, $endPos - $pos)
-        ];
-    }
-    
-    return null;
-}
-
-// Extract alle <ul> tags en check of ze menu's zijn
-$offset = 0;
-while (($match = matchNestedUl($content, $offset)) !== null) {
-    $ulContent = $match['content'];
-    $linkCount = preg_match_all('/<a[^>]*>/i', $ulContent);
-    
-    // Check of het een menu is:
-    // 1. Meer dan 5 links (waarschijnlijk navigatie)
-    // 2. Heeft menu/nav classes of ids
-    // 3. Heeft sub-menu classes
-    $isMenu = false;
-    
-    if ($linkCount > 5) {
-        $isMenu = true;
-    } elseif (preg_match('/(?:class|id)=["\'][^"\']*(?:menu|nav|navigation|sub-menu)[^"\']*["\']/i', $ulContent)) {
-        $isMenu = true;
-    } elseif (preg_match('/menu-item|menu-item-type/i', $ulContent)) {
-        $isMenu = true;
-    }
-    
-    if ($isMenu) {
-        $placeholder = '<!--MENU_' . count($menus) . '-->';
-        $menus[] = $ulContent;
-        $menuPlaceholders[] = $placeholder;
-        // Vervang menu met placeholder
-        $content = substr_replace($content, $placeholder, $match['start'], $match['end'] - $match['start']);
-        $offset = $match['start'] + strlen($placeholder);
-    } else {
-        $offset = $match['end'];
-    }
-}
-
-// Voeg menu's toe aan het einde van de content
-if (!empty($menus)) {
-    $content .= '<hr><h2>Menu</h2>';
-    foreach ($menus as $menu) {
-        $content .= $menu . '<br>';
-    }
-}
+$content = \RetroWEB\LegacyHtmlSanitizer::sanitiseAttributes($content);
 
 // Extract kleuren uit originele HTML
 $colors = extractColors($originalHtml);
@@ -679,16 +586,10 @@ if (!empty($colors['link'])) {
     $bodyAttrs .= ' link="' . htmlspecialchars($colors['link']) . '"';
 }
 
-// Split only after extraction, cleanup, link and image rewriting. The paginator
-// budgets the actual ISO-8859-1 output including both navigation bars.
-if (($upstream['transport_note'] ?? '') === 'http-fallback') {
-    $content = '<p><b>' . modemText('Deze oude website werkt alleen via onversleuteld HTTP.', 'This legacy website only works over unencrypted HTTP.') . '</b></p>' . $content;
-}
-if (($upstream['transport_note'] ?? '') === 'original-wikipedia') {
-    $content = '<p><b>' . modemText('Wikiwand blokkeert de proxy. Hieronder staat het oorspronkelijke Wikipedia-artikel.', 'Wikiwand blocks the proxy. The original Wikipedia article is shown below.') . '</b></p>' . $content;
-}
+// Paginate only the final cleaned and rewritten content.
 try {
-    $htmlOutput = $pagePaginator->first($content, $title, renderNavigation($imageMode), $bodyAttrs, $baseUrl, $imageMode);
+    $reloadUrl = buildRetroWebUrl('proxy.php', \RetroWEB\UserSettings::query($activeSettings, ['url'=>$targetUrl]));
+    $htmlOutput = $pagePaginator->first($content, $title, renderNavigation($imageMode, $reloadUrl), $bodyAttrs, $baseUrl, $imageMode, $reloadUrl);
     sendHttp10Response(200);
 } catch (RuntimeException $error) {
     sendHttp10Response(503, 'Service Unavailable');

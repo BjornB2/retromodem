@@ -1,17 +1,15 @@
 --- a/src/modem_core.c
 +++ b/src/modem_core.c
-@@ -1,2 +1,3 @@
- #include <unistd.h>
- #include <stdlib.h>       // for atoi
-+#include <strings.h>      // for strcasecmp
-@@ -325,2 +326,32 @@ int mdm_parse_cmd(modem_config* cfg) {
+@@ -315,6 +315,36 @@ int mdm_parse_cmd(modem_config* cfg) {
+   char tmp[256];
+ 
    LOG_ENTER();
    LOG(LOG_DEBUG, "Evaluating AT%s", command);
 +  /* Some data-only clients probe the modem's fax class before dialing.
 +     tcpser's single-character parser otherwise treats +FCLASS as a chain of
 +     unrelated commands and returns ERROR.  Advertise only class 0 (data),
 +     which is the sole mode RetroModem implements. */
-+  if(strcasecmp(command, "+FCLASS=?") == 0) {
++  if(strcmp(command, "+FCLASS=?") == 0) {
 +    if(cfg->send_responses == TRUE) {
 +      mdm_write(cfg, (unsigned char *)cfg->crlf, 2);
 +      mdm_write(cfg, (unsigned char *)"+FCLASS: (0)", 12);
@@ -21,7 +19,7 @@
 +    cfg->cur_line_idx = 0;
 +    return AT_CMD_END;
 +  }
-+  if(strcasecmp(command, "+FCLASS?") == 0) {
++  if(strcmp(command, "+FCLASS?") == 0) {
 +    if(cfg->send_responses == TRUE) {
 +      mdm_write(cfg, (unsigned char *)cfg->crlf, 2);
 +      mdm_write(cfg, (unsigned char *)"+FCLASS: 0", 10);
@@ -31,12 +29,12 @@
 +    cfg->cur_line_idx = 0;
 +    return AT_CMD_END;
 +  }
-+  if(strcasecmp(command, "+FCLASS=0") == 0) {
++  if(strcmp(command, "+FCLASS=0") == 0) {
 +    mdm_send_response(MDM_RESP_OK, cfg);
 +    cfg->last_line_idx = cfg->cur_line_idx;
 +    cfg->cur_line_idx = 0;
 +    return AT_CMD_END;
 +  }
+ 
    while(TRUE != done ) {
      if(cmd != AT_CMD_ERR) {
-       cmd = getcmd(command, len, &index, &num, &start, &end);
