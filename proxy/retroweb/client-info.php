@@ -33,10 +33,13 @@ $html .= "<dt><b>Accept-Language</b></dt><dd><code>" . $escape($_SERVER['HTTP_AC
 $html .= "</dl>\n";
 $html .= "<h2>Profile defaults</h2>\n<ul>\n";
 $html .= "<li>HTML: " . $escape($profile['html']) . "</li>\n";
+$html .= "<li>Images: " . $escape($profile['image_mode'] ?? 'links') . "</li>\n";
 $html .= "<li>Image size: " . $escape($profile['image_width']) . " x " . $escape($profile['image_height']) . "</li>\n";
 $html .= "<li>Page size: " . $escape($profile['page_size']) . " bytes</li>\n";
+$html .= "<li>Inline images per page: " . $escape($profile['page_images']) . "</li>\n";
 $html .= "<li>Table mode: " . $escape($profile['tables']) . "</li>\n";
 $html .= "</ul>\n</body></html>\n";
+$html = prepareLegacyBrowserHtml($html, getUserSettings());
 
 sendHttp10Response(200);
 header('Content-Type: text/html; charset=iso-8859-1');

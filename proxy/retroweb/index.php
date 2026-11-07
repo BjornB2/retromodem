@@ -149,5 +149,6 @@ $htmlOutput .= "<p>Made by <a href=\"mailto:b&#106;orn&#64;heirman&#46;nl\">Bj&#
 
 $htmlOutput .= "</body>\n</html>\n";
 
+$htmlOutput = prepareLegacyBrowserHtml($htmlOutput, $activeSettings);
 setHttp10Headers(strlen($htmlOutput));
 echo $htmlOutput;

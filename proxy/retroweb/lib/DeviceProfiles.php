@@ -18,11 +18,23 @@ final class DeviceProfiles
         'macweb' => [
             'label' => 'MacWeb',
             'html' => 'html20',
+            'image_mode' => 'inline',
             'image_width' => 320,
             'image_height' => 240,
-            'page_size' => 100000,
+            'page_size' => 250000,
             'page_images' => 4,
             'tables' => 'linearise',
+            'layout' => 'flow',
+        ],
+        'netscape2_mac' => [
+            'label' => 'Netscape 2 on Macintosh',
+            'html' => 'html32',
+            'image_mode' => 'inline',
+            'image_width' => 480,
+            'image_height' => 320,
+            'page_size' => 250000,
+            'page_images' => 4,
+            'tables' => 'table',
             'layout' => 'flow',
         ],
         'psion' => [
@@ -104,7 +116,8 @@ final class DeviceProfiles
     {
         return match ($id) {
             'generic' => 'generic:2',
-            'macweb' => 'macweb:2',
+            'macweb' => 'macweb:3',
+            'netscape2_mac' => 'netscape2_mac:1',
             'psion' => 'psion:2',
             'psion5mx' => 'psion5mx:1',
             'nokia9210' => 'nokia9210:3',
@@ -130,6 +143,9 @@ final class DeviceProfiles
         }
         if (stripos($userAgent, 'MacWeb') !== false) {
             return self::result('macweb', 'high', 'MacWeb product identifier');
+        }
+        if (preg_match('/Mozilla\/2\.0[0-9][^\r\n]*\(Macintosh;[^\r\n]*68K\)/i', $userAgent)) {
+            return self::result('netscape2_mac', 'high', 'Netscape 2 Macintosh 68K identifier');
         }
         if (preg_match('/(?:PalmSource|Blazer[\s\/]|Xiino|PalmOS|Palm OS)/i', $userAgent)) {
             return self::result('palm', 'high', 'Palm browser or platform identifier');

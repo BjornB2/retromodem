@@ -18,7 +18,9 @@ if(settingsReturnUrl($_GET['return']??null,$settings)!==null)$html.='<input type
 $html.='<p><b>Browser profile</b><br><select name="profile"><option value="auto"'.$sel($settings['profile'],'auto').'>Automatic</option>';
 foreach(\RetroWEB\DeviceProfiles::all() as $id=>$p)$html.='<option value="'.$e($id).'"'.$sel($settings['profile'],$id).'>'.$e($p['label']).'</option>';
 $html.='</select></p><p><b>Images</b><br><select name="img"><option value="links"'.$sel($settings['image_mode'],'links').'>As links</option><option value="inline"'.$sel($settings['image_mode'],'inline').'>Inline</option></select></p>';
+$html.='<p><input type="hidden" name="profile_img" value="0"><input type="checkbox" name="profile_img" value="1"'.(!empty($settings['profile_image_mode'])?' checked':'').'> Use image mode from selected/detected profile</p>';
 $html.='<p><b>Maximum image size</b><br>Width: <input name="iw" size="5" value="'.$e($settings['image_width']).'"> Height: <input name="ih" size="5" value="'.$e($settings['image_height']).'"></p>';
+$html.='<p><input type="hidden" name="profile_size" value="0"><input type="checkbox" name="profile_size" value="1"'.(!empty($settings['profile_image_size'])?' checked':'').'> Use image dimensions from selected/detected profile</p>';
 $html.='<p><b>Page memory budget</b><br><select name="page_size">'; foreach(\RetroWEB\UserSettings::pageSizes() as $n)$html.='<option value="'.$n.'"'.$sel($settings['page_size'],$n).'>'.($n===0?'Unsplit':number_format($n).' bytes').'</option>'; $html.='</select><br><small>Includes HTML plus an estimate for inline image pixels.</small></p>';
 $html.='<p><b>Maximum inline images</b><br><select name="page_images"><option value="all"'.$sel($settings['page_images'],-1).'>All images</option>'; for($n=0;$n<=10;$n++)$html.='<option value="'.$n.'"'.$sel($settings['page_images'],$n).'>'.$n.'</option>'; $html.='</select></p>';
 $html.='<p><b>Tables</b><br><select name="tables">'; foreach(['auto'=>'Automatic','table'=>'Classic table','linearise'=>'Linear text'] as $v=>$l)$html.='<option value="'.$v.'"'.$sel($settings['tables'],$v).'>'.$l.'</option>'; $html.='</select><br><small>Classic tables use old HTML attributes and no section wrappers.</small></p>';
@@ -26,4 +28,5 @@ $html.='<p><b>Page layout</b><br><select name="layout">'; foreach(['auto'=>'Auto
 $html.='<p><input type="submit" value="Save settings"></p></form><hr>';
 $html.=renderForwardProxyNotice();
 $html.='</body></html>';
+$html=prepareLegacyBrowserHtml($html,$settings);
 sendHttp10Response(200); header('Content-Type: text/html; charset=iso-8859-1'); setHttp10Headers(strlen($html)); echo $html;

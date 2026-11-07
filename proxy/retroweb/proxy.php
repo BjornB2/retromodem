@@ -51,6 +51,7 @@ if (isset($_GET['document'])) {
     $mode = isset($_GET['img']) ? (is_string($_GET['img']) ? $_GET['img'] : '') : null;
     $block = isset($_GET['block']) ? (is_string($_GET['block']) ? $_GET['block'] : '') : null;
     $selectedPage = $pagePaginator->read($document, $part, $mode, $block);
+    $selectedPage['html'] = prepareLegacyBrowserHtml($selectedPage['html'], $activeSettings);
     sendHttp10Response($selectedPage['status']);
     header('Content-Type: text/html; charset=iso-8859-1');
     setHttp10Headers(strlen($selectedPage['html']));
@@ -599,6 +600,7 @@ try {
 }
 
 // Output (geen cache)
+$htmlOutput = prepareLegacyBrowserHtml($htmlOutput, $activeSettings);
 header('Content-Type: text/html; charset=iso-8859-1');
 setHttp10Headers(strlen($htmlOutput));
 echo $htmlOutput;

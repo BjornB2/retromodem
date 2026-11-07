@@ -226,7 +226,10 @@ function rememberUserSettings(array $settings): void {
     $fingerprint = settingsSessionFingerprint();
     $db = $fingerprint !== null ? getStatsDatabase() : null;
     if (!$db) return;
-    $stored = array_replace(\RetroWEB\UserSettings::query($settings), ['_resolved' => \RetroWEB\DeviceProfiles::storageGeneration($settings['resolved_profile'])]);
+    $stored = array_replace(\RetroWEB\UserSettings::query($settings), [
+        '_resolved' => \RetroWEB\DeviceProfiles::storageGeneration($settings['resolved_profile']),
+        '_profile_bindings' => '3',
+    ]);
     try {
         $statement = $db->prepare('INSERT INTO settings_sessions (fingerprint, settings, updated_at) VALUES (:fingerprint, :settings, :updated_at)
             ON CONFLICT(fingerprint) DO UPDATE SET settings = excluded.settings, updated_at = excluded.updated_at');
@@ -238,6 +241,15 @@ function rememberUserSettings(array $settings): void {
     } catch (Throwable $e) {
         error_log('Settings session write failed: ' . $e->getMessage());
     }
+}
+
+/** MacWeb 2.0 sends literal "&amp;" text from URL attributes. */
+function prepareLegacyBrowserHtml(string $html, ?array $settings = null): string {
+    $settings ??= getUserSettings();
+    if (($settings['resolved_profile'] ?? '') !== 'macweb') return $html;
+    return preg_replace_callback('/\b(href|src|action)=("|\')(.*?)\2/is', static function ($match) {
+        return $match[1] . '=' . $match[2] . str_replace('&amp;', '&', $match[3]) . $match[2];
+    }, $html);
 }
 
 function buildRetroWebUrl(string $script, array $parameters = []): string {

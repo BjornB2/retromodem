@@ -245,7 +245,7 @@ final class LegacyHtmlConverter
             $previous = null;
             while ($previous !== $css) {
                 $previous = $css;
-                $css = preg_replace('/@(media|supports|container|keyframes)[^{]*\{(?:[^{}]*|\{[^{}]*\})*\}/is', '', $css);
+                $css = (string)preg_replace('/@(media|supports|container|keyframes)[^{]*\{(?:[^{}]*|\{[^{}]*\})*\}/is', '', (string)$css);
             }
             if (!preg_match_all('/([^{}]+)\{([^{}]*)\}/s', $css, $matches, PREG_SET_ORDER)) continue;
             foreach ($matches as $match) {

@@ -53,6 +53,10 @@ final class SecureHttpClient
                     if(strlen($data)+strlen($chunk)>$maxBytes)return 0; $data.=$chunk; return strlen($chunk);
                 },
             ]);
+            // Some upstreams still announce or send a response body for HEAD.
+            // Tell cURL explicitly not to read it; otherwise the small HEAD byte
+            // limit can turn a successful metadata probe into a write error.
+            if ($method === 'HEAD') curl_setopt($handle, CURLOPT_NOBODY, true);
             if ($body !== null) curl_setopt($handle, CURLOPT_POSTFIELDS, $body);
             $ok = curl_exec($handle);
             $lastError = curl_error($handle);

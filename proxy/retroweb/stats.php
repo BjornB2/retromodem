@@ -36,6 +36,7 @@ $html .= "<h2>Privacy</h2>\n";
 $html .= "<p>These are aggregate counters. This page does not publish visited URLs, search terms, form data or visitor identifiers.</p>\n";
 $html .= "<p>Visitor addresses are stored only as hashes for the short counting window and are not displayed.</p>\n";
 $html .= "</body></html>\n";
+$html = prepareLegacyBrowserHtml($html, getUserSettings());
 
 sendHttp10Response(200);
 header('Content-Type: text/html; charset=iso-8859-1');

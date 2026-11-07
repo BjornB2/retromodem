@@ -24,6 +24,9 @@ FILES = {
     'scripts/proxy-firewall': ('usr/local/lib/retromodem/proxy-firewall', 0o755, None, False),
     'scripts/proxy-enabled': ('usr/local/lib/retromodem/proxy-enabled', 0o755, None, False),
     'proxy/retroweb/proxy.php': ('opt/retromodem/retroweb/proxy.php', 0o644, 'retromodem-retroweb-core.service', False),
+    'proxy/retroweb/index.php': ('opt/retromodem/retroweb/index.php', 0o644, 'retromodem-retroweb-core.service', False),
+    'proxy/retroweb/client-info.php': ('opt/retromodem/retroweb/client-info.php', 0o644, 'retromodem-retroweb-core.service', False),
+    'proxy/retroweb/stats.php': ('opt/retromodem/retroweb/stats.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/config.php': ('opt/retromodem/retroweb/config.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/config.defaults.php': ('opt/retromodem/retroweb/config.defaults.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/upstream.php': ('opt/retromodem/retroweb/upstream.php', 0o644, 'retromodem-retroweb-core.service', False),
@@ -36,6 +39,7 @@ FILES = {
     'proxy/retroweb/lib/UpstreamFetcher.php': ('opt/retromodem/retroweb/lib/UpstreamFetcher.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/lib/UserSettings.php': ('opt/retromodem/retroweb/lib/UserSettings.php', 0o644, 'retromodem-retroweb-core.service', False),
     'proxy/retroweb/lib/SecureHttpClient.php': ('opt/retromodem/retroweb/lib/SecureHttpClient.php', 0o644, 'retromodem-retroweb-core.service', True),
+    'proxy/retroweb/lib/LegacyHtmlConverter.php': ('opt/retromodem/retroweb/lib/LegacyHtmlConverter.php', 0o644, 'retromodem-retroweb-core.service', False),
     'scripts/diagnose': ('usr/local/sbin/retromodem-diagnose', 0o755, None, False),
     'web/static/software/PalmTerm-RetroIRModem-0.1.34.prc': (
         'usr/local/share/retromodem/static/software/PalmTerm-RetroIRModem-0.1.34.prc',
