@@ -111,8 +111,8 @@ apt-get update
 apt-get install -y \
     avahi-daemon autoconf automake build-essential dkms git irda-utils \
     curl iproute2 iputils-ping nmap arp-scan dnsutils traceroute libtool lrzsz openobex-apps libopenobex2-dev pkg-config "$kernel_headers" \
-    composer dnsmasq imagemagick network-manager nftables openssh-server php-cli php-curl php-gd \
-    php-mbstring php-xml ppp procps psmisc python3 python3-bs4 python3-cryptography usbutils xinetd \
+    dnsmasq imagemagick network-manager nftables openssh-server \
+    ppp procps psmisc python3 python3-bs4 python3-cryptography usbutils xinetd \
     raspi-utils util-linux patch ca-certificates
 
 # Keep the existing Imager administrator and SSH credentials. Never introduce
@@ -142,10 +142,9 @@ patch -d "$work_dir/tcpser" -p1 < "$PROJECT_DIR/patches/tcpser-data-fclass.patch
 make -C "$work_dir/tcpser"
 install -m 0755 "$work_dir/tcpser/tcpser" /usr/local/bin/tcpser
 
-install -d -m 0755 /opt/retromodem
+systemctl disable --now retromodem-retroweb-core.service 2>/dev/null || true
+rm -f /etc/systemd/system/retromodem-retroweb-core.service /usr/local/lib/retromodem/proxy_web.py
 rm -rf /opt/retromodem/retroweb
-cp -a "$PROJECT_DIR/proxy/retroweb" /opt/retromodem/retroweb
-composer install --working-dir=/opt/retromodem/retroweb --no-dev --no-interaction --prefer-dist
 
 install -d -m 0755 /etc/retromodem /usr/local/lib/retromodem /usr/local/sbin \
     /usr/local/share/retromodem/static/software \
@@ -210,7 +209,6 @@ install -m 0755 "$PROJECT_DIR/web/web.py" /usr/local/lib/retromodem/web.py
 install -m 0644 "$PROJECT_DIR/web/chatgpt_web.py" /usr/local/lib/retromodem/chatgpt_web.py
 install -m 0644 "$PROJECT_DIR/web/wifi_web.py" /usr/local/lib/retromodem/wifi_web.py
 install -m 0644 "$PROJECT_DIR/web/wifi_network.py" /usr/local/lib/retromodem/wifi_network.py
-install -m 0644 "$PROJECT_DIR/web/proxy_web.py" /usr/local/lib/retromodem/proxy_web.py
 install -m 0644 "$PROJECT_DIR/web/static/software/"* /usr/local/share/retromodem/static/software/
 install -m 0644 "$PROJECT_DIR/web/static/guides/psion/"* /usr/local/share/retromodem/static/guides/psion/
 install -m 0644 "$PROJECT_DIR/config/ppp/retromodem" /etc/ppp/peers/retromodem
@@ -224,7 +222,6 @@ install -m 0644 "$PROJECT_DIR/systemd/retromodem-ap-fallback.service" /etc/syste
 install -m 0644 "$PROJECT_DIR/systemd/retromodem-web.service" /etc/systemd/system/retromodem-web.service
 install -m 0644 "$PROJECT_DIR/systemd/retromodem-chatgpt.service" /etc/systemd/system/retromodem-chatgpt.service
 install -m 0644 "$PROJECT_DIR/systemd/retromodem-proxy.service" /etc/systemd/system/retromodem-proxy.service
-install -m 0644 "$PROJECT_DIR/systemd/retromodem-retroweb-core.service" /etc/systemd/system/retromodem-retroweb-core.service
 install -m 0644 "$PROJECT_DIR/systemd/retromodem-leds.service" /etc/systemd/system/retromodem-leds.service
 install -m 0644 "$PROJECT_DIR/systemd/retromodem-button.service" /etc/systemd/system/retromodem-button.service
 install -m 0644 "$PROJECT_DIR/config/xinetd-retromodem-ppp" /etc/xinetd.d/retromodem-ppp
@@ -234,13 +231,6 @@ install -m 0644 "$PROJECT_DIR/config/xinetd-retromodem-ppp" /etc/xinetd.d/retrom
 # are intentionally excluded.
 manifest=/usr/local/share/retromodem/install-manifest.sha256
 managed_files='etc/retromodem/nftables.conf
-opt/retromodem/retroweb/proxy.php
-opt/retromodem/retroweb/config.php
-opt/retromodem/retroweb/image_cruncher.php
-opt/retromodem/retroweb/lib/PagePaginator.php
-opt/retromodem/retroweb/lib/ImageFetcher.php
-opt/retromodem/retroweb/upstream.php
-opt/retromodem/retroweb/lib/ContentExtractor.php
 etc/dnsmasq.d/retromodem.conf
 etc/retromodem/adapters.json
 etc/ppp/peers/retromodem
@@ -254,7 +244,6 @@ etc/systemd/system/retromodem-ap-fallback.service
 etc/systemd/system/retromodem-web.service
 etc/systemd/system/retromodem-chatgpt.service
 etc/systemd/system/retromodem-proxy.service
-etc/systemd/system/retromodem-retroweb-core.service
 etc/systemd/system/retromodem-leds.service
 etc/systemd/system/retromodem-button.service
 etc/xinetd.d/retromodem-ppp
@@ -281,7 +270,6 @@ usr/local/lib/retromodem/local_ui.py
 usr/local/lib/retromodem/chatgpt_web.py
 usr/local/lib/retromodem/wifi_web.py
 usr/local/lib/retromodem/wifi_network.py
-usr/local/lib/retromodem/proxy_web.py
 usr/local/lib/retromodem/ensure-chatgpt-phonebook.py
 usr/local/lib/retromodem/apply-mode
 usr/local/lib/retromodem/dialup-ppp
@@ -318,12 +306,12 @@ systemctl enable retromodem-network.service retromodem-mode.service retromodem-l
     retromodem-chatgpt.service xinetd.service
 systemctl disable --now retromodem-68kproxy.service 2>/dev/null || true
 rm -f /etc/systemd/system/retromodem-68kproxy.service
-systemctl enable retromodem-retroweb-core.service retromodem-proxy.service
+systemctl enable retromodem-proxy.service
 systemctl restart avahi-daemon.service
 systemctl restart dnsmasq.service
 systemctl restart retromodem-network.service
 systemctl restart xinetd.service retromodem-ap-fallback.service retromodem-web.service retromodem-chatgpt.service
-systemctl restart retromodem-retroweb-core.service retromodem-proxy.service || true
+systemctl restart retromodem-proxy.service || true
 
 if [ "$reboot_required" = 1 ] || [ -d /sys/module/irda ]; then
     # An already-loaded driver may still be the previous build. A reboot loads

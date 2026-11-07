@@ -1,7 +1,7 @@
 [Unit]
-Description=RetroModem built-in RetroWEB proxy
-After=network-online.target nftables.service retromodem-retroweb-core.service
-Wants=network-online.target retromodem-retroweb-core.service
+Description=RetroModem relay for the public RetroWEB proxy
+After=network-online.target nftables.service
+Wants=network-online.target
 
 [Service]
 Type=simple

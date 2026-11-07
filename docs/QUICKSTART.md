@@ -36,12 +36,17 @@ DNS `192.168.77.1` and open:
 
 | Address | Function |
 | --- | --- |
-| `http://start.retromodem/` | Search, ChatGPT and settings links |
+| `http://start.retromodem/` | RetroWEB, ChatGPT and settings links |
 | `http://setup.retromodem/` | Client-side settings overview |
 | `http://wifi.retromodem/` | Wi-Fi configuration without another device |
-| `http://proxy.retromodem/` | Proxy routing, page size and image settings |
 
 These pages work without JavaScript and do not require a browser proxy.
+
+Under **Settings → Web proxy**, choose Manual or Automatic. In Manual mode,
+configure `retroweb.bjrno.com`, port `8081`, as the browser's HTTP proxy. In
+Automatic mode, leave the browser proxy disabled. Use
+`http://retroweb.bjrno.com/` as the search engine in either mode. Exceptions
+apply only to Automatic mode.
 
 ## Phone book and dialing
 
@@ -78,7 +83,7 @@ Query DNS and IP Address Automatic, and use:
 | Secondary DNS | `192.168.77.1` |
 
 Reconnect PPP after changing these settings. Do not use a public DNS server if
-you want names such as `search.retromodem` and `chatgpt.retromodem` to work.
+you want names such as `start.retromodem` and `chatgpt.retromodem` to work.
 
 See [Configure a Psion 5mx or Palm](CLIENT-SETUP.md) for the complete client
 settings.

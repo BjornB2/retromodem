@@ -1,65 +1,22 @@
-# Proxy instellen vanaf het retroapparaat / Retro-device proxy settings
+# RetroWEB proxy settings
 
-## Nederlands
+RetroModem uses the public HTTP proxy at `retroweb.bjrno.com:8081`. It no
+longer contains a local RetroWEB content processor.
 
-Open `http://start.retromodem/` → **Instellingen** → **Webproxy**, of direct
-`http://proxy.retromodem/`. Dit werkt na direct PPP of inbel-PPP via `5559000`,
-zonder browserproxy of via de ingebouwde proxy. Gebruik DNS `192.168.77.1`.
+Choose a mode under **Settings → Web proxy**:
 
-- **Paginagrootte per deel:** HTML plus geschatte uitgepakte afbeeldingen na
-  conversie, niet de downloadgrootte. Bij afbeeldingen als links telt alleen HTML.
-  Een kleiner budget is veiliger bij weinig geheugen; 250 kB is de standaard voor
-  nieuwe installaties. De instelling garandeert geen maximale geheugenbelasting.
-- **Afbeeldingen bij nieuwe verbinding:** laten zien, als links of vorige keuze.
-  Dit geldt bij de volgende PPP-verbinding. De weergave van de huidige verbinding
-  verander je bovenaan een geopende proxypagina.
-- **Afbeeldingsformaat:** kies een apparaatpreset, of **Huidig / aangepast** met
-  breedte en hoogte van 16–4096 pixels. Presets worden bij opslaan toegepast;
-  JavaScript is niet nodig. De ingevulde afmetingen gelden alleen bij Aangepast.
-- **Webverkeer:** nieuwe installaties sturen al het HTTP-verkeer automatisch
-  over RetroWEB, zonder proxyinstelling in de browser. Kies handmatig wanneer
-  alleen browsers met HTTP-proxy `192.168.77.1`, poort `8080`, RetroWEB moeten
-  gebruiken.
+- **Manual:** configure `retroweb.bjrno.com`, port `8081`, as the HTTP proxy in
+  the retro browser. Leave authentication empty.
+- **Automatic:** leave browser proxy settings disabled. RetroModem redirects
+  HTTP requests over the PPP link to the public proxy automatically.
 
-Kies **Opslaan** en open de oorspronkelijke website opnieuw voor nieuwe delen en
-afbeeldingsformaten. Deze instellingen zijn gedeeld met de beheerinterface en
-gelden ook voor andere clients. Een gewijzigde routeringsstand wordt direct
-toegepast; bij een fout wordt de vorige stand hersteld. Uitzonderingen, wifi en
-modeminstellingen worden hier niet gewijzigd.
+The exception list applies only to Automatic mode. Matching domains and their
+subdomains connect directly and are not processed by RetroWEB.
 
-De pagina gebruikt eenvoudige HTML zonder cookies, CSS of JavaScript en volgt
-de taalkeuze. Alleen de lokale retro-PPP-peer of een gebruiker met beheerderslogin
-kan wijzigen. Een formulier verloopt na vijftien minuten: open het dan opnieuw.
-De eerste installatie vereist de volledige installer voor het nieuwe DNS-adres.
+Open `http://retroweb.bjrno.com/` as a search engine or to enter a web address
+in either mode. The public proxy requires internet access and must not be used
+for passwords, accounts, payments or other sensitive information.
 
-## English
-
-Open `http://start.retromodem/` → **Settings** → **Webproxy**, or open
-`http://proxy.retromodem/` directly. Use direct PPP or dial-up PPP (`5559000`),
-with DNS `192.168.77.1`. A browser proxy is not required for local pages;
-the built-in proxy also relays them.
-
-- **Page size per part:** estimates HTML plus decoded images after conversion,
-  not download size. With images as links, only HTML counts. Smaller budgets are
-  safer on low-memory devices. New installations default to 250 kB; this is not
-  a guaranteed memory ceiling.
-- **Images at new connection:** show images, links or remember the previous
-  choice. Applies at the next PPP connection. Change the current connection's
-  image view at the top of an open proxy page.
-- **Image size:** choose a device preset or **Current / custom**, with width and
-  height between 16 and 4096 pixels. Presets are applied on save, without
-  JavaScript. Entered dimensions apply only when Custom is selected.
-- **Web traffic:** fresh installations automatically send all HTTP traffic
-  through RetroWEB, with no browser proxy configuration. Select manual mode to
-  use RetroWEB only in browsers configured for HTTP proxy `192.168.77.1`, port
-  `8080`.
-
-Choose **Save**, then reopen the original website for new parts and image sizes.
-These settings are shared with administration and other clients. Routing changes
-are applied immediately and roll back on failure. Exceptions, Wi-Fi and modem
-settings remain unchanged.
-
-The page follows the language setting and uses simple HTML without cookies,
-CSS or JavaScript. Changes require the local retro PPP peer or administrator
-authentication. Forms expire after fifteen minutes; reopen the page if needed.
-The first installation requires the full installer for the new DNS alias.
+The local pages that remain are `start.retromodem`, `setup.retromodem`,
+`wifi.retromodem` and `chatgpt.retromodem`. The former `proxy.retromodem` and
+`search.retromodem` pages have been removed.

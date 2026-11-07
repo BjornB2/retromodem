@@ -12,7 +12,7 @@ class ConfigTests(unittest.TestCase):
     def test_guides_have_current_shared_workflow_in_both_languages(self):
         for language in ('nl', 'en'):
             page = web.guides_page(language)
-            for host in ('start.retromodem', 'setup.retromodem', 'wifi.retromodem', 'search.retromodem', 'chatgpt.retromodem'):
+            for host in ('start.retromodem', 'setup.retromodem', 'wifi.retromodem', 'chatgpt.retromodem'):
                 self.assertIn(host, page)
             overview = web.general_guide(language)
             self.assertLess(overview.index('MY018'), overview.index('MA-620'))
@@ -21,11 +21,10 @@ class ConfigTests(unittest.TestCase):
             self.assertIn('115200', overview)
             self.assertIn('57600', overview)
             self.assertIn('192.168.77.1', overview)
-            self.assertEqual(page.count('class="form-section"><h3>' + ('Na het verbinden' if language == 'nl' else 'After connecting')), 7)
+            self.assertEqual(page.count('class="form-section"><h3>' + ('Na het verbinden' if language == 'nl' else 'After connecting')), 8)
             self.assertIn("addEventListener('hashchange'", page)
-        self.assertIn('uitgepakte afbeeldingen na conversie', web.proxy_guide('nl'))
-        self.assertIn('decoded images after conversion', web.proxy_guide('en'))
-        self.assertIn('250 kB', web.proxy_guide('en'))
+        self.assertIn('retroweb.bjrno.com', web.proxy_guide('nl'))
+        self.assertIn('retroweb.bjrno.com', web.proxy_guide('en'))
         self.assertNotIn('Mobile Action MA-620; physical link speed', web.guides_page('en'))
 
     def test_connection_mode_labels_keep_existing_two_backends(self):
@@ -36,34 +35,24 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('<option value="dialup"', source)
         self.assertNotIn('<option value="bbs"', source)
 
-    def test_combined_budget_and_translated_settings(self):
+    def test_public_proxy_settings_are_translated(self):
         dutch = web.proxy_settings_card("nl", {})
         english = web.proxy_settings_card("en", {})
-        self.assertNotIn('name="image_pixels"', dutch)
-        self.assertIn("Geschatte paginagrootte per deel", dutch)
-        self.assertIn("byte per weergegeven pixel", dutch)
-        self.assertIn("Afbeeldingen bij starten", dutch)
-        self.assertNotIn("Images at session start", dutch)
-        self.assertIn("Estimated page size per part", english)
-        self.assertIn("inclusief uitgepakte afbeeldingen", dutch)
-        self.assertIn('value="2000000"', dutch)
         for page in (dutch, english):
             self.assertIn("retroweb.bjrno.com", page)
             self.assertIn("8081", page)
-            self.assertIn("192.168.77.1:8080", page)
-        self.assertIn("Handmatig — proxy instellen in browser", dutch)
-        self.assertIn("Manual — configure proxy in browser", english)
+            self.assertNotIn("192.168.77.1:8080", page)
+            self.assertNotIn('name="image_start"', page)
+        self.assertIn("Handmatig — instellen in browser", dutch)
+        self.assertIn("Manual — configure in browser", english)
 
     def test_proxy_modes_have_separate_hierarchy_and_keep_online_selection(self):
-        for mode in ("manual", "transparent", "transparent-online"):
+        for mode in ("manual", "automatic"):
             page = web.proxy_settings_card("nl", {"RETROMODEM_PROXY_MODE": mode})
             self.assertIn(f'value="{mode}" selected', page)
         page = web.proxy_settings_card("nl", {})
-        self.assertIn("Instellen in je browser", page)
-        self.assertIn("Lokale RetroWEB-instellingen", page)
-        self.assertIn("Lokale routering", page)
-        self.assertIn('id="online-local-settings-note"', page)
-        self.assertIn('id="local-retroweb-settings"', page)
+        self.assertIn("Alleen voor automatisch", page)
+        self.assertIn('id="automatic-settings"', page)
 
     def test_config_round_trip_preserves_spaces_and_shell_characters(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -198,18 +187,15 @@ class InterfaceStructureTests(unittest.TestCase):
         self.assertIn('action="/settings/proxy"', rendered)
         self.assertIn('name="mode"', rendered)
         self.assertNotIn('value="off"', rendered)
-        self.assertIn('value="transparent"', rendered)
+        self.assertIn('value="automatic"', rendered)
         self.assertIn('value="manual" selected', rendered)
         self.assertIn('Uitzonderingen', rendered)
         self.assertIn('retroweb.bjrno.com', rendered)
         self.assertIn('RetroWEB', rendered)
-        self.assertIn('name="image_start"', rendered)
+        self.assertNotIn('name="image_start"', rendered)
         self.assertNotIn('name="preview_kb"', rendered)
         self.assertIn('name="exceptions"', rendered)
-        self.assertIn('name="image_width"', rendered)
-        self.assertIn('name="image_height"', rendered)
-        self.assertIn('Psion 5mx (640×240)', rendered)
-        self.assertIn('Palm classic (160×160)', rendered)
+        self.assertNotIn('name="image_width"', rendered)
         self.assertIn('path == "/settings/proxy"', source)
 
     def test_epoc_receive_is_offered_as_experimental(self):

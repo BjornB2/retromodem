@@ -73,22 +73,20 @@ Automatic**, then use:
 | Secondary DNS | `192.168.77.1` |
 
 Use RetroModem as DNS so names such as `start.retromodem`,
-`search.retromodem` and `chatgpt.retromodem` resolve correctly. Disconnect and
+`wifi.retromodem` and `chatgpt.retromodem` resolve correctly. Disconnect and
 reconnect PPP after changing these values.
 
 ## Local pages
 
 Once PPP is connected, open:
 
-- `http://start.retromodem/` — search, ChatGPT and links to settings;
+- `http://start.retromodem/` — RetroWEB, ChatGPT and links to settings;
 - `http://setup.retromodem/` — configuration pages for the retro client;
-- `http://wifi.retromodem/` — scan and configure Wi-Fi without another device;
-- `http://proxy.retromodem/` — proxy routing, page-size and image settings for RetroWEB.
+- `http://wifi.retromodem/` — scan and configure Wi-Fi without another device.
 
-Modern HTTPS sites can be simplified by RetroModem's built-in RetroWEB proxy.
-New installations automatically send HTTP traffic through RetroWEB. In manual
-mode configure HTTP proxy `192.168.77.1`, port `8080`; automatic mode
-does not require a browser proxy setting.
+Use `http://retroweb.bjrno.com/` as the search engine. In manual mode configure
+HTTP proxy `retroweb.bjrno.com`, port `8081`; automatic mode sends HTTP traffic
+to that public proxy and does not require a browser proxy setting.
 
 Original configuration research:
 [Björns Blog](https://www.bjornsblog.nl/general/my-take-on-a-retro-proxy/).

@@ -16,37 +16,15 @@ PROJECT = Path(__file__).resolve().parents[1]
 # source path: (installed path, default mode, affected service, new file allowed)
 FILES = {
     'web/web.py': ('usr/local/lib/retromodem/web.py', 0o644, 'retromodem-web.service', False),
-    'web/proxy_web.py': ('usr/local/lib/retromodem/proxy_web.py', 0o644, 'retromodem-web.service', True),
     'web/chatgpt_web.py': ('usr/local/lib/retromodem/chatgpt_web.py', 0o644, 'retromodem-web.service', False),
     'web/wifi_web.py': ('usr/local/lib/retromodem/wifi_web.py', 0o644, 'retromodem-web.service', True),
     'web/wifi_network.py': ('usr/local/lib/retromodem/wifi_network.py', 0o644, 'retromodem-web.service', True),
     'scripts/retroweb-proxy.py': ('usr/local/lib/retromodem/retroweb-proxy.py', 0o755, 'retromodem-proxy.service', False),
     'scripts/proxy-firewall': ('usr/local/lib/retromodem/proxy-firewall', 0o755, None, False),
     'scripts/proxy-enabled': ('usr/local/lib/retromodem/proxy-enabled', 0o755, None, False),
-    'proxy/retroweb/proxy.php': ('opt/retromodem/retroweb/proxy.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/index.php': ('opt/retromodem/retroweb/index.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/client-info.php': ('opt/retromodem/retroweb/client-info.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/stats.php': ('opt/retromodem/retroweb/stats.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/config.php': ('opt/retromodem/retroweb/config.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/config.defaults.php': ('opt/retromodem/retroweb/config.defaults.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/upstream.php': ('opt/retromodem/retroweb/upstream.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/image_cruncher.php': ('opt/retromodem/retroweb/image_cruncher.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/settings.php': ('opt/retromodem/retroweb/settings.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/lib/ImageFetcher.php': ('opt/retromodem/retroweb/lib/ImageFetcher.php', 0o644, 'retromodem-retroweb-core.service', True),
-    'proxy/retroweb/lib/PagePaginator.php': ('opt/retromodem/retroweb/lib/PagePaginator.php', 0o644, 'retromodem-retroweb-core.service', True),
-    'proxy/retroweb/lib/ContentExtractor.php': ('opt/retromodem/retroweb/lib/ContentExtractor.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/lib/DeviceProfiles.php': ('opt/retromodem/retroweb/lib/DeviceProfiles.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/lib/UpstreamFetcher.php': ('opt/retromodem/retroweb/lib/UpstreamFetcher.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/lib/UserSettings.php': ('opt/retromodem/retroweb/lib/UserSettings.php', 0o644, 'retromodem-retroweb-core.service', False),
-    'proxy/retroweb/lib/SecureHttpClient.php': ('opt/retromodem/retroweb/lib/SecureHttpClient.php', 0o644, 'retromodem-retroweb-core.service', True),
-    'proxy/retroweb/lib/LegacyHtmlConverter.php': ('opt/retromodem/retroweb/lib/LegacyHtmlConverter.php', 0o644, 'retromodem-retroweb-core.service', False),
     'scripts/diagnose': ('usr/local/sbin/retromodem-diagnose', 0o755, None, False),
     'web/static/software/PalmTerm-RetroIRModem-0.1.34.prc': (
-        'usr/local/share/retromodem/static/software/PalmTerm-RetroIRModem-0.1.34.prc',
-        0o644,
-        None,
-        True,
-    ),
+        'usr/local/share/retromodem/static/software/PalmTerm-RetroIRModem-0.1.34.prc', 0o644, None, True),
 }
 MANIFEST = 'usr/local/share/retromodem/install-manifest.sha256'
 
@@ -79,6 +57,8 @@ def baseline(source):
 
 def plan(root, source=PROJECT):
     root, source = Path(root).resolve(), Path(source).resolve()
+    if (root / 'etc/systemd/system/retromodem-retroweb-core.service').exists():
+        raise ValueError('This release removes the local RetroWEB core and requires one full installer run; nothing changed.')
     known = baseline(source)
     changes, conflicts = [], []
     for name, (relative, mode, service, allow_new) in FILES.items():
@@ -104,9 +84,6 @@ def plan(root, source=PROJECT):
     if conflicts:
         raise ValueError('Feature-update conflicts; nothing changed: ' + ', '.join(conflicts))
     dns = guarded_path(root, 'etc/dnsmasq.d/retromodem.conf')
-    if any(change['source'] == 'web/proxy_web.py' for change in changes):
-        if not dns.exists() or 'address=/proxy.retromodem/192.168.77.1' not in dns.read_text().splitlines():
-            raise ValueError('Retro proxy settings require the full installer once for DNS; nothing changed.')
     if any(change['source'] == 'web/web.py' for change in changes):
         aliases = dns.read_text().splitlines() if dns.exists() else []
         if any('address=/' + host + '/192.168.77.1' not in aliases

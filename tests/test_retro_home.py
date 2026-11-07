@@ -1,8 +1,7 @@
 import io
 import unittest
-from unittest.mock import patch
+from pathlib import Path
 from web import web
-from tests.test_wifi_routing import proxy
 
 
 class RetroHomeTests(unittest.TestCase):
@@ -19,7 +18,7 @@ class RetroHomeTests(unittest.TestCase):
 
     def test_start_and_setup_links(self):
         page = self.render('start.retromodem')
-        self.assertLess(page.index('search.retromodem'), page.index('chatgpt.retromodem'))
+        self.assertLess(page.index('retroweb.bjrno.com'), page.index('chatgpt.retromodem'))
         self.assertLess(page.index('chatgpt.retromodem'), page.index('setup.retromodem'))
         setup = self.render('setup.retromodem')
         self.assertIn('http://wifi.retromodem/', setup)
@@ -27,13 +26,7 @@ class RetroHomeTests(unittest.TestCase):
         self.assertNotIn('<script', setup)
         self.assertIn('Settings', self.render('setup.retromodem', 'en'))
 
-    def test_proxy_routes_local_hubs(self):
-        for host in ('start.retromodem', 'setup.retromodem'):
-            handler = object.__new__(proxy.Handler)
-            handler.path = 'http://' + host + '/'
-            handler.headers = {'Host': host}
-            handler.client_address = ('192.168.77.2', 1)
-            handler.relay_local = lambda url, target: setattr(handler, 'target', target)
-            with patch.object(proxy, 'settings', return_value={}), patch.object(proxy, 'session_image_mode', return_value='inline'):
-                handler.do_GET()
-            self.assertEqual(handler.target, host)
+    def test_removed_local_proxy_pages_are_not_routed(self):
+        routes = (Path(web.__file__).parents[1] / 'config/dnsmasq-retromodem.conf').read_text()
+        self.assertNotIn('search.retromodem', routes)
+        self.assertNotIn('proxy.retromodem', routes)

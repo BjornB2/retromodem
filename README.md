@@ -43,7 +43,7 @@ an MY018 module.
 - a configurable phone book for public BBS systems;
 - ChatGPT through a small HTML interface or the local BBS number `5559999`;
 - Search and simplified modern web pages on legacy browsers;
-- built-in RetroWEB proxy with image conversion, resizing and pagination;
+- public RetroWEB proxy integration, manual or transparently automatic;
 - Wi-Fi setup directly from the connected retro device;
 - X/Y/ZMODEM terminal file transfer, including verified YMODEM transfers with
   the built-in **Comms** application on a Psion 5mx;
@@ -68,10 +68,13 @@ Once connected, the retro device can open:
 
 | Address | Purpose |
 | --- | --- |
-| `http://start.retromodem/` | Search, ChatGPT and settings links |
+| `http://start.retromodem/` | RetroWEB, ChatGPT and settings links |
 | `http://setup.retromodem/` | Retro-client configuration |
 | `http://wifi.retromodem/` | Wi-Fi status, scanning and connection |
-| `http://proxy.retromodem/` | Proxy routing, page and image settings |
+
+Use `http://retroweb.bjrno.com/` for search. In manual mode configure
+`retroweb.bjrno.com:8081` as the browser's HTTP proxy; in automatic mode leave
+browser proxy settings disabled and RetroModem routes HTTP traffic there.
 
 From a modern computer, tablet or phone on the same network, open
 `http://retromodem.local/` for the full administration interface. This interface

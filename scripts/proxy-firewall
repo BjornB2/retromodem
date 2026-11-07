@@ -6,10 +6,10 @@ action=${1:-}
 [ -r /etc/retromodem/retromodem.env ] && . /etc/retromodem/retromodem.env
 mode=${RETROMODEM_PROXY_MODE:-${RETROMODEM_68KPROXY_MODE:-manual}}
 [ "$mode" = off ] && mode=manual
-[ "$mode" = transparent ] || [ "$mode" = transparent-online ] || [ "$mode" = manual ] || exit 0
+[ "$mode" = automatic ] || [ "$mode" = transparent ] || [ "$mode" = transparent-online ] || [ "$mode" = manual ] || exit 0
 /usr/sbin/nft add table ip retromodem_proxy
 /usr/sbin/nft 'add chain ip retromodem_proxy input { type filter hook input priority filter; policy accept; }'
 /usr/sbin/nft add rule ip retromodem_proxy input tcp dport 8080 iifname != ppp0 ip saddr != 127.0.0.1 drop
-[ "$mode" = transparent ] || [ "$mode" = transparent-online ] || exit 0
+[ "$mode" = automatic ] || [ "$mode" = transparent ] || [ "$mode" = transparent-online ] || exit 0
 /usr/sbin/nft 'add chain ip retromodem_proxy prerouting { type nat hook prerouting priority dstnat; policy accept; }'
 /usr/sbin/nft add rule ip retromodem_proxy prerouting iifname ppp0 ip daddr != 192.168.77.1 tcp dport 80 redirect to :8080

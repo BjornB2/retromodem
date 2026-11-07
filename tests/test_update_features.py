@@ -61,7 +61,7 @@ class FeatureUpdateTests(unittest.TestCase):
     def assert_original(self):
         for relative, old in self.old.items():
             self.assertEqual((self.root / relative).read_bytes(), old)
-        new_relative = update.FILES['proxy/retroweb/lib/PagePaginator.php'][0]
+        new_relative = update.FILES['web/wifi_web.py'][0]
         self.assertFalse((self.root / new_relative).exists())
         self.assertEqual(self.manifest.read_bytes(), self.original_manifest)
         self.assertEqual(self.sentinel.read_bytes(), b'KEEP_PRIVATE=secret\n')
@@ -72,6 +72,14 @@ class FeatureUpdateTests(unittest.TestCase):
         self.assertIsNone(result['backup'])
         self.assertFalse((self.root / 'var').exists())
         self.assertEqual(self.restarts, [])
+        self.assert_original()
+
+    def test_old_local_proxy_requires_full_installer(self):
+        unit = self.root / 'etc/systemd/system/retromodem-retroweb-core.service'
+        unit.parent.mkdir(parents=True, exist_ok=True)
+        unit.write_text('old local proxy')
+        with self.assertRaisesRegex(ValueError, 'full installer'):
+            self.run_update(apply=True)
         self.assert_original()
 
     def test_wifi_first_install_requires_dns_route_before_feature_update(self):
@@ -97,7 +105,7 @@ class FeatureUpdateTests(unittest.TestCase):
             self.assertIn(update.sha((self.source / name).read_bytes()) + '  ' + relative,
                           self.manifest.read_text())
         self.assertIn('0' * 64 + '  etc/untouched', self.manifest.read_text())
-        self.assertEqual(len(self.restarts), 3)
+        self.assertEqual(len(self.restarts), 2)
         self.assertEqual(self.sentinel.read_bytes(), b'KEEP_PRIVATE=secret\n')
         self.assertEqual(json.loads((Path(result['backup']) / 'metadata.json').read_text())['status'], 'applied')
         self.restarts.clear()
@@ -138,7 +146,7 @@ class FeatureUpdateTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'rolled-back'):
             self.run_update(apply=True, restart_service=restart)
         self.assert_original()
-        self.assertEqual(len(attempts), 4)
+        self.assertEqual(len(attempts), 3)
 
     def test_inactive_services_are_not_started(self):
         self.run_update(apply=True, is_active=lambda _: False)
