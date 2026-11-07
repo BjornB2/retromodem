@@ -398,7 +398,10 @@ class RetroWebPagePaginator
     {
         $this->weightImages = $mode === 'inline' && $this->limit !== 0;
         [$header, $footer] = $this->frame($title, $navigation, $bodyAttrs);
-        $content = $this->imageVariant($canonical, $mode);
+        // Link mode can be rendered before packing. Inline mode keeps all
+        // images until the page boundaries are known, so maxImages can be
+        // applied independently to every resulting page.
+        $content = $mode === 'links' ? $this->imageVariant($canonical, $mode) : $canonical;
         // A document can switch image variants after its ordinary proxy links
         // were created. Carry the selected variant into those destinations so
         // clicking a story does not restore the document's original mode.
@@ -451,6 +454,7 @@ class RetroWebPagePaginator
         $pages = [];
         $total = count($parts);
         foreach ($parts as $index => $part) {
+            if ($mode === 'inline') $part = $this->imageVariant($part, $mode);
             $part = preg_replace_callback('/href=(["\'])([^"\']+)\1/i', function ($match) use ($anchors, $baseUrl, $token, $mode) {
                 $parsed = parse_url(html_entity_decode($match[2], ENT_QUOTES, 'ISO-8859-1'));
                 parse_str($parsed['query'] ?? '', $query);
@@ -470,7 +474,10 @@ class RetroWebPagePaginator
             }
             $pages[] = base64_encode($page);
         }
-        $whole = $this->cleanBody($content);
+        // The unsplit view is one page and therefore receives one independent
+        // image allowance of its own.
+        $wholeContent = $mode === 'inline' ? $this->imageVariant($canonical, $mode) : $content;
+        $whole = $this->cleanBody($wholeContent);
         $paging = $this->navigation($baseUrl, $token, 1, $total, $mode, 'b1', true);
         return ['pages' => $pages, 'starts' => $starts, 'blocks' => $blocks,
                 'all' => base64_encode($header . $paging . $this->budgetNotice(0, true) . $whole . $paging . $footer)];

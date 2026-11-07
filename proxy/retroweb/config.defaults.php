@@ -6,7 +6,7 @@ return [
     'cache_ttl' => 3600,
     'cache_ttl_failed' => 300,
     'cache_version' => '1.4',
-    'render_version' => '14',
+    'render_version' => '15',
     'image_cache_ttl' => 86400,
     'image_cache_revalidate' => 300,
     'image_cache_max_files' => 2000,
