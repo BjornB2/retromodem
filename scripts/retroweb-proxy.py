@@ -42,6 +42,7 @@ NON_DOCUMENT_SUFFIXES = {
 }
 PAGINATION_PATH = '/__retroweb/page'
 IMAGE_PATH = '/__retroweb/image'
+RELOAD_PATH = '/__retroweb/reload'
 CORE_PATH = '/__retroweb/core/'
 IMAGE_CHOICE_FILE = Path('/var/lib/retromodem/proxy-image-choice.json')
 _image_session_lock = threading.Lock()
@@ -169,16 +170,42 @@ def image_parameters(query: str) -> dict[str, str]:
     return result
 
 
+def reload_parameters(query: str) -> dict[str, str]:
+    values = urllib.parse.parse_qs(query, keep_blank_values=True)
+    if set(values) != {'url', 'img'} or any(len(items) != 1 for items in values.values()):
+        raise ValueError('Invalid reload reference')
+    url, mode = values['url'][0], values['img'][0]
+    parsed = urllib.parse.urlsplit(url)
+    if (len(url) > 2048 or parsed.scheme not in {'http', 'https'} or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or any(ord(character) < 32 or ord(character) == 127 for character in url)
+            or mode not in {'inline', 'links'}):
+        raise ValueError('Invalid reload reference')
+    return {'url': url, 'img': mode}
+
+
 def rewrite_retroweb_html(data: bytes) -> bytes:
     text = data.decode('iso-8859-1', 'replace')
     pattern = re.compile(r'http://127\.0\.0\.1:8090/(?:proxy\.php|image_cruncher\.php|index\.php|settings\.php)(?:\?[^"\' <>]*)?')
+    source_url = ''
+    for candidate in pattern.finditer(text):
+        address = urllib.parse.urlsplit(html.unescape(candidate.group(0)))
+        query = urllib.parse.parse_qs(address.query, keep_blank_values=True)
+        if address.path == '/proxy.php' and 'document' not in query and len(query.get('url', [])) == 1:
+            possible = query['url'][0]
+            parsed = urllib.parse.urlsplit(possible)
+            if parsed.scheme in {'http', 'https'} and parsed.hostname:
+                source_url = possible
+                break
 
     def browser_link(match: re.Match[str]) -> str:
         address = urllib.parse.urlsplit(html.unescape(match.group(0)))
         query = urllib.parse.parse_qs(address.query, keep_blank_values=True)
         if address.path == '/image_cruncher.php':
             try:
-                params = image_parameters(address.query)
+                filtered = urllib.parse.urlencode({key: query[key][0] for key in ('url', 'w', 'h')
+                                                    if len(query.get(key, [])) == 1})
+                params = image_parameters(filtered)
             except ValueError:
                 return '#invalid-image-reference'
             result = 'http://search.retromodem' + IMAGE_PATH + '?' + urllib.parse.urlencode(params)
@@ -187,7 +214,12 @@ def rewrite_retroweb_html(data: bytes) -> bytes:
                 params = pagination_parameters(address.query)
             except ValueError:
                 return '#invalid-page-reference'
-            result = 'http://search.retromodem' + PAGINATION_PATH + '?' + urllib.parse.urlencode(params)
+            if source_url and 'block' in params and 'img' in params:
+                result = 'http://search.retromodem' + RELOAD_PATH + '?' + urllib.parse.urlencode({
+                    'url': source_url, 'img': params['img'],
+                })
+            else:
+                result = 'http://search.retromodem' + PAGINATION_PATH + '?' + urllib.parse.urlencode(params)
             if address.fragment:
                 result += '#' + address.fragment
         elif len(query.get('url', [])) == 1:
@@ -620,6 +652,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.relay_chat(original)
                 return
             if host in LOCAL_HOSTS and (parsed.port in {None, 8080}):
+                if parsed.path == RELOAD_PATH:
+                    try:
+                        params = reload_parameters(parsed.query)
+                    except ValueError:
+                        self.send_error(400, 'Invalid reload reference')
+                        return
+                    values['RETROMODEM_PROXY_IMAGE_MODE'] = session_image_mode(values, client, params['img'])
+                    self.reply_retroweb_live(upstream_url(params['url'], False), values)
+                    return
                 if parsed.path == IMAGE_PATH:
                     try:
                         params = image_parameters(parsed.query)

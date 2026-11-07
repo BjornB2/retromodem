@@ -220,6 +220,20 @@ class ProxyPaginationTests(unittest.TestCase):
         self.assertIn('&amp;w=16&amp;h=12', result)
         self.assertIn('part%3D2%26document%3Dsource', result)
 
+    def test_core_image_url_ignores_rendering_settings(self):
+        source = ('<img src="http://127.0.0.1:8090/image_cruncher.php?profile=auto&amp;profile_img=1'
+                  '&amp;url=https%3A%2F%2Fexample.org%2Fphoto.jpg&amp;w=16&amp;h=12">')
+        result = proxy.rewrite_retroweb_html(source.encode()).decode()
+        self.assertIn('http://search.retromodem/__retroweb/image?', result)
+        self.assertNotIn('#invalid-image-reference', result)
+
+    def test_image_switch_refetches_source_instead_of_snapshot(self):
+        source = (f'<a href="http://127.0.0.1:8090/proxy.php?url=https%3A%2F%2Fexample.org%2Fstory">Reload</a>'
+                  f'<a href="http://127.0.0.1:8090/proxy.php?document={TOKEN}&amp;part=1&amp;img=inline&amp;block=b1">Show inline</a>')
+        result = proxy.rewrite_retroweb_html(source.encode()).decode()
+        self.assertIn('/__retroweb/reload?url=https%3A%2F%2Fexample.org%2Fstory&amp;img=inline', result)
+        self.assertNotIn(f'document={TOKEN}', result)
+
     def test_invalid_asset_reference_is_not_rewritten_as_origin_url(self):
         source = '<img src="http://127.0.0.1:8090/image_cruncher.php?url=javascript%3Aalert%281%29&w=16">'
         self.assertIn('#invalid-image-reference', proxy.rewrite_retroweb_html(source.encode()).decode())
@@ -262,6 +276,15 @@ class ProxyPaginationTests(unittest.TestCase):
         self.assertEqual(handler.result, (200, b'part two'))
         fetch.assert_called_once_with({'document': TOKEN, 'part': '2'})
         search.assert_not_called()
+
+    def test_reload_route_sets_mode_and_refetches_source(self):
+        query = proxy.urllib.parse.urlencode({'url': 'https://example.org/story', 'img': 'inline'})
+        handler = self.handler(proxy.RELOAD_PATH + '?' + query)
+        handler.client_address = ('192.168.77.2', 999)
+        handler.reply_retroweb_live = lambda url, values: setattr(handler, 'refetched', (url, values['RETROMODEM_PROXY_IMAGE_MODE']))
+        with patch.object(proxy, 'settings', return_value={'RETROMODEM_PROXY_IMAGE_START': 'links'}):
+            handler.do_GET()
+        self.assertEqual(handler.refetched, ('https://example.org/story', 'inline'))
 
     def test_successful_variant_selection_carries_into_next_origin_request(self):
         handler = self.handler(f'/__retroweb/page?document={TOKEN}&part=2&img=links')
