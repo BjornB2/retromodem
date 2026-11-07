@@ -17,6 +17,11 @@ class OnlineProxyRelayTests(unittest.TestCase):
         self.assertTrue(proxy.is_excluded('www.example.org', values))
         self.assertFalse(proxy.is_excluded('notexample.org', values))
 
+    def test_retroweb_can_never_be_a_direct_exception(self):
+        values = {'RETROMODEM_PROXY_EXCEPTIONS': 'retroweb.bjrno.com'}
+        self.assertFalse(proxy.is_excluded('retroweb.bjrno.com', values))
+        self.assertFalse(proxy.is_excluded('www.retroweb.bjrno.com', values))
+
     def relay(self, url, exceptions=''):
         handler = object.__new__(proxy.Handler)
         handler.path = url

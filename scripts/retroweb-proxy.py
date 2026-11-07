@@ -35,6 +35,10 @@ def requested_url(handler):
 
 def is_excluded(host, values):
     host = (host or "").lower().rstrip(".")
+    # RetroWEB itself must pass through the forward proxy too. Direct access
+    # changes the link format and breaks automatic-mode navigation.
+    if host == UPSTREAM_HOST or host.endswith("." + UPSTREAM_HOST):
+        return False
     entries = re.split(r"[\s,]+", values.get("RETROMODEM_PROXY_EXCEPTIONS", ""))
     return any(host == item.lower().strip(".") or host.endswith("." + item.lower().strip("."))
                for item in entries if item.strip("."))

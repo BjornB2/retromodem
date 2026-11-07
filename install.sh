@@ -151,6 +151,9 @@ install -d -m 0755 /etc/retromodem /usr/local/lib/retromodem /usr/local/sbin \
     /usr/local/share/retromodem/static/guides/psion /var/lib/retromodem/transfers \
     /var/lib/retromodem/software-library /var/lib/retromodem/chatgpt
 reboot_required=$(python3 "$PROJECT_DIR/scripts/install-configure.py" "$@" --apply)
+# Older releases included the public proxy host as a direct-routing exception.
+# It must now traverse the forward proxy so automatic-mode links stay valid.
+sed -i '/^RETROMODEM_PROXY_EXCEPTIONS=/s/retroweb\.bjrno\.com,*//; /^RETROMODEM_PROXY_EXCEPTIONS=/s/,,*/,/g; /^RETROMODEM_PROXY_EXCEPTIONS=/s/,$//' /etc/retromodem/retromodem.env
 python3 - "$admin_user" "$PROJECT_DIR" "$package_version" <<'PY'
 import json, pathlib, re, subprocess, sys
 admin, project, dkms = sys.argv[1:]

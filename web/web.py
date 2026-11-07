@@ -504,7 +504,8 @@ def proxy_settings_card(language: str, config: dict[str, str]) -> str:
     if mode not in {"manual", "automatic"}:
         mode = "manual"
     values = config.get("RETROMODEM_PROXY_EXCEPTIONS", "frogfind.com,theoldnet.com,68k.news")
-    exceptions = html.escape("\n".join(value for value in re.split(r"[\s,]+", values) if value))
+    exceptions = html.escape("\n".join(value for value in re.split(r"[\s,]+", values)
+                                        if value and value.lower().strip(".") != "retroweb.bjrno.com"))
     option = lambda value, label: f'<option value="{value}" {"selected" if mode == value else ""}>{label}</option>'
     return f'''<section class="card" id="webproxy"><h2>{tr(language,'Webproxy','Web proxy')}</h2>
 <p>{tr(language,'RetroModem gebruikt de publieke RetroWEB-proxy op <code>retroweb.bjrno.com:8081</code>. Er draait geen inhoudsproxy op het modem zelf.','RetroModem uses the public RetroWEB proxy at <code>retroweb.bjrno.com:8081</code>. No content proxy runs on the modem itself.')}</p>
@@ -1650,7 +1651,8 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige proxystand")
                 return
             exceptions_value = form.get("exceptions", config.get("RETROMODEM_PROXY_EXCEPTIONS", ""))
-            exceptions = [value.lower().strip(".") for value in re.split(r"[\s,]+", exceptions_value) if value]
+            exceptions = [value.lower().strip(".") for value in re.split(r"[\s,]+", exceptions_value)
+                          if value and value.lower().strip(".") != "retroweb.bjrno.com"]
             domain_pattern = re.compile(r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,62}$")
             if len(exceptions) > 50 or any(not domain_pattern.fullmatch(value) for value in exceptions):
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige proxy-uitzondering")
