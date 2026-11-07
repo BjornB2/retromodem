@@ -12,6 +12,7 @@ class RetroWebPagePaginator
     private string $renderVersion;
     private int $maxImages;
     private bool $weightImages = false;
+    private string $forwardSourceUrl = '';
     private const BRIDGE_RESERVE = 512;
 
     public function __construct(string $directory, int $limit = 250000, int $images = 5,
@@ -33,6 +34,21 @@ class RetroWebPagePaginator
         return $this->language === 'nl' ? $nl : $en;
     }
 
+    private function pageUrl(string $base, string $token, $selected, string $imageMode, ?string $sourceBlock = null): string
+    {
+        $query = ['document' => $token, 'part' => (string)$selected, 'img' => $imageMode];
+        if ($sourceBlock !== null) $query['block'] = $sourceBlock;
+        if ($this->forwardSourceUrl !== '') {
+            $parts = parse_url($this->forwardSourceUrl);
+            if (is_array($parts) && isset($parts['host'])) {
+                $host = str_contains($parts['host'], ':') ? '[' . trim($parts['host'], '[]') . ']' : $parts['host'];
+                $authority = $host . (isset($parts['port']) ? ':' . $parts['port'] : '');
+                return 'http://' . $authority . '/.retroweb/page/' . $token . '?' . http_build_query(array_diff_key($query, ['document'=>true]));
+            }
+        }
+        return rtrim($base, '/') . '/proxy.php?' . http_build_query($query);
+    }
+
     private function frame(string $title, string $navigation, string $bodyAttrs): array
     {
         $title = $this->latin1(htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false));
@@ -45,15 +61,18 @@ class RetroWebPagePaginator
                                 string $mode, string $block, bool $all = false): string
     {
         $url = function ($selected, $imageMode, $sourceBlock = null) use ($base, $token) {
-            $query = ['document' => $token, 'part' => (string)$selected, 'img' => $imageMode];
-            if ($sourceBlock !== null) $query['block'] = $sourceBlock;
-            return htmlspecialchars(rtrim($base, '/') . '/proxy.php?' . http_build_query($query), ENT_QUOTES, 'ISO-8859-1');
+            return htmlspecialchars($this->pageUrl($base, $token, $selected, $imageMode, $sourceBlock), ENT_QUOTES, 'ISO-8859-1');
         };
         $currentLabel = $mode === 'inline' ? $this->tr('zichtbaar', 'Inline') : $this->tr('als links', 'As links');
         $otherMode = $mode === 'inline' ? 'links' : 'inline';
         $actionLabel = $otherMode === 'inline' ? $this->tr('Afbeeldingen tonen', 'Show inline') : $this->tr('Toon als links', 'Show as links');
+        $modeUrl = $this->forwardSourceUrl !== ''
+            ? htmlspecialchars(rtrim($base, '/') . '/settings.php?' . http_build_query([
+                'quick_img' => $otherMode, 'return_source' => $this->forwardSourceUrl,
+            ]), ENT_QUOTES, 'ISO-8859-1')
+            : $url($all ? 'all' : $part, $otherMode, $all ? null : $block);
         $images = $this->tr('Afbeeldingen: ', 'Images: ') . '<b>' . $currentLabel . '</b> | <a href="'
-            . $url($all ? 'all' : $part, $otherMode, $all ? null : $block) . '">' . $actionLabel . '</a>';
+            . $modeUrl . '">' . $actionLabel . '</a>';
         if ($all) {
             return '<p class="retroweb-paging">' . $images . '<br><a href="' . $url(1, $mode)
                 . '">' . $this->tr('Opdelen in pagina\'s', 'Show paginated page') . '</a></p><hr>';
@@ -401,7 +420,7 @@ class RetroWebPagePaginator
         }, $content);
         $splitContent = preg_replace_callback('/href=(["\'])#([^"\']+)\1/i', function ($match) use ($baseUrl, $token, $mode) {
             $anchor = rawurldecode(html_entity_decode($match[2], ENT_QUOTES, 'ISO-8859-1'));
-            $url = rtrim($baseUrl, '/') . '/proxy.php?document=' . $token . '&part=999999&img=' . $mode . '#' . rawurlencode($anchor);
+            $url = $this->pageUrl($baseUrl, $token, 999999, $mode) . '#' . rawurlencode($anchor);
             return 'href="' . htmlspecialchars($url, ENT_QUOTES, 'ISO-8859-1') . '"';
         }, $content);
         if ($this->limit === 0) {
@@ -438,8 +457,7 @@ class RetroWebPagePaginator
                 if (($query['document'] ?? '') !== $token || ($query['part'] ?? '') !== '999999') return $match[0];
                 $anchor = rawurldecode($parsed['fragment'] ?? '');
                 if (!isset($anchors[$anchor])) return 'href="#' . htmlspecialchars($anchor, ENT_QUOTES, 'ISO-8859-1') . '"';
-                $url = rtrim($baseUrl, '/') . '/proxy.php?document=' . $token . '&part=' . $anchors[$anchor]
-                     . '&img=' . $mode . '#' . rawurlencode($anchor);
+                $url = $this->pageUrl($baseUrl, $token, $anchors[$anchor], $mode) . '#' . rawurlencode($anchor);
                 return 'href="' . htmlspecialchars($url, ENT_QUOTES, 'ISO-8859-1') . '"';
             }, $part);
             $largeImages = substr_count($part, '<!--rm-image-link-->');
@@ -493,11 +511,13 @@ class RetroWebPagePaginator
     }
 
     public function first(string $content, string $title, string $navigation, string $bodyAttrs,
-                          string $baseUrl, string $mode = 'inline', string $reloadUrl = ''): string
+                          string $baseUrl, string $mode = 'inline', string $reloadUrl = '',
+                          string $forwardSourceUrl = ''): string
     {
         if (!in_array($mode, ['inline', 'links'], true)) throw new RuntimeException('Invalid image mode');
+        $this->forwardSourceUrl = $forwardSourceUrl;
         $token = hash('sha256', "retroweb-combined-v5\0" . $this->renderVersion . "\0" . $content . "\0" . $title . "\0" . $navigation
-                    . "\0" . $bodyAttrs . "\0" . $baseUrl . "\0" . $this->limit . "\0" . $this->language);
+                    . "\0" . $bodyAttrs . "\0" . $baseUrl . "\0" . $this->limit . "\0" . $this->language . "\0" . $forwardSourceUrl);
         $existing = $this->read($token, '1', $mode);
         if ($existing['status'] === 200) return $existing['html'];
         [, $root] = $this->document($content);
@@ -627,5 +647,22 @@ class RetroWebPagePaginator
             }, $html);
         }
         return ['status' => 200, 'html' => $html];
+    }
+
+    /** Return the original source only when a forwarding-proxy snapshot is obsolete. */
+    public function outdatedForwardSource(string $token): ?string
+    {
+        if (!preg_match('/^[a-f0-9]{64}$/D', $token)) return null;
+        $encoded = @file_get_contents($this->snapshotPath($token));
+        $snapshot = is_string($encoded) ? json_decode($encoded, true) : null;
+        if (!is_array($snapshot) || ($snapshot['render_version'] ?? null) === $this->renderVersion) return null;
+        $reload = $snapshot['reload_url'] ?? null;
+        if (($snapshot['metadata_encoding'] ?? null) === 'base64' && is_string($reload)) {
+            $reload = base64_decode($reload, true);
+        }
+        if (!is_string($reload)) return null;
+        parse_str(parse_url($reload, PHP_URL_QUERY) ?? '', $query);
+        $source = $query['url'] ?? null;
+        return is_string($source) && preg_match('/^https?:\/\//i', $source) ? $source : null;
     }
 }
