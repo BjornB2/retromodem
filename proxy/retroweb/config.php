@@ -150,6 +150,14 @@ function getBaseUrl() {
     return $scheme . '://' . $host . $basePath;
 }
 
+/** Connection details for RetroModem's local and optional public proxy routes. */
+function renderForwardProxyNotice(): string {
+    return "<h2>Use RetroWEB as a browser proxy</h2>\n"
+        . "<p><b>Local proxy:</b> <code>192.168.77.1</code>, port <code>8080</code>.</p>\n"
+        . "<p><b>Online proxy:</b> <code>retroweb.bjrno.com</code>, port <code>8081</code>.</p>\n"
+        . "<p>Configure exactly one of these as an HTTP proxy in your browser. The online route requires an internet connection. Do not use either proxy for passwords, payments or other sensitive information.</p>\n";
+}
+
 function getUserSettings(): array {
     static $settings = null;
     if ($settings === null) {
