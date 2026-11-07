@@ -5,8 +5,9 @@ longer contains a local RetroWEB content processor.
 
 Choose a mode under **Settings → Web proxy**:
 
-- **Manual:** configure `retroweb.bjrno.com`, port `8081`, as the HTTP proxy in
-  the retro browser. Leave authentication empty.
+- **Manual:** RetroModem does not redirect traffic. Configure an HTTP proxy of
+  your choice in the retro browser. To use RetroWEB, enter
+  `retroweb.bjrno.com`, port `8081`, and leave authentication empty.
 - **Automatic:** leave browser proxy settings disabled. RetroModem redirects
   HTTP requests over the PPP link to the public proxy automatically.
 

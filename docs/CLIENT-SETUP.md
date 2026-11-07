@@ -84,9 +84,10 @@ Once PPP is connected, open:
 - `http://setup.retromodem/` — configuration pages for the retro client;
 - `http://wifi.retromodem/` — scan and configure Wi-Fi without another device.
 
-Use `http://retroweb.bjrno.com/` as the search engine. In manual mode configure
-HTTP proxy `retroweb.bjrno.com`, port `8081`; automatic mode sends HTTP traffic
-to that public proxy and does not require a browser proxy setting.
+Use `http://retroweb.bjrno.com/` as the search engine. In manual mode RetroModem
+does not redirect traffic: configure a proxy of your choice in the browser. To
+use RetroWEB, enter `retroweb.bjrno.com`, port `8081`. Automatic mode sends HTTP
+traffic to that public proxy and does not require a browser proxy setting.
 
 Original configuration research:
 [Björns Blog](https://www.bjornsblog.nl/general/my-take-on-a-retro-proxy/).

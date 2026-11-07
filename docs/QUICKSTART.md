@@ -43,7 +43,8 @@ DNS `192.168.77.1` and open:
 These pages work without JavaScript and do not require a browser proxy.
 
 Under **Settings → Web proxy**, choose Manual or Automatic. In Manual mode,
-configure `retroweb.bjrno.com`, port `8081`, as the browser's HTTP proxy. In
+RetroModem does not redirect traffic: configure an HTTP proxy of your choice in
+the browser. To use RetroWEB, enter `retroweb.bjrno.com`, port `8081`. In
 Automatic mode, leave the browser proxy disabled. Use
 `http://retroweb.bjrno.com/` as the search engine in either mode. Exceptions
 apply only to Automatic mode.
