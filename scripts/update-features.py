@@ -25,8 +25,12 @@ FILES = {
     'scripts/diagnose': ('usr/local/sbin/retromodem-diagnose', 0o755, None, False),
     'web/static/software/PalmTerm-RetroIRModem-0.1.34.prc': (
         'usr/local/share/retromodem/static/software/PalmTerm-RetroIRModem-0.1.34.prc', 0o644, None, True),
-    'web/static/software/RBrowser-0.1.22.prc': (
-        'usr/local/share/retromodem/static/software/RBrowser-0.1.22.prc', 0o644, None, True),
+    'web/static/software/RBrowser-0.1.34.prc': (
+        'usr/local/share/retromodem/static/software/RBrowser-0.1.34.prc', 0o644, None, True),
+    'web/static/software/MobileConnectivityUpdate3.10.sis': (
+        'usr/local/share/retromodem/static/software/MobileConnectivityUpdate3.10.sis', 0o644, None, True),
+    'web/static/software/web.sis': ('usr/local/share/retromodem/static/software/web.sis', 0o644, None, True),
+    'web/static/software/nirc.sis': ('usr/local/share/retromodem/static/software/nirc.sis', 0o644, None, True),
 }
 MANIFEST = 'usr/local/share/retromodem/install-manifest.sha256'
 

@@ -39,24 +39,62 @@ STATIC_ROOT = Path("/usr/local/share/retromodem/static")
 LIBRARY_ROOT = Path("/var/lib/retromodem/software-library")
 LIBRARY_META = LIBRARY_ROOT / "library.json"
 SOFTWARE = {
+    "psion-connectivity-3.10": {
+        "name": "Mobile Connectivity Update 3.10",
+        "file": "software/MobileConnectivityUpdate3.10.sis",
+        "target": "psion", "protocol": "ymodem",
+        "description_nl": "Update voor de mobiele verbindingssoftware van de Psion. Optioneel: installeer deze wanneer je EPOC-installatie de benodigde modem- of verbindingsopties mist.",
+        "description_en": "Update for Psion mobile connectivity software. Optional: install when your EPOC installation lacks the required modem or connection options.",
+        "compatibility": "Psion / EPOC · 3.10 · SIS",
+    },
+    "psion-web": {
+        "name": "Web voor Psion",
+        "file": "software/web.sis", "target": "psion", "protocol": "ymodem",
+        "description_nl": "Webbrowser voor Psion/EPOC, geleverd als SIS-installatiepakket. Gebruik RetroWEB voor het bezoeken van moderne websites.",
+        "description_en": "Web browser for Psion/EPOC, supplied as a SIS installation package. Use RetroWEB to browse modern websites.",
+        "compatibility": "Psion / EPOC · SIS",
+    },
+    "psion-nirc": {
+        "name": "nIRC",
+        "file": "software/nirc.sis", "target": "psion", "protocol": "ymodem",
+        "description_nl": "IRC-chatclient voor Psion/EPOC. Maak een internetverbinding en configureer in de app een IRC-server om aan kanalen en gesprekken deel te nemen.",
+        "description_en": "IRC chat client for Psion/EPOC. Connect to the internet and configure an IRC server in the app to join channels and conversations.",
+        "compatibility": "Psion / EPOC · SIS",
+    },
     "palmterm-retromodem-0.1.34": {
         "name": "PalmTerm for RetroModem 0.1.34",
         "file": "software/PalmTerm-RetroIRModem-0.1.34.prc",
+        "description_nl": "ANSI/VT100-terminal met kleur, CP437, scrollback en 80×25-overzicht. Inclusief RetroModem BBS- en ChatGPT-telefoonboek.",
+        "description_en": "ANSI/VT100 terminal with colour, CP437, scrollback and an 80×25 overview. Includes the RetroModem BBS and ChatGPT phone book.",
+        "compatibility": "Palm OS 4.0/4.1 · Palm IIIc · MIT",
+        "source": "https://github.com/BjornB2/PalmTerm",
         "protocol": "palm",
     },
-    "rbrowser-0.1.22": {
-        "name": "RetroModem Browser 0.1.22",
-        "file": "software/RBrowser-0.1.22.prc",
+    "rbrowser-0.1.34": {
+        "name": "RetroModem Browser 0.1.34",
+        "file": "software/RBrowser-0.1.34.prc",
+        "description_nl": "Browser voor RetroWEB met eenvoudige HTML-weergave en inline GIF-afbeeldingen. Startpagina: retroweb.bjrno.com.",
+        "description_en": "Browser for RetroWEB with basic HTML rendering and inline GIF images. Home page: retroweb.bjrno.com.",
+        "compatibility": "Palm OS 4.0/4.1 · Palm IIIc · MIT",
+        "source": "https://github.com/BjornB2/palm-retroweb-browser",
         "protocol": "palm",
     },
     "eudoraweb-2.1": {
         "name": "EudoraWeb 2.1",
         "file": "software/EudoraWeb_2.1.prc",
+        "description_nl": "Snelle tekstbrowser zonder afbeeldingen. Getest met installatie via Palm Beam op Palm OS 4.1.",
+        "description_en": "Fast text browser without images. Installation over Palm Beam tested on Palm OS 4.1.",
+        "compatibility": "Palm OS 3.0–5.4 · freeware",
+        "source": "https://palmdb.net/app/eudora-eis",
         "protocol": "palm",
     },
     "mocha-telnet-3.0": {
         "name": "Mocha Telnet 3.0",
         "file": "software/MochaTelnet_3.0.prc",
+        "description_nl": "Telnet/VT100/VT220- en SSH2-client voor klassieke Palms. Freewaresleutel: 119377.",
+        "description_en": "Telnet/VT100/VT220 and SSH2 client for classic Palms. Freeware key: 119377.",
+        "compatibility": "Palm OS 3.0+ · freeware",
+        "source": "https://www.mochasoft.dk/palm2.htm",
         "protocol": "palm",
     },
 }
@@ -230,6 +268,9 @@ def save_library(items: dict[str, dict[str, str]]) -> None:
 def software_catalog() -> dict[str, dict[str, object]]:
     catalog = {key: dict(value, uploaded=False) for key, value in SOFTWARE.items()}
     catalog.update({key: dict(value, uploaded=True) for key, value in load_library().items()})
+    for item in catalog.values():
+        if item.get('protocol') == 'download':
+            item['protocol'] = 'ymodem'
     return catalog
 
 
@@ -440,7 +481,7 @@ def software_card(language: str, *, title: str, description: str, compatibility:
             f'{tr(language,"Downloaden","Download")}</a>'
         )
         if item.get("protocol") != "download":
-            send_label = (tr(language, "Via IR versturen", "Send over IR")
+            send_label = (tr(language, "Via YMODEM versturen", "Send via YMODEM") if item.get("protocol") == "ymodem" else tr(language, "Via IR versturen", "Send over IR")
                           if item.get("protocol") in {"palm", "epoc"}
                           else tr(language, "Naar apparaat sturen", "Send to device"))
             actions.append(
@@ -462,7 +503,7 @@ def software_card(language: str, *, title: str, description: str, compatibility:
     if source:
         actions.append(
             f'<a class="button ghost" rel="noopener" href="{html.escape(source, quote=True)}">'
-            f'{tr(language,"Projectpagina","Project page")}</a>'
+            f'{tr(language,"Bron / project","Source / project")}</a>'
         )
     return (
         f'<article class="software-card"><div><h3>{html.escape(title)}</h3>'
@@ -494,6 +535,43 @@ def uploaded_guide_sections(language: str) -> str:
 
 
 def library_upload_form(language: str) -> str:
+    return files_upload_form(language)
+
+
+FILE_SYSTEMS = {'palm': 'Palm OS', 'psion': 'Psion / EPOC', 'dos': 'DOS', 'windows': 'Windows', 'generic': 'Algemeen / General'}
+
+
+def file_os(target):
+    return {'palm-old': 'palm', 'palm-new': 'palm', 'hp200lx': 'dos',
+            'win95': 'windows', 'win98': 'windows', 'winxp': 'windows'}.get(target, target if target in FILE_SYSTEMS else 'generic')
+
+
+def files_upload_form(language):
+    options = ''.join(f'<option value="{key}">{label}</option>' for key, label in FILE_SYSTEMS.items())
+    return f'''<details class="card"><summary>{tr(language,'Bestand toevoegen','Add file')}</summary><form method="post" action="/guides/upload" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{{{csrf}}}}"><label>{tr(language,'Bestand','File')}</label><input type="file" name="file" required><label>OS</label><select name="target">{options}</select><label>{tr(language,'Bron-URL (optioneel)','Source URL (optional)')}</label><input type="url" name="source" maxlength="2048" placeholder="https://github.com/…"><label>{tr(language,'Titel','Title')}</label><input name="title" maxlength="80" required><label>{tr(language,'Beschrijving','Description')}</label><input name="description" maxlength="240" required><label>{tr(language,'Versie / compatibiliteit','Version / compatibility')}</label><input name="compatibility" maxlength="120"><label>{tr(language,'Overdrachtsmethode','Transfer method')}</label><select name="protocol"><option value="palm">Palm Beam (PRC/PDB)</option><option value="ymodem">YMODEM</option><option value="xmodem">XMODEM</option><option value="zmodem">ZMODEM</option><option value="epoc">EPOC EikonIr</option></select><button type="submit">{tr(language,'Toevoegen','Add')}</button></form></details>'''
+
+
+def files_library(language):
+    groups = {key: [] for key in FILE_SYSTEMS}
+    for software_id, original in software_catalog().items():
+        item = dict(original)
+        uploaded = bool(item.get('uploaded'))
+        asset = LIBRARY_ROOT / Path(str(item.get('stored_name', ''))).name if uploaded else STATIC_ROOT / str(item['file'])
+        if not asset.is_file():
+            continue
+        target = file_os(str(item.get('target', 'palm' if not uploaded else 'generic')))
+        groups[target].append(software_card(language, title=str(item.get('title', item.get('name', asset.name))),
+            description=html.escape(str(item.get('description_' + language, item.get('description', '')))), compatibility=html.escape(str(item.get('compatibility', ''))), software_id=software_id, source=str(item.get('source', ''))))
+    labels = dict(FILE_SYSTEMS, generic=tr(language,'Algemeen','General'))
+    psion_notice = '<div class="notice">' + tr(language,'<strong>Versturen via YMODEM in Comms.</strong> Directe IR-bestandsoverdracht (EikonIr) werkt minder betrouwbaar. Open op de Psion Comms, kies Ontvangen en YMODEM en start daarna hier het verzenden. Open na ontvangst het SIS-bestand op de Psion om het te installeren.','<strong>Send using YMODEM in Comms.</strong> Direct IR file transfer (EikonIr) is less reliable. On the Psion open Comms, select Receive and YMODEM, then start sending here. After receipt, open the SIS file on the Psion to install it.') + '</div>'
+    tabs = ''.join(f'<button type="button" role="tab" data-file-os="{key}">{label}</button>' for key,label in labels.items())
+    panels = ''.join(f'<section class="card file-os" id="files-{key}"><h2>{label}</h2><div class="software-list">' + (''.join(groups[key]) or '<p>' + tr(language,'Nog geen bestanden. Voeg hierboven een bestand toe.','No files yet. Add a file above.') + '</p>') + '</div></section>' for key,label in FILE_SYSTEMS.items())
+    panels = panels.replace('class="card file-os"', 'class="card file-os content-stack"')
+    panels = panels.replace('<h2>Psion / EPOC</h2>', '<h2>Psion / EPOC</h2>' + psion_notice)
+    return '<div class="library-heading"><h2>'+tr(language,'Bestandsbibliotheek','File library')+'</h2><p>'+tr(language,'Kies een besturingssysteem om bestanden te bekijken of toe te voegen.','Choose an operating system to browse or add files.')+'</p></div><div class="file-os-tabs" role="tablist" aria-label="OS">'+tabs+'</div>'+files_upload_form(language)+panels+'''<style>.files-library{margin-top:48px;padding-top:32px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:24px}.library-heading h2{font-size:1.6rem;margin-bottom:8px}.library-heading p{margin:0;color:var(--muted)}.file-os-tabs{display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--line);padding-bottom:16px}.file-os-tabs button{margin:0;background:transparent;color:var(--graphite);border:1px solid var(--line);box-shadow:none}.file-os-tabs button.active{background:var(--graphite);color:white;border-color:var(--graphite)}.files-library .file-os[hidden]{display:none}.files-library details.card{margin:0}.files-library .file-os{margin:0}.files-library .software-list{display:grid;gap:16px}#transfer-status{margin-bottom:24px}</style><script>const fileTabs=document.querySelectorAll('[data-file-os]');function showFileOS(os){if(![...fileTabs].some(b=>b.dataset.fileOs===os))os='palm';document.querySelectorAll('.file-os').forEach(p=>p.hidden=p.id!=='files-'+os);fileTabs.forEach(b=>{b.classList.toggle('active',b.dataset.fileOs===os);b.setAttribute('aria-selected',String(b.dataset.fileOs===os))});document.querySelector('select[name=target]').value=os}fileTabs.forEach(b=>b.addEventListener('click',()=>{history.replaceState(null,'','#files-'+b.dataset.fileOs);showFileOS(b.dataset.fileOs)}));showFileOS(location.hash.startsWith('#files-')?location.hash.slice(7):'palm');</script>'''
+
+
+def legacy_library_upload_form(language: str) -> str:
     return f"""<details class="card library-upload"><summary>{tr(language,'Softwarebibliotheek beheren','Manage software library')}</summary><p>{tr(language,'Voeg software of documentatie toe aan de handleiding van een apparaat.','Add software or documentation to a device guide.')}</p><form method="post" action="/guides/upload" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{{{csrf}}}}"><label>{tr(language,'Bestand','File')}</label><input type="file" name="file" required><div class="grid"><div class="span-6"><label>{tr(language,'Titel','Title')}</label><input name="title" maxlength="80" required></div><div class="span-6"><label>{tr(language,'Hoort bij','Belongs to')}</label><select name="target"><option value="generic">{tr(language,'Algemeen','Generic')}</option><option value="psion">Psion 5mx</option><option value="palm-old">Palm OS 3.0/3.1</option><option value="palm-new">Palm OS 3.3–5.x</option><option value="hp200lx">HP 200LX</option><option value="win95">Windows 95</option><option value="win98">Windows 98</option><option value="winxp">Windows XP</option></select></div></div><label>{tr(language,'Korte uitleg','Short description')}</label><input name="description" maxlength="240" required><label>{tr(language,'Compatibiliteit of versie','Compatibility or version')}</label><input name="compatibility" maxlength="120" placeholder="Palm OS 4.1 · freeware"><label>{tr(language,'Actie naast downloaden','Action besides downloading')}</label><select name="protocol"><option value="download">{tr(language,'Alleen downloaden','Download only')}</option><option value="palm">Palm Beam (IrOBEX)</option><option value="epoc">Psion/EPOC EikonIr</option><option value="ymodem">YMODEM</option><option value="xmodem">XMODEM</option><option value="zmodem">ZMODEM</option></select><button class="primary" type="submit">{tr(language,'Toevoegen aan bibliotheek','Add to library')}</button></form></details>"""
 
 
@@ -582,7 +660,8 @@ def page(title: str, body: str, language: str, csrf: str, refresh: int | None = 
     nav_items = [
         ("/", "Status", "Status"),
         ("/modem", tr(language, "Verbinding", "Connection"), "Modem"),
-        ("/transfer", tr(language, "Bestanden", "Files"), tr(language, "Bestandsoverdracht", "File transfer")),
+        ("/transfer", tr(language, "Bestandsoverdracht", "File transfer"), tr(language, "Bestandsoverdracht", "File transfer")),
+        ("/files", tr(language, "Bestandsbibliotheek", "File library"), tr(language, "Bestandsbibliotheek", "File library")),
         ("/phonebook", tr(language, "Telefoonboek", "Phone book"), tr(language, "Telefoonboek", "Phone book")),
         ("/wifi", "Wi-Fi", "Wi-Fi"),
         ("/settings", tr(language, "Instellingen", "Settings"), tr(language, "Instellingen", "Settings")),
@@ -608,7 +687,7 @@ label{{display:block;color:var(--graphite);font-size:.8rem;font-weight:800;margi
 #webproxy form>h3{{margin-top:32px;padding-top:24px;border-top:1px solid var(--line)}}#webproxy form>h3:first-of-type{{margin-top:20px;padding-top:0;border-top:0}}#webproxy fieldset{{margin:18px 0 26px;padding:0;border:0}}#webproxy fieldset h3,#webproxy fieldset h4{{margin-top:28px;margin-bottom:10px}}#webproxy .notice{{margin:14px 0 20px}}#manual-proxy-settings{{margin:18px 0 28px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:var(--canvas)}}#manual-proxy-settings h3{{margin-top:0}}#webproxy textarea{{width:100%;padding:.78rem .85rem;border:1px solid #bfcdd1;border-radius:7px;background:#fbfcfc;color:var(--ink);font:inherit}}.proxy-image-dimensions{{margin:4px 0 24px}}
 .phone-entry{{display:grid;grid-template-columns:1fr 2fr 2fr 110px;gap:0 12px;margin-bottom:12px}}.entry-actions{{display:flex;gap:8px;grid-column:1/-1}}.bbs-entry{{grid-template-columns:110px minmax(140px,1.2fr) minmax(170px,1.5fr) 85px auto;padding:7px 9px;gap:7px;align-items:center;box-shadow:none;margin-bottom:5px}}.bbs-entry label{{display:none}}.bbs-entry input,.bbs-entry select{{padding:6px 7px}}.bbs-entry .entry-actions{{grid-column:auto;gap:5px}}.bbs-entry button{{margin:0;padding:7px 9px;font-size:.82rem;min-height:38px}}table{{width:100%;border-collapse:collapse}}th,td{{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left}}.notice{{padding:13px 15px;border-left:4px solid var(--green);border-radius:0 10px 10px 0;background:#e9f5ed}}.warning{{border-color:var(--amber);background:#fbf0dd}}.transfer-status{{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}}.transfer-status button{{margin:0}}.status-icon{{font-size:1.5rem}}.status-title{{font-weight:750}}.status-meta{{color:var(--muted);font-size:.9rem}}.progress{{height:9px;background:#d7d0c4;border-radius:9px;overflow:hidden;margin-top:10px}}.progress>span{{display:block;height:100%;width:35%;background:var(--green);border-radius:9px}}.progress.running>span{{animation:scan 1.25s ease-in-out infinite}}@keyframes scan{{0%{{transform:translateX(-110%)}}100%{{transform:translateX(310%)}}}}.technical{{margin-top:10px}}.technical pre{{white-space:pre-wrap;max-height:120px;overflow:auto;font-size:.78rem}}.file-list{{display:grid;gap:8px;margin:0;padding:0;list-style:none}}.file-list li{{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}}.file-list li:last-child{{border:0}}code{{background:#e8e3da;padding:2px 5px;border-radius:5px}}ol.steps{{padding-left:1.4rem}}ol.steps>li{{margin:0 0 18px;padding-left:5px}}ul.compact{{margin:6px 0}}
 .received-files{{padding-block:18px}}.received-files>p{{margin-bottom:6px}}.file-list li{{padding:7px 0}}.file-actions{{display:flex;align-items:center;gap:6px}}.file-actions form{{margin:0}}.file-actions .button,.file-actions button{{margin:0;padding:7px 10px;min-height:36px;font-size:.82rem}}
-.software-list{{display:grid;gap:10px}}.software-card{{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:20px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:12px;background:#f9f7f2}}.software-card h3{{margin:0 0 5px}}.software-card p{{margin:0}}.software-actions{{display:grid;gap:7px;width:210px}}.software-actions form{{margin:0;width:100%}}.software-actions .button,.software-actions button{{margin:0;width:100%}}.guide-images{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:14px 0 20px}}.guide-images figure{{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#f7f8f8}}.guide-images img{{display:block;width:100%;height:auto;image-rendering:auto}}.guide-images figcaption{{padding:9px 11px;color:var(--muted);font-size:.8rem}}
+.content-stack{{display:flex;flex-direction:column;gap:24px}}.content-stack> *{{margin-block:0!important}}.content-stack>[hidden]{{display:none}}.card:not(.content-stack)>.notice+*{{margin-top:24px}}.software-list{{display:grid;gap:16px}}.software-card{{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:20px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:12px;background:#f9f7f2}}.software-card h3{{margin:0 0 5px}}.software-card p{{margin:0}}.software-actions{{display:grid;gap:7px;width:210px}}.software-actions form{{margin:0;width:100%}}.software-actions .button,.software-actions button{{margin:0;width:100%}}.guide-images{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:14px 0 20px}}.guide-images figure{{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#f7f8f8}}.guide-images img{{display:block;width:100%;height:auto;image-rendering:auto}}.guide-images figcaption{{padding:9px 11px;color:var(--muted);font-size:.8rem}}
 @media(max-width:850px){{.span-8,.span-6,.span-4{{grid-column:span 12}}.bbs-entry{{grid-template-columns:100px 1fr 1fr 80px}}.bbs-entry .entry-actions{{grid-column:1/-1}}}}@media(max-width:720px){{.phone-entry,.bbs-entry{{grid-template-columns:1fr 1fr;padding:16px}}.bbs-entry label{{display:block}}.bbs-entry>div:nth-of-type(2),.bbs-entry>div:nth-of-type(3){{grid-column:1/-1}}.guide-tabs{{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px}}}}@media(max-width:520px){{main{{padding-inline:12px;padding-bottom:52px}}header{{height:64px;padding-inline:16px}}header small,.page-heading:before{{display:none}}nav{{margin-inline:-12px;margin-bottom:26px;padding-inline:4px}}nav a{{min-height:46px;padding-inline:12px}}.page-heading h1{{font-size:2.25rem}}.card{{padding:19px}}.hero{{grid-template-columns:1fr}}.hero .button{{width:100%}}.phone-entry,.bbs-entry,.transfer-status,.software-card{{grid-template-columns:1fr}}.software-actions{{width:100%}}.bbs-entry>div{{grid-column:1!important}}dl{{grid-template-columns:minmax(90px,auto) 1fr}}dd{{margin-bottom:7px}}.transfer-status form,.transfer-status button{{width:100%}}.actions .button{{flex:1 1 100%}}}}
 @media(prefers-reduced-motion:reduce){{.progress.running>span{{animation:none;width:100%;opacity:.65}}}}
 </style></head><body>
@@ -731,14 +810,14 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
     body = body.replace('</script>', "window.addEventListener('hashchange',()=>showGuide(location.hash.slice(1)||'generic',false));</script>", 1)
     rbrowser_card = software_card(
         language,
-        title="RetroModem Browser 0.1.22",
+        title="RetroModem Browser 0.1.34",
         description=tr(
             language,
             "Speciaal voor RetroModem gemaakte open-source browser met retroweb.bjrno.com als startpagina, eenvoudige HTML-weergave en inline GIF-afbeeldingen.",
             "Open-source browser made specifically for RetroModem, with retroweb.bjrno.com as its home page, basic HTML rendering and inline GIF images.",
         ),
         compatibility="Palm OS 4.0/4.1 · getest op Palm IIIc · MIT",
-        software_id="rbrowser-0.1.22",
+        software_id="rbrowser-0.1.34",
         source="https://github.com/BjornB2/palm-retroweb-browser",
     )
     palmterm_card = software_card(
@@ -785,6 +864,18 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
     }
     for old, new in corrections.items():
         body = body.replace(old, new)
+    # Guides describe setup; the file catalogue lives on the Files tab.
+    body = re.sub(r'<article class="software-card">.*?</article>', '', body, flags=re.S)
+    body = re.sub(r'<a class="button secondary" href="https://my9210[^\"]*"[^>]*>.*?</a>', '', body)
+    body = body.replace('const uploadedGuideSections=' + uploaded_guide_sections(language), 'const uploadedGuideSections={}')
+    for target in ('psion', 'palm-old', 'palm-new', 'hp200lx', 'win95', 'win98', 'winxp', 'nokia9210i'):
+        marker = f'id="{target}"'
+        start = body.find(marker)
+        end = body.find('</h2>', start)
+        if start >= 0 and end >= 0:
+            end += len('</h2>')
+            link = '<p><a class="button secondary" href="/files#files-' + file_os(target) + '">' + tr(language,'Bestanden voor dit OS','Files for this OS') + '</a></p>'
+            body = body[:end] + link + body[end:]
     return body
 
 
@@ -1162,6 +1253,9 @@ class Handler(BaseHTTPRequestHandler):
 <button class="primary" type="submit">{tr(language,'Met dit netwerk verbinden','Connect to this network')}</button></form></section>"""
             body += '<section class="card"><p>' + tr(language, 'Wi-Fi instellen vanaf je aangesloten retroapparaat kan ook via', 'You can also configure Wi-Fi from your connected retro device at') + ' <a href="http://wifi.retromodem/">wifi.retromodem</a>. ' + tr(language, 'Alle lokale functies vind je op', 'Find all local features at') + ' <a href="http://start.retromodem/">start.retromodem</a>.</p></section>'
             self.send_page("Wi-Fi", body, config)
+        elif path == "/files":
+            body = '<div class="page-heading"><h1>' + tr(language,'Bestandsbibliotheek','File library') + '</h1><p>' + tr(language,'Bestanden per besturingssysteem. Kies een bestand om naar je apparaat te sturen, of voeg zelf bestanden toe.','Files by operating system. Choose a file to send to your device, or add your own files.') + '</p></div><div class="files-library" style="margin-top:0;padding-top:0;border-top:0">' + files_library(language) + '</div>'
+            self.send_page(tr(language,'Bestandsbibliotheek','File library'), body, config)
         elif path == "/transfer":
             try:
                 status = json.loads((TRANSFERS / "status.json").read_text(encoding="utf-8"))
@@ -1229,7 +1323,6 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
 <details class="card hardware"><summary>{tr(language,'Hardware en leds','Hardware and LEDs')}</summary><p>{tr(language,'De knop zit tussen GPIO16 en massa. Kort drukken wisselt de modemmodus; drie seconden vasthouden schakelt de Pi veilig uit. Laat los wanneer beide leds knipperen en wacht tot ze uit zijn voordat je de voeding losneemt.','The button connects GPIO16 to ground. A short press switches modem mode; holding it for three seconds safely shuts down the Pi. Release when both LEDs flash and wait until they are off before removing power.')}</p><dl><dt>GPIO16</dt><dd>{tr(language,'Knop, interne pull-up','Button, internal pull-up')}</dd><dt>GPIO23</dt><dd>{tr(language,'Inbelmodem-led','Dial-up modem LED')}</dd><dt>GPIO24</dt><dd>PPP-led</dd></dl></details>
 {chatgpt_settings_card(language, config)}
 {proxy_settings_card(language, config)}
-{library_upload_form(language)}
 <script>const showPassword=document.getElementById('show-ap-password'),password=document.getElementById('ap-password');showPassword.addEventListener('change',()=>password.type=showPassword.checked?'text':'password');</script>"""
             self.send_page(tr(language, "Instellingen", "Settings"), body, config)
         elif path == "/guides":
@@ -1387,7 +1480,11 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
             title = form.get("title", "").strip()[:80]
             description = form.get("description", "").strip()[:240]
             compatibility = form.get("compatibility", "").strip()[:120]
-            if target not in GUIDE_TARGETS or protocol not in LIBRARY_PROTOCOLS:
+            source = form.get("source", "").strip()
+            if source and (len(source) > 2048 or urllib.parse.urlsplit(source).scheme not in {'http', 'https'} or not urllib.parse.urlsplit(source).hostname):
+                self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige bron-URL")
+                return
+            if target not in GUIDE_TARGETS | set(FILE_SYSTEMS) or protocol not in LIBRARY_PROTOCOLS:
                 self.send_error(HTTPStatus.BAD_REQUEST, "Ongeldige handleiding of overdrachtsmethode")
                 return
             if not upload_name or not upload or not title or not description:
@@ -1413,9 +1510,10 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
                 "title": title, "description": description, "compatibility": compatibility,
                 "target": target, "protocol": protocol, "original_name": original_name,
                 "stored_name": stored_name,
+                "source": source,
             }
             save_library(items)
-            self.redirect(f"/guides#{target}")
+            self.redirect(f"/files#files-{file_os(target)}")
         elif path == "/guides/library-delete":
             software_id = form.get("software", "")
             items = load_library()
@@ -1431,7 +1529,7 @@ async function pollStatus(){{try{{const response=await fetch('/transfer/status',
                 except FileNotFoundError:
                     pass
             save_library(items)
-            self.redirect(f"/guides#{target}")
+            self.redirect(f"/files#files-{file_os(target)}")
         elif path == "/transfer/library-send":
             software_id = form.get("software", "")
             item = software_catalog().get(software_id)

@@ -214,6 +214,7 @@ install -m 0644 "$PROJECT_DIR/web/wifi_web.py" /usr/local/lib/retromodem/wifi_we
 install -m 0644 "$PROJECT_DIR/web/wifi_network.py" /usr/local/lib/retromodem/wifi_network.py
 install -m 0644 "$PROJECT_DIR/web/static/software/"* /usr/local/share/retromodem/static/software/
 rm -f /usr/local/share/retromodem/static/software/RBrowser-0.1.21.prc
+rm -f /usr/local/share/retromodem/static/software/RBrowser-0.1.22.prc /usr/local/share/retromodem/static/software/RBrowser-0.1.26.prc
 install -m 0644 "$PROJECT_DIR/web/static/guides/psion/"* /usr/local/share/retromodem/static/guides/psion/
 install -m 0644 "$PROJECT_DIR/config/ppp/retromodem" /etc/ppp/peers/retromodem
 install -m 0644 "$PROJECT_DIR/config/sysctl.conf" /etc/sysctl.d/90-retromodem.conf

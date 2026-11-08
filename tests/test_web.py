@@ -166,10 +166,10 @@ class InterfaceStructureTests(unittest.TestCase):
         self.assertIn("Knop op het apparaat", source)
         self.assertIn("Laat los wanneer beide leds knipperen", source)
 
-    def test_library_management_is_part_of_settings(self):
+    def test_library_management_is_part_of_files(self):
         source = Path(web.__file__).read_text(encoding="utf-8")
         self.assertIn("def library_upload_form", source)
-        self.assertIn("{library_upload_form(language)}", source)
+        self.assertIn("files_library(language)", source)
 
     def test_chatgpt_conversation_mode_toggle_is_in_settings(self):
         disconnected = {"connected": False, "email": "", "scopes": []}

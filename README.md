@@ -80,6 +80,12 @@ From a modern computer, tablet or phone on the same network, open
 `http://retromodem.local/` for the full administration interface. This interface
 is intended for remote management and is not the retro-device page.
 
+**File transfer** handles sending, receiving and transfer progress.
+**File library** groups bundled files and your uploads by operating system,
+with descriptions, optional source links, downloads and direct send buttons.
+The Palm library includes RBrowser 0.1.34. The Psion library includes Mobile
+Connectivity Update 3.10, Web and nIRC; send these using YMODEM in Comms.
+
 For day-to-day use, print or save the
 [one-page RetroModem quick reference (PDF)](docs/RetroModem-Quick-Reference.pdf).
 It collects the default access details, local URLs, virtual telephone numbers,

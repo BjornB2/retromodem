@@ -186,7 +186,7 @@ class RetryTests(unittest.TestCase):
             handler.send_page = Mock()
             handler.do_GET()
             body = handler.send_page.call_args.args[1]
-            script = re.search(r'<script>(.*?)</script>', body, re.S).group(1)
+            script = '\n'.join(re.findall(r'<script>(.*?)</script>', body, re.S))
             result = subprocess.run(['node', '--check'], input=script, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             render = re.search(r'function renderStatus\(s\).*?(?=function renderReceived)', script, re.S).group(0)
