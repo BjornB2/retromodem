@@ -44,9 +44,9 @@ SOFTWARE = {
         "file": "software/PalmTerm-RetroIRModem-0.1.34.prc",
         "protocol": "palm",
     },
-    "rbrowser-0.1.21": {
-        "name": "RetroModem Browser 0.1.21",
-        "file": "software/RBrowser-0.1.21.prc",
+    "rbrowser-0.1.22": {
+        "name": "RetroModem Browser 0.1.22",
+        "file": "software/RBrowser-0.1.22.prc",
         "protocol": "palm",
     },
     "eudoraweb-2.1": {
@@ -731,14 +731,14 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
     body = body.replace('</script>', "window.addEventListener('hashchange',()=>showGuide(location.hash.slice(1)||'generic',false));</script>", 1)
     rbrowser_card = software_card(
         language,
-        title="RetroModem Browser 0.1.21",
+        title="RetroModem Browser 0.1.22",
         description=tr(
             language,
             "Speciaal voor RetroModem gemaakte open-source browser met retroweb.bjrno.com als startpagina, eenvoudige HTML-weergave en inline GIF-afbeeldingen.",
             "Open-source browser made specifically for RetroModem, with retroweb.bjrno.com as its home page, basic HTML rendering and inline GIF images.",
         ),
         compatibility="Palm OS 4.0/4.1 · getest op Palm IIIc · MIT",
-        software_id="rbrowser-0.1.21",
+        software_id="rbrowser-0.1.22",
         source="https://github.com/BjornB2/palm-retroweb-browser",
     )
     palmterm_card = software_card(

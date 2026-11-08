@@ -25,6 +25,8 @@ FILES = {
     'scripts/diagnose': ('usr/local/sbin/retromodem-diagnose', 0o755, None, False),
     'web/static/software/PalmTerm-RetroIRModem-0.1.34.prc': (
         'usr/local/share/retromodem/static/software/PalmTerm-RetroIRModem-0.1.34.prc', 0o644, None, True),
+    'web/static/software/RBrowser-0.1.22.prc': (
+        'usr/local/share/retromodem/static/software/RBrowser-0.1.22.prc', 0o644, None, True),
 }
 MANIFEST = 'usr/local/share/retromodem/install-manifest.sha256'
 

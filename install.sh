@@ -213,6 +213,7 @@ install -m 0644 "$PROJECT_DIR/web/chatgpt_web.py" /usr/local/lib/retromodem/chat
 install -m 0644 "$PROJECT_DIR/web/wifi_web.py" /usr/local/lib/retromodem/wifi_web.py
 install -m 0644 "$PROJECT_DIR/web/wifi_network.py" /usr/local/lib/retromodem/wifi_network.py
 install -m 0644 "$PROJECT_DIR/web/static/software/"* /usr/local/share/retromodem/static/software/
+rm -f /usr/local/share/retromodem/static/software/RBrowser-0.1.21.prc
 install -m 0644 "$PROJECT_DIR/web/static/guides/psion/"* /usr/local/share/retromodem/static/guides/psion/
 install -m 0644 "$PROJECT_DIR/config/ppp/retromodem" /etc/ppp/peers/retromodem
 install -m 0644 "$PROJECT_DIR/config/sysctl.conf" /etc/sysctl.d/90-retromodem.conf
