@@ -70,9 +70,9 @@ SOFTWARE = {
         "source": "https://github.com/BjornB2/PalmTerm",
         "protocol": "palm",
     },
-    "rbrowser-0.1.34": {
-        "name": "RetroModem Browser 0.1.34",
-        "file": "software/RBrowser-0.1.34.prc",
+    "rbrowser-0.1.35": {
+        "name": "RetroModem Browser 0.1.35",
+        "file": "software/RBrowser-0.1.35.prc",
         "description_nl": "Browser voor RetroWEB met eenvoudige HTML-weergave en inline GIF-afbeeldingen. Startpagina: retroweb.bjrno.com.",
         "description_en": "Browser for RetroWEB with basic HTML rendering and inline GIF images. Home page: retroweb.bjrno.com.",
         "compatibility": "Palm OS 4.0/4.1 · Palm IIIc · MIT",
@@ -810,14 +810,14 @@ const guideTabs=document.querySelector('.guide-tabs'),guideButtons=document.quer
     body = body.replace('</script>', "window.addEventListener('hashchange',()=>showGuide(location.hash.slice(1)||'generic',false));</script>", 1)
     rbrowser_card = software_card(
         language,
-        title="RetroModem Browser 0.1.34",
+        title="RetroModem Browser 0.1.35",
         description=tr(
             language,
             "Speciaal voor RetroModem gemaakte open-source browser met retroweb.bjrno.com als startpagina, eenvoudige HTML-weergave en inline GIF-afbeeldingen.",
             "Open-source browser made specifically for RetroModem, with retroweb.bjrno.com as its home page, basic HTML rendering and inline GIF images.",
         ),
         compatibility="Palm OS 4.0/4.1 · getest op Palm IIIc · MIT",
-        software_id="rbrowser-0.1.34",
+        software_id="rbrowser-0.1.35",
         source="https://github.com/BjornB2/palm-retroweb-browser",
     )
     palmterm_card = software_card(
